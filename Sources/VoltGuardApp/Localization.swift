@@ -220,6 +220,16 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case bypassFlowSubtitle
     case bypassCardTitle
     case bypassCardDesc
+    case dischargeDesc
+    case autoDischargeDesc
+    case clamshellDischargeDesc
+    case topUpDesc
+    case sailingModeDesc
+    case heatProtectionDesc
+    case sleepControlDesc
+    case stopChargingOnSleepDesc
+    case lowPowerOnBatteryDesc
+    case lowPowerAlwaysDesc
 }
 
 public struct L10n {
@@ -448,7 +458,17 @@ public struct L10n {
         .bypassActiveBadge: "Bypass Active",
         .bypassFlowSubtitle: "Direct Adapter -> Mac power (Battery bypassed at 0 W)",
         .bypassCardTitle: "Automatic Bypass Charging at Limit",
-        .bypassCardDesc: "When battery reaches your target limit (e.g. 80%), VoltGuard automatically switches to hardware Bypass Charging: your Mac runs 100% directly from the power adapter while the battery rests at 0.0 W."
+        .bypassCardDesc: "When battery reaches your target limit (e.g. 80%), VoltGuard automatically switches to hardware Bypass Charging: your Mac runs 100% directly from the power adapter while the battery rests at 0.0 W.",
+        .dischargeDesc: "Run on battery power even while the power adapter is connected.",
+        .autoDischargeDesc: "Automatically drain battery down to your limit when plugged in above cap.",
+        .clamshellDischargeDesc: "Allow battery discharge while MacBook lid is closed in clamshell mode.",
+        .topUpDesc: "Charge to 100% once before travel, then restore your daily limit.",
+        .sailingModeDesc: "Let battery drop by a few percent before recharging to prevent micro-cycles.",
+        .heatProtectionDesc: "Pause charging automatically when battery temperature exceeds your threshold.",
+        .sleepControlDesc: "Prevent macOS from sleeping while active discharge or calibration is running.",
+        .stopChargingOnSleepDesc: "Block battery charging whenever your Mac enters sleep mode.",
+        .lowPowerOnBatteryDesc: "Enable macOS Low Power Mode automatically whenever unplugged.",
+        .lowPowerAlwaysDesc: "Keep macOS Low Power Mode active on both battery and power adapter."
     ]
 
     public static let id: [L10nKey: String] = [
@@ -669,7 +689,17 @@ public struct L10n {
         .bypassActiveBadge: "Bypass Aktif",
         .bypassFlowSubtitle: "Daya langsung Adaptor -> Mac (Baterai di-bypass 0 W)",
         .bypassCardTitle: "Bypass Charging Otomatis Saat Batas Tercapai",
-        .bypassCardDesc: "Saat baterai mencapai batas target (misal 80%), VoltGuard otomatis beralih ke Bypass Charging: seluruh daya MacBook disuplai langsung dari adaptor sementara baterai beristirahat di 0.0 W."
+        .bypassCardDesc: "Saat baterai mencapai batas target (misal 80%), VoltGuard otomatis beralih ke Bypass Charging: seluruh daya MacBook disuplai langsung dari adaptor sementara baterai beristirahat di 0.0 W.",
+        .dischargeDesc: "Gunakan daya baterai meskipun adaptor charger tetap terpasang.",
+        .autoDischargeDesc: "Kuras baterai otomatis ke batas target saat tercolok di atas batas.",
+        .clamshellDischargeDesc: "Izinkan pengosongan baterai saat layar MacBook tertutup.",
+        .topUpDesc: "Isi penuh ke 100% satu kali sebelum bepergian, lalu pulihkan batas harian.",
+        .sailingModeDesc: "Biarkan baterai turun beberapa persen sebelum isi ulang untuk cegah siklus pendek.",
+        .heatProtectionDesc: "Jeda pengisian otomatis saat suhu baterai melewati batas aman.",
+        .sleepControlDesc: "Cegah macOS tidur saat pengosongan baterai atau kalibrasi sedang berjalan.",
+        .stopChargingOnSleepDesc: "Hentikan pengisian daya baterai setiap kali Mac masuk mode tidur.",
+        .lowPowerOnBatteryDesc: "Aktifkan Mode Hemat Daya macOS otomatis saat menggunakan baterai.",
+        .lowPowerAlwaysDesc: "Pertahankan Mode Hemat Daya macOS baik di baterai maupun adaptor."
     ]
 }
 

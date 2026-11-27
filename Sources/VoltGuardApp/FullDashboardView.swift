@@ -280,11 +280,25 @@ public struct FullDashboardView: View {
 
                         HStack(spacing: 8) {
                             ForEach(VoltGuardLimits.quickPresets, id: \.self) { preset in
+                                let isSelected = presenter.state.settings.policy.limitPercent == preset
                                 Button("\(preset)%") {
                                     presenter.dispatch(.setChargeLimit(preset))
                                 }
-                                .buttonStyle(.borderedProminent)
-                                .tint(presenter.state.settings.policy.limitPercent == preset ? palette.accent : palette.surface)
+                                .buttonStyle(.plain)
+                                .focusEffectDisabled()
+                                .font(.system(size: 12, weight: .semibold))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 6)
+                                .contentShape(Rectangle())
+                                .background(
+                                    RoundedRectangle(cornerRadius: 7)
+                                        .fill(isSelected ? palette.accent : palette.background.opacity(0.65))
+                                )
+                                .foregroundStyle(isSelected ? (palette.isDark ? Color.black : Color.white) : palette.primaryText)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 7)
+                                        .stroke(isSelected ? Color.clear : palette.border, lineWidth: 1)
+                                )
                             }
                         }
 
@@ -627,55 +641,190 @@ public struct FullDashboardView: View {
             }
 
             themedCard(palette: palette) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle(L10n.text(.discharge, locale: locale), isOn: Binding(get: { policy.manualDischarge }, set: { _ in presenter.dispatch(.toggleManualDischarge) }))
-                    Toggle(L10n.text(.autoDischarge, locale: locale), isOn: Binding(get: { policy.automaticDischarge }, set: { _ in presenter.dispatch(.toggleAutomaticDischarge) }))
-                    Toggle(L10n.text(.clamshellDischarge, locale: locale), isOn: Binding(get: { policy.dischargeInClamshell }, set: { _ in presenter.dispatch(.toggleClamshellDischarge) }))
-                    Toggle(L10n.text(.topUp, locale: locale), isOn: Binding(get: { policy.topUpActive }, set: { _ in presenter.dispatch(.toggleTopUp) }))
+                VStack(alignment: .leading, spacing: 8) {
+                    settingToggleRow(
+                        icon: "arrow.down.circle.fill",
+                        title: L10n.text(.discharge, locale: locale),
+                        subtitle: L10n.text(.dischargeDesc, locale: locale),
+                        isOn: policy.manualDischarge,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleManualDischarge) }
+
+                    settingToggleRow(
+                        icon: "arrow.triangle.2.circlepath.circle.fill",
+                        title: L10n.text(.autoDischarge, locale: locale),
+                        subtitle: L10n.text(.autoDischargeDesc, locale: locale),
+                        isOn: policy.automaticDischarge,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleAutomaticDischarge) }
+
+                    settingToggleRow(
+                        icon: "laptopcomputer.slash",
+                        title: L10n.text(.clamshellDischarge, locale: locale),
+                        subtitle: L10n.text(.clamshellDischargeDesc, locale: locale),
+                        isOn: policy.dischargeInClamshell,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleClamshellDischarge) }
+
+                    settingToggleRow(
+                        icon: "bolt.circle.fill",
+                        title: L10n.text(.topUp, locale: locale),
+                        subtitle: L10n.text(.topUpDesc, locale: locale),
+                        isOn: policy.topUpActive,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleTopUp) }
                 }
             }
 
             themedCard(palette: palette) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle(L10n.text(.sailingMode, locale: locale), isOn: Binding(get: { policy.sailingModeEnabled }, set: { _ in presenter.dispatch(.toggleSailingMode) }))
-                    Stepper("\(L10n.text(.sailingDeltaLabel, locale: locale)): \(policy.sailingDeltaPercent)%", value: Binding(
-                        get: { policy.sailingDeltaPercent },
-                        set: { presenter.dispatch(.setSailingDelta($0)) }
-                    ), in: VoltGuardLimits.minSailingDeltaPercent...VoltGuardLimits.maxSailingDeltaPercent)
+                VStack(alignment: .leading, spacing: 10) {
+                    settingToggleRow(
+                        icon: "wind",
+                        title: L10n.text(.sailingMode, locale: locale),
+                        subtitle: L10n.text(.sailingModeDesc, locale: locale),
+                        isOn: policy.sailingModeEnabled,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleSailingMode) }
 
-                    Toggle(L10n.text(.heatProtection, locale: locale), isOn: Binding(get: { policy.heatProtectionEnabled }, set: { _ in presenter.dispatch(.toggleHeatProtection) }))
-                    HStack {
-                        Text(L10n.text(.temperature, locale: locale))
-                        Spacer()
-                        Text("\(Int(policy.maxTemperatureCelsius)) C").monospacedDigit()
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(L10n.text(.sailingDeltaLabel, locale: locale))
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                            Spacer()
+                            Text("\(policy.sailingDeltaPercent)% (\(max(policy.limitPercent - policy.sailingDeltaPercent, VoltGuardLimits.minSailingFloorPercent))% - \(policy.limitPercent)%)")
+                                .font(.caption.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(palette.accent)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { Double(policy.sailingDeltaPercent) },
+                                set: { presenter.dispatch(.setSailingDelta(Int($0.rounded()))) }
+                            ),
+                            in: Double(VoltGuardLimits.minSailingDeltaPercent)...Double(VoltGuardLimits.maxSailingDeltaPercent)
+                        )
+                        .disabled(!policy.sailingModeEnabled)
                     }
-                    Slider(
-                        value: Binding(
-                            get: { policy.maxTemperatureCelsius },
-                            set: { presenter.dispatch(.setMaxTemperature($0)) }
-                        ),
-                        in: VoltGuardLimits.minTemperatureCelsius...VoltGuardLimits.maxTemperatureCelsius,
-                        step: 1
-                    )
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 4)
+                    .opacity(policy.sailingModeEnabled ? 1.0 : 0.45)
+
+                    Divider()
+
+                    settingToggleRow(
+                        icon: "thermometer.medium",
+                        title: L10n.text(.heatProtection, locale: locale),
+                        subtitle: L10n.text(.heatProtectionDesc, locale: locale),
+                        isOn: policy.heatProtectionEnabled,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleHeatProtection) }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(L10n.text(.temperature, locale: locale))
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                            Spacer()
+                            Text("\(Int(policy.maxTemperatureCelsius)) C")
+                                .font(.caption.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(palette.warning)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { policy.maxTemperatureCelsius },
+                                set: { presenter.dispatch(.setMaxTemperature($0.rounded())) }
+                            ),
+                            in: VoltGuardLimits.minTemperatureCelsius...VoltGuardLimits.maxTemperatureCelsius
+                        )
+                        .disabled(!policy.heatProtectionEnabled)
+                    }
+                    .padding(.horizontal, 10)
+                    .opacity(policy.heatProtectionEnabled ? 1.0 : 0.45)
                 }
             }
 
             themedCard(palette: palette) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle(L10n.text(.sleepControl, locale: locale), isOn: Binding(get: { policy.sleepControlEnabled }, set: { _ in presenter.dispatch(.toggleSleepControl) }))
-                    Toggle(L10n.text(.stopChargingOnSleep, locale: locale), isOn: Binding(get: { policy.stopChargingWhenSleeping }, set: { _ in presenter.dispatch(.toggleStopChargingOnSleep) }))
-                    Toggle(L10n.text(.lowPowerOnBattery, locale: locale), isOn: Binding(get: { policy.lowPowerModeOnBattery }, set: { _ in presenter.dispatch(.toggleLowPowerOnBattery) }))
-                    Toggle(L10n.text(.lowPowerAlways, locale: locale), isOn: Binding(get: { policy.lowPowerModeAlways }, set: { _ in presenter.dispatch(.toggleLowPowerAlways) }))
+                VStack(alignment: .leading, spacing: 10) {
+                    settingToggleRow(
+                        icon: "moon.zzz.fill",
+                        title: L10n.text(.sleepControl, locale: locale),
+                        subtitle: L10n.text(.sleepControlDesc, locale: locale),
+                        isOn: policy.sleepControlEnabled,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleSleepControl) }
 
-                    Picker(L10n.text(.magSafeLED, locale: locale), selection: Binding(
-                        get: { policy.magSafeLEDMode },
-                        set: { presenter.dispatch(.setMagSafeLED($0)) }
-                    )) {
-                        ForEach(MagSafeLEDMode.allCases, id: \.self) { mode in
-                            Text(ledModeTitle(mode, locale: locale)).tag(mode)
+                    settingToggleRow(
+                        icon: "bed.double.fill",
+                        title: L10n.text(.stopChargingOnSleep, locale: locale),
+                        subtitle: L10n.text(.stopChargingOnSleepDesc, locale: locale),
+                        isOn: policy.stopChargingWhenSleeping,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleStopChargingOnSleep) }
+
+                    settingToggleRow(
+                        icon: "leaf.fill",
+                        title: L10n.text(.lowPowerOnBattery, locale: locale),
+                        subtitle: L10n.text(.lowPowerOnBatteryDesc, locale: locale),
+                        isOn: policy.lowPowerModeOnBattery,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleLowPowerOnBattery) }
+
+                    settingToggleRow(
+                        icon: "leaf.circle.fill",
+                        title: L10n.text(.lowPowerAlways, locale: locale),
+                        subtitle: L10n.text(.lowPowerAlwaysDesc, locale: locale),
+                        isOn: policy.lowPowerModeAlways,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleLowPowerAlways) }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(L10n.text(.magSafeLED, locale: locale))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(palette.secondaryText)
+                            Spacer()
+                            Text(ledModeTitle(policy.magSafeLEDMode, locale: locale))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(palette.primaryText)
+                        }
+
+                        HStack(spacing: 8) {
+                            ForEach(MagSafeLEDMode.allCases, id: \.self) { mode in
+                                let isSelected = policy.magSafeLEDMode == mode
+                                Button {
+                                    presenter.dispatch(.setMagSafeLED(mode))
+                                } label: {
+                                    VStack(spacing: 5) {
+                                        Circle()
+                                            .fill(ledDotColor(mode, palette: palette))
+                                            .frame(width: 9, height: 9)
+                                            .shadow(color: ledDotColor(mode, palette: palette).opacity(isSelected ? 0.7 : 0), radius: 3)
+                                        Text(ledModeTitle(mode, locale: locale))
+                                            .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+                                            .foregroundStyle(isSelected ? palette.primaryText : palette.secondaryText)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.85)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 4)
+                                    .contentShape(Rectangle())
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(isSelected ? palette.accent.opacity(0.18) : palette.background.opacity(0.55))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(isSelected ? palette.accent : palette.border, lineWidth: 1)
+                                            )
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .focusEffectDisabled()
+                            }
                         }
                     }
-                    .pickerStyle(.segmented)
                 }
             }
         }
@@ -820,22 +969,40 @@ public struct FullDashboardView: View {
 
             themedCard(title: L10n.text(.schedule, locale: locale), palette: palette) {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack {
+                    HStack(spacing: 8) {
                         TextField(L10n.text(.scheduleRulePlaceholder, locale: locale), text: $newRuleTitle)
                             .textFieldStyle(.roundedBorder)
-                        Stepper("\(newRuleHour)h", value: $newRuleHour, in: 0...23)
-                        Picker("", selection: $newRuleMinute) {
-                            ForEach([0, 15, 30, 45], id: \.self) { m in
-                                Text(String(format: ":%02d", m)).tag(m)
+
+                        HStack(spacing: 4) {
+                            Picker("", selection: $newRuleHour) {
+                                ForEach(0..<24, id: \.self) { h in
+                                    Text(String(format: "%02d", h)).tag(h)
+                                }
                             }
+                            .labelsHidden()
+                            .frame(width: 60)
+
+                            Text(":")
+                                .font(.headline.monospaced())
+                                .foregroundStyle(palette.secondaryText)
+
+                            Picker("", selection: $newRuleMinute) {
+                                ForEach([0, 15, 30, 45], id: \.self) { m in
+                                    Text(String(format: "%02d", m)).tag(m)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(width: 60)
                         }
-                        .frame(width: 68)
+
                         Picker("", selection: $newRuleAction) {
                             ForEach(ScheduleAction.allCases, id: \.self) { action in
                                 Text(scheduleActionTitle(action, locale: locale)).tag(action)
                             }
                         }
+                        .labelsHidden()
                         .frame(width: 165)
+
                         Button(L10n.text(.addSchedule, locale: locale)) {
                             let rule = ScheduleRule(
                                 title: newRuleTitle.isEmpty ? scheduleActionTitle(newRuleAction, locale: locale) : newRuleTitle,
@@ -854,36 +1021,83 @@ public struct FullDashboardView: View {
                     HStack(spacing: 6) {
                         ForEach(weekdayPairs(locale: locale), id: \.0) { day, label in
                             let selected = newRuleWeekdays.contains(day)
-                            Button(label) {
+                            Button {
                                 if selected { newRuleWeekdays.remove(day) } else { newRuleWeekdays.insert(day) }
+                            } label: {
+                                Text(label)
+                                    .font(.system(size: 11, weight: selected ? .semibold : .medium))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 5)
+                                    .contentShape(Rectangle())
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(selected ? palette.accent.opacity(0.20) : palette.background.opacity(0.6))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .stroke(selected ? palette.accent : palette.border, lineWidth: 1)
+                                            )
+                                    )
+                                    .foregroundStyle(selected ? palette.accent : palette.secondaryText)
                             }
-                            .buttonStyle(.bordered)
-                            .tint(selected ? palette.accent : palette.secondaryText)
-                            .controlSize(.small)
+                            .buttonStyle(.plain)
+                            .focusEffectDisabled()
                         }
                     }
 
                     if presenter.state.settings.schedules.isEmpty {
                         Text(L10n.text(.noSchedulesHint, locale: locale))
+                            .font(.caption)
                             .foregroundStyle(palette.secondaryText)
-                            .padding(.vertical, 8)
+                            .padding(.vertical, 6)
                     } else {
-                        ForEach(presenter.state.settings.schedules) { rule in
-                            HStack {
-                                Toggle(rule.title, isOn: Binding(
-                                    get: { rule.isEnabled },
-                                    set: { _ in presenter.dispatch(.toggleScheduleRule(rule.id)) }
-                                ))
-                                Spacer()
-                                Text(String(format: "%02d:%02d (%@)", rule.hour, rule.minute, scheduleActionTitle(rule.action, locale: locale)))
-                                    .font(.caption.monospaced())
-                                    .foregroundStyle(palette.secondaryText)
-                                Button(role: .destructive) {
-                                    presenter.dispatch(.removeScheduleRule(rule.id))
-                                } label: {
-                                    Image(systemName: "trash")
+                        VStack(spacing: 6) {
+                            ForEach(presenter.state.settings.schedules) { rule in
+                                HStack(spacing: 10) {
+                                    Toggle("", isOn: Binding(
+                                        get: { rule.isEnabled },
+                                        set: { _ in presenter.dispatch(.toggleScheduleRule(rule.id)) }
+                                    ))
+                                    .labelsHidden()
+                                    .toggleStyle(.switch)
+                                    .controlSize(.small)
+
+                                    Text(rule.title)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(rule.isEnabled ? palette.primaryText : palette.secondaryText)
+
+                                    Spacer()
+
+                                    Text(String(format: "%02d:%02d", rule.hour, rule.minute))
+                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background(palette.surface)
+                                        .foregroundStyle(palette.primaryText)
+                                        .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                                    Text(scheduleActionTitle(rule.action, locale: locale))
+                                        .font(.system(size: 10, weight: .semibold))
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background(palette.accent.opacity(0.16))
+                                        .foregroundStyle(palette.accent)
+                                        .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                                    Button(role: .destructive) {
+                                        presenter.dispatch(.removeScheduleRule(rule.id))
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(palette.danger)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .focusEffectDisabled()
                                 }
-                                .buttonStyle(.plain)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 7)
+                                .background(palette.background.opacity(0.55))
+                                .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.border.opacity(0.7), lineWidth: 1))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
                         }
                     }
@@ -1095,12 +1309,11 @@ public struct FullDashboardView: View {
                                 get: { theme.cornerRadius },
                                 set: {
                                     var next = theme
-                                    next.cornerRadius = $0
+                                    next.cornerRadius = $0.rounded()
                                     presenter.dispatch(.updateTheme(next))
                                 }
                             ),
-                            in: VoltGuardLimits.minCornerRadius...VoltGuardLimits.maxCornerRadius,
-                            step: 1
+                            in: VoltGuardLimits.minCornerRadius...VoltGuardLimits.maxCornerRadius
                         )
                     }
 
@@ -1119,12 +1332,11 @@ public struct FullDashboardView: View {
                                 get: { theme.surfaceOpacity },
                                 set: {
                                     var next = theme
-                                    next.surfaceOpacity = $0
+                                    next.surfaceOpacity = ($0 * 100).rounded() / 100
                                     presenter.dispatch(.updateTheme(next))
                                 }
                             ),
-                            in: VoltGuardLimits.minSurfaceOpacity...VoltGuardLimits.maxSurfaceOpacity,
-                            step: 0.02
+                            in: VoltGuardLimits.minSurfaceOpacity...VoltGuardLimits.maxSurfaceOpacity
                         )
                     }
                 }
@@ -1401,11 +1613,85 @@ public struct FullDashboardView: View {
     @ViewBuilder
     private func diagRow(label: String, ok: Bool, palette: ThemePalette, locale: AppLocale) -> some View {
         HStack {
-            Text(label).font(.caption)
+            Image(systemName: ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(ok ? palette.accent : palette.warning)
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(palette.primaryText)
             Spacer()
             Text(L10n.text(ok ? .diagPass : .diagInactive, locale: locale))
-                .font(.caption.weight(.semibold))
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background((ok ? palette.accent : palette.warning).opacity(0.18))
                 .foregroundStyle(ok ? palette.accent : palette.warning)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(palette.background.opacity(0.5))
+        .overlay(RoundedRectangle(cornerRadius: 7).stroke(palette.border.opacity(0.6), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 7))
+    }
+
+    @ViewBuilder
+    private func settingToggleRow(
+        icon: String,
+        title: String,
+        subtitle: String,
+        isOn: Bool,
+        palette: ThemePalette,
+        onToggle: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(isOn ? palette.accent : palette.secondaryText)
+                .frame(width: 26, height: 26)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isOn ? palette.accent.opacity(0.16) : palette.surface)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(palette.primaryText)
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(palette.secondaryText)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: Binding(
+                get: { isOn },
+                set: { _ in onToggle() }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isOn ? palette.accent.opacity(0.08) : palette.background.opacity(0.5))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isOn ? palette.accent.opacity(0.45) : palette.border.opacity(0.65), lineWidth: 1)
+        )
+    }
+
+    private func ledDotColor(_ mode: MagSafeLEDMode, palette: ThemePalette) -> Color {
+        switch mode {
+        case .system: return palette.accent
+        case .off: return palette.secondaryText.opacity(0.4)
+        case .green: return Color(hex: "#22C55E")
+        case .amber: return Color(hex: "#F59E0B")
+        case .syncWithLimit: return palette.accent
         }
     }
 
