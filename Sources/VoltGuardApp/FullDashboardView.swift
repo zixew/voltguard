@@ -591,6 +591,13 @@ public struct FullDashboardView: View {
                     value: telemetry.currentCapacityMah.map { "\($0) mAh" } ?? "\(telemetry.percentage)%",
                     palette: palette
                 )
+                if let hwPct = telemetry.hardwarePercentage {
+                    detailMetricCell(
+                        label: L10n.text(.hardwarePercent, locale: locale),
+                        value: "\(hwPct)%",
+                        palette: palette
+                    )
+                }
                 detailMetricCell(
                     label: L10n.text(.capacityLoss, locale: locale),
                     value: "-\(wearMah) mAh (\(max(100 - telemetry.healthPercent, 0))%)",
@@ -1323,6 +1330,41 @@ public struct FullDashboardView: View {
                 .tint(palette.accent)
             }
 
+            HStack(spacing: 8) {
+                ForEach(EnergyUsageThreshold.allCases, id: \.self) { threshold in
+                    let isSelected = presenter.state.settings.energyUsageThreshold == threshold
+                    Button {
+                        presenter.dispatch(.setEnergyThreshold(threshold))
+                    } label: {
+                        Text(energyThresholdTitle(threshold, locale: locale))
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(isSelected ? palette.accent.opacity(0.18) : palette.surface)
+                            .foregroundStyle(isSelected ? palette.accent : palette.secondaryText)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .strokeBorder(isSelected ? palette.accent : palette.border, lineWidth: 1)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Spacer()
+
+                Toggle(isOn: Binding(
+                    get: { presenter.state.settings.includeBackgroundEnergyProcesses },
+                    set: { _ in presenter.dispatch(.toggleIncludeBackgroundEnergy) }
+                )) {
+                    Text(L10n.text(.energyIncludeBackground, locale: locale))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(palette.secondaryText)
+                }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            }
+
             switch presenter.state.energyState {
             case .idle, .loading:
                 ProgressView(L10n.text(.energyLoading, locale: locale))
@@ -2051,6 +2093,17 @@ public struct FullDashboardView: View {
                         ) {
                             var next = iconCfg
                             next.showTimeRemaining.toggle()
+                            presenter.dispatch(.updateMenuBarConfig(next))
+                        }
+
+                        menuBarBadgeToggleCard(
+                            title: L10n.text(.showHardwarePercent, locale: locale),
+                            icon: "cpu",
+                            isOn: iconCfg.showHardwarePercentage,
+                            palette: palette
+                        ) {
+                            var next = iconCfg
+                            next.showHardwarePercentage.toggle()
                             presenter.dispatch(.updateMenuBarConfig(next))
                         }
                     }
@@ -3081,12 +3134,21 @@ public struct FullDashboardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 
+    private func energyThresholdTitle(_ threshold: EnergyUsageThreshold, locale: AppLocale) -> String {
+        switch threshold {
+        case .lowUsage: return L10n.text(.energyThresholdLow, locale: locale)
+        case .mediumUsage: return L10n.text(.energyThresholdMedium, locale: locale)
+        case .highUsage: return L10n.text(.energyThresholdHigh, locale: locale)
+        }
+    }
+
     private func scheduleActionTitle(_ action: ScheduleAction, locale: AppLocale) -> String {
         switch action {
         case .setLimit80: return L10n.text(.scheduleSetLimit80, locale: locale)
         case .topUp100: return L10n.text(.scheduleTopUp100, locale: locale)
         case .enableDischarge: return L10n.text(.scheduleEnableDischarge, locale: locale)
         case .disableDischarge: return L10n.text(.scheduleDisableDischarge, locale: locale)
+        case .startCalibration: return L10n.text(.scheduleStartCalibration, locale: locale)
         }
     }
 

@@ -120,6 +120,7 @@ final class VoltGuardAppDelegate: NSObject, NSApplicationDelegate, AppRouterProt
                 guard let self, let button = self.statusItem?.button else { return }
                 let width: CGFloat = AppLayoutConstants.menuBarBaseWidth
                     + (cfg.showPercentage ? AppLayoutConstants.menuBarPercentageWidth : 0)
+                    + (cfg.showHardwarePercentage ? 46 : 0)
                     + (cfg.showWattage ? AppLayoutConstants.menuBarWattageWidth : 0)
                     + (cfg.showTemperature ? AppLayoutConstants.menuBarTemperatureWidth : 0)
                     + (cfg.showTimeRemaining ? AppLayoutConstants.menuBarETAWidth : 0)

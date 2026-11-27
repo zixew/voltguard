@@ -14,6 +14,14 @@ public final class SystemEnergyMonitor: EnergyMonitorGateway, @unchecked Sendabl
     public init() {}
 
     public func fetchTopEnergyApps(limit: Int) async throws -> [EnergyAppUsage] {
+        try await fetchTopEnergyApps(limit: limit, threshold: .lowUsage, includeBackground: false)
+    }
+
+    public func fetchTopEnergyApps(
+        limit: Int,
+        threshold: EnergyUsageThreshold,
+        includeBackground: Bool
+    ) async throws -> [EnergyAppUsage] {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: DataConstants.IOKit.psPath)
         process.arguments = ["-axo", "pid=,pcpu=,comm="]
@@ -45,7 +53,9 @@ public final class SystemEnergyMonitor: EnergyMonitorGateway, @unchecked Sendabl
             output,
             runningAppMetadata: runningApps,
             excludedPID: ProcessInfo.processInfo.processIdentifier,
-            limit: limit
+            limit: limit,
+            minimumCPUPercent: threshold.minimumCPUPercent,
+            includeBackground: includeBackground
         )
     }
 
@@ -62,7 +72,9 @@ public final class SystemEnergyMonitor: EnergyMonitorGateway, @unchecked Sendabl
         _ output: String,
         runningAppMetadata: [Int32: (String, String?)] = [:],
         excludedPID: Int32 = -1,
-        limit: Int = 12
+        limit: Int = 12,
+        minimumCPUPercent: Double = 0.0,
+        includeBackground: Bool = false
     ) -> [EnergyAppUsage] {
         var usages: [EnergyAppUsage] = []
 
@@ -74,7 +86,8 @@ public final class SystemEnergyMonitor: EnergyMonitorGateway, @unchecked Sendabl
             guard parts.count == 3,
                   let pid = Int32(parts[0]),
                   let cpu = Double(parts[1].replacingOccurrences(of: ",", with: ".")),
-                  pid != excludedPID else {
+                  pid != excludedPID,
+                  cpu >= minimumCPUPercent else {
                 continue
             }
 
@@ -82,7 +95,7 @@ public final class SystemEnergyMonitor: EnergyMonitorGateway, @unchecked Sendabl
             let fallbackName = URL(fileURLWithPath: commandPath).lastPathComponent
             if let meta = runningAppMetadata[pid] {
                 usages.append(EnergyAppUsage(pid: pid, name: meta.0, bundleIdentifier: meta.1, cpuPercent: cpu))
-            } else if runningAppMetadata.isEmpty && cpu >= 0.5 {
+            } else if (runningAppMetadata.isEmpty || includeBackground) && cpu >= 0.5 {
                 usages.append(EnergyAppUsage(pid: pid, name: fallbackName, bundleIdentifier: nil, cpuPercent: cpu))
             }
         }

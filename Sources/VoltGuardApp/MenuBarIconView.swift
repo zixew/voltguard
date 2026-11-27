@@ -30,6 +30,12 @@ public struct MenuBarIconView: View {
                     .monospacedDigit()
             }
 
+            if cfg.showHardwarePercentage, let hwPct = telemetry?.hardwarePercentage {
+                Text("HW \(hwPct)%")
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+
             if cfg.showWattage, let flow {
                 let watts = flow.adapterInputWatts > 0 ? flow.adapterInputWatts : flow.systemLoadWatts
                 Text(String(format: "%.0fW", watts))

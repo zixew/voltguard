@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>VoltGuard: Battery Protection for macOS</title>
-  <meta name="description" content="VoltGuard protects your Mac battery with daily charge limits, live thermal guard, guided 5-stage calibration, and automatic updates.">
+  <meta name="description" content="VoltGuard manages how your MacBook charges with custom daily charge limits, heat protection, guided calibration, and automated schedules.">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23161B22' d='M16 2 5 6.8v7.7c0 7.1 4.7 13.4 11 15.5 6.3-2.1 11-8.4 11-15.5V6.8L16 2Z'/%3E%3Cpath fill='%233898EC' d='M17.3 8.5 11.4 17h4.2l-1 6.5 6-8.5h-4.3l1-6.5Z'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,12 +37,12 @@
       <div class="container">
         <div class="hero-grid">
           <div class="hero-copy">
-            <h1>Calm battery protection built for every Mac.</h1>
+            <h1>Full control over how your Mac charges.</h1>
             <p class="lead">
-              Limit daily charge, stop heat stress, and calibrate from your menu bar.
+              Cap daily charging, stop battery heat, and calibrate from your menu bar.
             </p>
             <div class="hero-actions">
-              <a class="text-cta" href="#features">Try Features</a>
+              <a class="text-cta" href="#features">Explore Features</a>
               <a class="text-cta" href="#download">macOS Release</a>
             </div>
             <div class="spec-row">
@@ -52,20 +52,20 @@
               </span>
               <span class="spec-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
-                Multi-Zone Thermal Guard
+                Live Heat Protection
               </span>
               <span class="spec-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-                Built-In Auto Updates
+                Built-In App Updates
               </span>
             </div>
           </div>
 
-          <!-- Interactive Live Battery, Power Flow Bus & Thermal Simulator -->
-          <div class="console-panel" aria-label="Interactive battery limit and thermal guard simulator">
+          <!-- Interactive Battery, Power Flow & Heat Simulator -->
+          <div class="console-panel" aria-label="Interactive battery limit and heat protection simulator">
             <div class="console-split">
               <div class="battery-stage">
-                <svg class="battery-svg" viewBox="0 0 152 222" role="img" aria-label="Animated liquid battery indicator">
+                <svg class="battery-svg" viewBox="0 0 152 222" role="img" aria-label="Animated battery charge indicator">
                   <defs>
                     <clipPath id="cellClip">
                       <rect x="22" y="26" width="108" height="176" rx="18"/>
@@ -104,7 +104,7 @@
               <div class="control-stack">
                 <div class="control-block">
                   <div class="control-header">
-                    <label for="sim-limit-range">Daily Charge Ceiling</label>
+                    <label for="sim-limit-range">Charge Limit</label>
                     <span id="sim-limit-readout" class="mono-readout num">80%</span>
                   </div>
                   <input id="sim-limit-range" class="range-input" type="range" min="20" max="100" step="5" value="80">
@@ -118,7 +118,7 @@
 
                 <div class="control-block">
                   <div class="control-header">
-                    <label for="sim-temp-range">Simulated Battery Temp</label>
+                    <label for="sim-temp-range">Battery Temperature</label>
                     <span id="sim-temp-readout" class="mono-readout num">31.2 C</span>
                   </div>
                   <input id="sim-temp-range" class="range-input" type="range" min="25" max="43" step="0.5" value="31.2">
@@ -126,7 +126,7 @@
 
                 <div class="control-block">
                   <div class="control-header">
-                    <span>Thermal Guard Ceiling</span>
+                    <span>Heat Protection Limit</span>
                     <div class="inline-stepper">
                       <button class="step-btn" type="button" id="sim-max-temp-down" aria-label="Decrease max allowed temperature">-</button>
                       <span id="sim-max-temp-readout" class="mono-readout num">35.0 C</span>
@@ -136,7 +136,7 @@
                 </div>
 
                 <div class="toggle-line">
-                  <label for="sim-heat-switch">Auto-Pause When Warm</label>
+                  <label for="sim-heat-switch">Pause Charging When Hot</label>
                   <button id="sim-heat-switch" class="switch-btn" type="button" role="switch" aria-checked="true">
                     <span class="switch-btn__thumb"></span>
                   </button>
@@ -144,9 +144,9 @@
               </div>
             </div>
 
-            <!-- Live Animated Power Flow SVG -->
+            <!-- Live Power Flow Diagram -->
             <div class="flow-bus">
-              <svg class="flow-svg" viewBox="0 0 420 44" role="img" aria-label="Animated power flow bus">
+              <svg class="flow-svg" viewBox="0 0 420 44" role="img" aria-label="Live power flow diagram">
                 <line class="flow-track" x1="86" y1="22" x2="170" y2="22"/>
                 <line id="sim-flow-sys" class="flow-stream" x1="86" y1="22" x2="170" y2="22"/>
                 <line class="flow-track" x1="250" y1="22" x2="334" y2="22"/>
@@ -170,7 +170,7 @@
                 <span id="sim-battery-w" class="metric-cell__val num">+29.8 W</span>
               </div>
               <div class="metric-cell">
-                <span class="metric-cell__label">Thermal Headroom</span>
+                <span class="metric-cell__label">Temperature State</span>
                 <span id="sim-thermal-state" class="metric-cell__val">Cool Headroom</span>
                 <div class="meter-track" aria-hidden="true">
                   <span id="sim-thermal-meter" class="meter-fill" style="transform: scaleX(0.35);"></span>
@@ -180,24 +180,22 @@
           </div>
         </div>
 
-        <!-- Mixed PNG App Window & Real Animated GIF Preview -->
+        <!-- Product Previews (clear feature captions only) -->
         <div class="media-duo">
           <figure class="media-figure">
             <div class="media-figure__frame">
-              <img src="assets/voltguard-hero-showcase.png?v=3" alt="VoltGuard macOS dashboard and menu bar quick control window showing battery limit and system health" loading="eager">
+              <img src="assets/voltguard-hero-showcase.png?v=4" alt="VoltGuard macOS window and menu bar quick control panel" loading="eager">
             </div>
             <figcaption class="media-figure__caption">
-              <span class="media-figure__title">Full macOS Window &amp; Menu Bar Control</span>
-              <span class="media-figure__kind">Static App View</span>
+              Main dashboard and menu bar quick controls
             </figcaption>
           </figure>
           <figure class="media-figure">
             <div class="media-figure__frame media-figure__frame--gif">
-              <img src="assets/voltguard-live-motion.gif?v=3" alt="Animated preview of VoltGuard live power topology, charging liquid wave, and thermal guard meter" loading="lazy">
+              <img src="assets/voltguard-live-motion.gif?v=4" alt="VoltGuard live power flow, battery cell level, and temperature guard" loading="lazy">
             </div>
             <figcaption class="media-figure__caption">
-              <span class="media-figure__title">Live Power Topology &amp; Thermal Motion</span>
-              <span class="media-figure__kind">Animated GIF</span>
+              Live power flow and heat protection in action
             </figcaption>
           </figure>
         </div>
@@ -208,13 +206,13 @@
     <section id="features" class="band">
       <div class="container">
         <div class="section-head">
-          <h2>Test every control directly before installing.</h2>
+          <h2>Explore how each VoltGuard tool works.</h2>
           <p class="section-desc">
-            Switch between VoltGuard workflows below. Every panel pairs animated interactive simulations with real app recordings.
+            Try the main battery controls below, then browse every feature and everyday example further down.
           </p>
         </div>
 
-        <div class="tab-bar" role="tablist" aria-label="VoltGuard features">
+        <div class="tab-bar" role="tablist" aria-label="Interactive feature previews">
           <button class="tab-btn" type="button" role="tab" id="tab-charge" aria-controls="panel-charge" aria-selected="true" data-tab-target="charge">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2"/><path d="m11 10-2 3h3l-1 3"/></svg>
             Charge &amp; Sailing
@@ -236,13 +234,13 @@
         <!-- Panel 1: Charge & Sailing -->
         <div class="feature-panel" id="panel-charge" role="tabpanel" aria-labelledby="tab-charge">
           <div class="feature-sandbox">
-            <h3>Sailing Mode &amp; Quit Restoration</h3>
+            <h3>Sailing Mode &amp; Quit Behavior</h3>
             <p class="feature-sandbox__copy">
-              Sailing Mode lets your Mac drop gracefully inside your chosen buffer before topping back up, minimizing micro-cycles on desk power.
+              Sailing Mode lets your Mac drop inside a chosen buffer before charging resumes, and resets to 100% cleanly on quit.
             </p>
             <div class="control-block">
               <div class="control-header">
-                <span>Sailing Buffer Window (Below 80%)</span>
+                <span>Sailing Buffer (Below 80%)</span>
                 <span id="sail-delta-readout" class="mono-readout num">5% (Re-arm at 75%)</span>
               </div>
               <div class="chip-row" role="group" aria-label="Sailing delta options">
@@ -260,7 +258,6 @@
               <input id="sail-soc-range" class="range-input" type="range" min="65" max="85" step="1" value="77">
             </div>
 
-            <!-- Interactive Hysteresis Window Gauge -->
             <div class="gauge-card">
               <div class="gauge-bar-outer" aria-hidden="true">
                 <span id="sail-coast-band" class="gauge-band-fill" style="transform: translateX(50%) scaleX(0.25);"></span>
@@ -276,27 +273,26 @@
             </div>
 
             <div class="toggle-line">
-              <label for="quit-restore-switch">Restore System Charging (100%) on Quit</label>
+              <label for="quit-restore-switch">Restore 100% Charging on Quit</label>
               <button id="quit-restore-switch" class="switch-btn" type="button" role="switch" aria-checked="true">
                 <span class="switch-btn__thumb"></span>
               </button>
             </div>
             <div class="sim-rows divider-top">
               <div class="sim-row">
-                <span>Live Decision Engine</span>
+                <span>Current State</span>
                 <span id="sail-decision-out" class="sim-row__metric">Sailing Coast (75% to 80%)</span>
               </div>
               <div class="sim-row">
-                <span>On App Exit Behavior</span>
-                <span id="quit-restore-out" class="sim-row__metric">Restores Normal 100% macOS Charging</span>
+                <span>When App Closes</span>
+                <span id="quit-restore-out" class="sim-row__metric">Restores Normal 100% Charging</span>
               </div>
             </div>
           </div>
           <div class="feature-visual">
-            <img src="assets/voltguard-live-motion.gif?v=3" alt="VoltGuard animated charging and thermal coasting preview" loading="lazy">
+            <img src="assets/voltguard-live-motion.gif?v=4" alt="VoltGuard charging hold and sailing mode" loading="lazy">
             <div class="feature-visual__meta">
-              <span>Live Charging &amp; Coast Hold Motion</span>
-              <span>Animated GIF</span>
+              Power bypass and sailing coast behavior
             </div>
           </div>
         </div>
@@ -304,9 +300,9 @@
         <!-- Panel 2: 5-Stage Calibration -->
         <div class="feature-panel" id="panel-calibration" role="tabpanel" aria-labelledby="tab-calibration" hidden>
           <div class="feature-sandbox">
-            <h3>Guided 5-Stage Capacity Calibration</h3>
+            <h3>Guided 5-Stage Calibration</h3>
             <p class="feature-sandbox__copy">
-              Step through or auto-play the cycle that stabilizes upper and lower fuel-gauge voltage anchors before restoring your daily cap.
+              Cycles from 100% down to 15% and back to keep macOS battery percentage readings accurate.
             </p>
             <div class="control-header">
               <span id="cal-stage-heading">Stage 1: Charging to 100%</span>
@@ -324,7 +320,6 @@
               <button class="cal-stage-btn" type="button" data-cal-stage="5" aria-pressed="false">Verified Done</button>
             </div>
 
-            <!-- Interactive Before/After Animated Bars -->
             <div class="gauge-card">
               <div class="control-header">
                 <span>Before: 4180 mAh (90%)</span>
@@ -336,10 +331,9 @@
             </div>
           </div>
           <div class="feature-visual">
-            <img src="assets/voltguard-calibration-motion.gif?v=3" alt="VoltGuard animated 5-stage battery calibration workflow" loading="lazy">
+            <img src="assets/voltguard-calibration-motion.gif?v=4" alt="VoltGuard five-stage calibration stages" loading="lazy">
             <div class="feature-visual__meta">
-              <span>5-Stage Persistent Calibration Cycle</span>
-              <span>Animated GIF</span>
+              Automated 5-stage calibration with before and after log
             </div>
           </div>
         </div>
@@ -347,23 +341,22 @@
         <!-- Panel 3: Themes & Schedules -->
         <div class="feature-panel" id="panel-schedules" role="tabpanel" aria-labelledby="tab-schedules" hidden>
           <div class="feature-sandbox">
-            <h3>Daylight Presets &amp; Automated Schedules</h3>
+            <h3>Themes, Menu Bar Icons &amp; Schedules</h3>
             <p class="feature-sandbox__copy">
-              Match your desktop setup with Nordic Slate or Paper Light themes while scheduled windows prepare a 100% top-up before travel.
+              Customize menu bar metrics including Hardware Battery %, and schedule weekday limits or monthly calibrations.
             </p>
             <div class="control-block">
               <div class="control-header">
-                <span>Simulate Active Rule Profile</span>
+                <span>Preview Scheduled Task</span>
                 <span id="sched-mode-badge" class="mono-readout">80% Cap Active</span>
               </div>
               <div class="chip-row" role="group" aria-label="Schedule profiles">
                 <button class="preset-chip" type="button" data-sched-profile="office" aria-pressed="true">Weekday Desk (80%)</button>
                 <button class="preset-chip" type="button" data-sched-profile="travel" aria-pressed="false">Friday Travel (100%)</button>
-                <button class="preset-chip" type="button" data-sched-profile="overnight" aria-pressed="false">Overnight Cool (70%)</button>
+                <button class="preset-chip" type="button" data-sched-profile="overnight" aria-pressed="false">Monthly Calibration</button>
               </div>
             </div>
 
-            <!-- Interactive 24-Hour Schedule Timeline Gauge -->
             <div class="gauge-card">
               <div class="gauge-bar-outer" aria-hidden="true">
                 <span id="sched-timeline-band" class="gauge-band-fill" style="transform: translateX(35%) scaleX(0.35);"></span>
@@ -377,16 +370,15 @@
 
             <div class="sim-rows divider-top">
               <div class="sim-row">
-                <span>Target Policy &amp; Thermal Safe</span>
+                <span>Scheduled Action</span>
                 <span id="sched-policy-out" class="sim-row__metric">Hold at 80% / Max 35.0 C</span>
               </div>
             </div>
           </div>
           <div class="feature-visual">
-            <img src="assets/voltguard-themes-motion.gif?v=3" alt="VoltGuard animated appearance theme switching and weekday schedule controls" loading="lazy">
+            <img src="assets/voltguard-themes-motion.gif?v=4" alt="VoltGuard theme studio and weekday scheduler" loading="lazy">
             <div class="feature-visual__meta">
-              <span>Theme Studio &amp; Weekday Scheduler</span>
-              <span>Animated GIF</span>
+              Appearance studio and recurring schedule rules
             </div>
           </div>
         </div>
@@ -394,20 +386,19 @@
         <!-- Panel 4: Energy & Updates -->
         <div class="feature-panel" id="panel-updates" role="tabpanel" aria-labelledby="tab-updates" hidden>
           <div class="feature-sandbox">
-            <h3>Energy Insights &amp; Native App Updater</h3>
+            <h3>Energy Monitor &amp; App Updates</h3>
             <p class="feature-sandbox__copy">
-              Spot background apps warming up your battery and run automatic in-app updates that install cleanly and delete temporary DMG files.
+              Filter heavy apps by Low, Medium, or High draw and run built-in app updates cleanly.
             </p>
             <div class="control-header">
-              <span>VoltGuard v1.2.0 (Build 3)</span>
+              <span>VoltGuard v1.3.0 (Build 4)</span>
               <button id="update-check-btn" class="preset-chip" type="button" aria-pressed="false">Check for Updates</button>
             </div>
 
-            <!-- Interactive Animated Update Progress Meter -->
             <div class="gauge-card">
               <div class="control-header">
-                <span>Updater Pipeline</span>
-                <span id="update-status-out" class="mono-readout">Ready to verify feed</span>
+                <span>Update Check</span>
+                <span id="update-status-out" class="mono-readout">Ready to check release</span>
               </div>
               <div class="meter-track" aria-hidden="true">
                 <span id="update-progress-bar" class="meter-fill" style="transform: scaleX(0.06);"></span>
@@ -417,24 +408,156 @@
             <div class="sim-rows">
               <div class="sim-row">
                 <span>Xcode Build Service</span>
-                <span class="sim-row__metric">28.4% CPU</span>
+                <span class="sim-row__metric">28.4% CPU (High)</span>
               </div>
               <div class="sim-row">
                 <span>Safari Renderer</span>
-                <span class="sim-row__metric">14.2% CPU</span>
+                <span class="sim-row__metric">14.2% CPU (Medium)</span>
               </div>
               <div class="sim-row">
                 <span>Installer Cleanup</span>
-                <span class="sim-row__metric">Auto-Deletes Temp DMG</span>
+                <span class="sim-row__metric">Deletes DMG After Install</span>
               </div>
             </div>
           </div>
           <div class="feature-visual">
-            <img src="assets/voltguard-energy-motion.gif?v=3" alt="VoltGuard animated Energy Monitor, Diagnostics, and native Software Update flow" loading="lazy">
+            <img src="assets/voltguard-energy-motion.gif?v=4" alt="VoltGuard energy monitor, self diagnostics, and software updater" loading="lazy">
             <div class="feature-visual__meta">
-              <span>Energy Monitor, Checks &amp; Updater</span>
-              <span>Animated GIF</span>
+              Apps using energy, self-checks, and built-in updater
             </div>
+          </div>
+        </div>
+
+        <!-- Complete Filterable Feature Reference -->
+        <div class="guide-block" id="feature-guide">
+          <div class="guide-head">
+            <div>
+              <h3>Every feature explained clearly</h3>
+              <p class="section-desc">
+                Browse what each setting does and how it helps on a real MacBook.
+              </p>
+            </div>
+            <div class="chip-row" role="group" aria-label="Filter features by category">
+              <button class="preset-chip" type="button" data-guide-cat="charge" aria-pressed="true">Charge Control</button>
+              <button class="preset-chip" type="button" data-guide-cat="protection" aria-pressed="false">Protection &amp; Thermal</button>
+              <button class="preset-chip" type="button" data-guide-cat="hardware" aria-pressed="false">Hardware &amp; Energy</button>
+              <button class="preset-chip" type="button" data-guide-cat="automation" aria-pressed="false">Automation</button>
+              <button class="preset-chip" type="button" data-guide-cat="all" aria-pressed="false">All Features</button>
+            </div>
+          </div>
+
+          <div class="guide-grid">
+            <article class="guide-card" data-category="charge">
+              <span class="guide-card__cat">Charge Control</span>
+              <h4>Charge Limiter</h4>
+              <p>Cap charging between 20% and 100%. Once reached, macOS runs directly from the adapter.</p>
+              <p class="guide-card__ex">Example: Set 80% on desk AC so cells rest instead of staying full.</p>
+            </article>
+
+            <article class="guide-card" data-category="charge">
+              <span class="guide-card__cat">Charge Control</span>
+              <h4>Automatic Discharge</h4>
+              <p>Drains a higher battery down to your charge cap automatically while plugged in.</p>
+              <p class="guide-card__ex">Example: Plugged in at 92% with an 80% limit steps down to 80%.</p>
+            </article>
+
+            <article class="guide-card" data-category="charge">
+              <span class="guide-card__cat">Charge Control</span>
+              <h4>Clamshell Discharge</h4>
+              <p>Allows active discharge while your lid is closed on an external display.</p>
+              <p class="guide-card__ex">Example: Docked clamshell MacBooks safely lower charge to 80% without unplugging.</p>
+            </article>
+
+            <article class="guide-card" data-category="charge">
+              <span class="guide-card__cat">Charge Control</span>
+              <h4>Sailing Mode</h4>
+              <p>Lets battery level drift inside a set buffer below your cap before recharging.</p>
+              <p class="guide-card__ex">Example: An 80% cap with 5% buffer coasts down to 75% first.</p>
+            </article>
+
+            <article class="guide-card" data-category="charge">
+              <span class="guide-card__cat">Charge Control</span>
+              <h4>Top Up to 100%</h4>
+              <p>Charges once to 100% for travel, then restores your daily charge cap afterward.</p>
+              <p class="guide-card__ex">Example: Click Top Up before a flight without altering saved desk limits.</p>
+            </article>
+
+            <article class="guide-card" data-category="charge">
+              <span class="guide-card__cat">Charge Control</span>
+              <h4>Restore Charging on Quit</h4>
+              <p>Resets macOS to standard 100% charging on exit or leaves the pause active.</p>
+              <p class="guide-card__ex">Example: Ideal when switching Mac user accounts or closing VoltGuard temporarily.</p>
+            </article>
+
+            <article class="guide-card" data-category="protection" hidden>
+              <span class="guide-card__cat">Protection &amp; Thermal</span>
+              <h4>Heat Protection</h4>
+              <p>Reads internal battery and palm-rest thermistors, pausing charging past your temperature limit.</p>
+              <p class="guide-card__ex">Example: Heavy rendering warms cells above 35 C; charging pauses until cool.</p>
+            </article>
+
+            <article class="guide-card" data-category="protection" hidden>
+              <span class="guide-card__cat">Protection &amp; Thermal</span>
+              <h4>5-Stage Calibration</h4>
+              <p>Cycles 100% to 15% and back to your limit, logging Before vs After mAh health.</p>
+              <p class="guide-card__ex">Example: Prevents drifted percentages and sudden shutdowns near 15%.</p>
+            </article>
+
+            <article class="guide-card" data-category="protection" hidden>
+              <span class="guide-card__cat">Protection &amp; Thermal</span>
+              <h4>Live Power Flow</h4>
+              <p>Tracks adapter watts, Mac system draw, and 0.0 W battery bypass status live.</p>
+              <p class="guide-card__ex">Example: Confirm instantly when charger power supplies peak Mac workloads.</p>
+            </article>
+
+            <article class="guide-card" data-category="protection" hidden>
+              <span class="guide-card__cat">Protection &amp; Thermal</span>
+              <h4>Sleep Control &amp; Stop on Sleep</h4>
+              <p>Finishes charging to your limit when closed, or pauses all charging during sleep.</p>
+              <p class="guide-card__ex">Example: Close lid at 45%; Mac reaches 80% before sleeping normally.</p>
+            </article>
+
+            <article class="guide-card" data-category="hardware" hidden>
+              <span class="guide-card__cat">Hardware &amp; Energy</span>
+              <h4>Hardware Battery Percentage</h4>
+              <p>Shows raw battery management chip percentage next to the macOS display value.</p>
+              <p class="guide-card__ex">Example: Compare 80% macOS level against 77% hardware cell charge.</p>
+            </article>
+
+            <article class="guide-card" data-category="hardware" hidden>
+              <span class="guide-card__cat">Hardware &amp; Energy</span>
+              <h4>Control MagSafe LED</h4>
+              <p>Syncs the MagSafe 3 LED to show amber while charging or green at limit.</p>
+              <p class="guide-card__ex">Example: Check limit status from the cable light, or disable LED glow at night.</p>
+            </article>
+
+            <article class="guide-card" data-category="hardware" hidden>
+              <span class="guide-card__cat">Hardware &amp; Energy</span>
+              <h4>Apps Using Significant Energy</h4>
+              <p>Ranks power-hungry apps with Low, Medium, or High usage filters and one-click Quit.</p>
+              <p class="guide-card__ex">Example: Show only High Usage apps and background tasks while traveling.</p>
+            </article>
+
+            <article class="guide-card" data-category="hardware" hidden>
+              <span class="guide-card__cat">Hardware &amp; Energy</span>
+              <h4>Low Power Mode Rules</h4>
+              <p>Turns on macOS Low Power Mode automatically on battery power or full-time.</p>
+              <p class="guide-card__ex">Example: Full performance when plugged in; quiet low-power battery on unplug.</p>
+            </article>
+
+            <article class="guide-card" data-category="automation" hidden>
+              <span class="guide-card__cat">Automation</span>
+              <h4>Menu Bar &amp; Popover Layout</h4>
+              <p>Customize menu bar icons, watts, temperature, Hardware %, and popover widget order.</p>
+              <p class="guide-card__ex">Example: Pin only % and live watts for compact 13-inch MacBook bars.</p>
+            </article>
+
+            <article class="guide-card" data-category="automation" hidden>
+              <span class="guide-card__cat">Automation</span>
+              <h4>Schedules &amp; Apple Shortcuts</h4>
+              <p>Schedule weekly caps, travel top-ups, or monthly calibration, plus Shortcuts actions.</p>
+              <p class="guide-card__ex">Example: Trigger 60% limit or calibration inside Focus automations.</p>
+            </article>
           </div>
         </div>
       </div>
@@ -450,11 +573,11 @@
               Download the universal macOS installer for Apple Silicon and Intel Macs. Future versions update cleanly inside the app.
             </p>
             <div class="download-facts">
-              <span>Version 1.2.0 (Build 3)</span>
+              <span>Version 1.3.0 (Build 4)</span>
               <span>/</span>
               <span>macOS 13 Ventura and newer</span>
               <span>/</span>
-              <span>Universal DMG (3.5 MB)</span>
+              <span>Universal DMG</span>
             </div>
           </div>
           <div class="download-cta-box">
@@ -561,7 +684,7 @@
           cellNodeTxt.textContent = "Paused";
           adapterW.textContent = "18.4 W";
           batteryW.textContent = "0.0 W (Hold)";
-          thermalState.textContent = "Thermal Pause Active";
+          thermalState.textContent = "Heat Limit Reached";
         } else if (holdingLimit) {
           modeText.textContent = "Target Hold";
           statusPill.textContent = "Hold at " + limit + "%";
@@ -687,7 +810,7 @@
 
       syncNavOnScroll();
 
-      // Feature Tab Switcher + Panel Entrance Choreography
+      // Feature Tab Switcher
       const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
       const tabPanels = {
         charge: document.getElementById("panel-charge"),
@@ -702,8 +825,7 @@
           btn.setAttribute("aria-selected", isActive ? "true" : "false");
         });
         Object.keys(tabPanels).forEach((k) => {
-          const panel = tabPanels[k];
-          panel.hidden = k !== key;
+          tabPanels[k].hidden = k !== key;
         });
       }
 
@@ -748,7 +870,6 @@
           b.setAttribute("aria-pressed", Number(b.dataset.sailDelta) === sailDelta ? "true" : "false");
         });
 
-        // Map 65..85 onto 0%..100% track using transform only
         const bandStartPct = ((rearmAt - 65) / 20) * 100;
         const bandScale = sailDelta / 20;
         sailCoastBand.style.transform = "translateX(" + bandStartPct.toFixed(1) + "%) scaleX(" + bandScale.toFixed(3) + ")";
@@ -758,11 +879,11 @@
         if (soc >= 80) {
           sailDecisionOut.textContent = "Target Hold (Adapter Bypass)";
         } else if (soc > rearmAt) {
-          sailDecisionOut.textContent = "Sailing Coast (Inside " + rearmAt + "% to 80% Buffer)";
+          sailDecisionOut.textContent = "Sailing Coast (" + rearmAt + "% to 80%)";
         } else {
           sailDecisionOut.textContent = "Charging Resumed (Below " + rearmAt + "%)";
         }
-        quitRestoreOut.textContent = restoreOnQuit ? "Restores Normal 100% macOS Charging" : "Keeps Current Ceiling Active";
+        quitRestoreOut.textContent = restoreOnQuit ? "Restores Normal 100% Charging" : "Keeps Current Ceiling Active";
       }
 
       sailButtons.forEach((btn) => {
@@ -779,7 +900,7 @@
       });
       syncSailing();
 
-      // Tab 2: 5-Stage Calibration Stepper & Capacity Bars
+      // Tab 2: 5-Stage Calibration Stepper
       const calStages = [
         { title: "Stage 1: Charging to 100%", progress: 0.18, afterVal: "Full gauge alignment pending", barScale: 0.90 },
         { title: "Stage 2: Holding at 100% (60 min)", progress: 0.36, afterVal: "Upper voltage anchor stabilizing", barScale: 0.91 },
@@ -836,11 +957,11 @@
         }, 1250);
       });
 
-      // Tab 3: Schedule Profile Switcher & Interactive 24h Timeline Band
+      // Tab 3: Schedule Profile Switcher
       const schedProfiles = {
         office: { badge: "80% Cap Active", window: "Mon to Fri at 08:30", policy: "Hold at 80% / Max 35.0 C", band: "translateX(35%) scaleX(0.35)" },
-        travel: { badge: "100% Travel Top-Up", window: "Fridays at 17:00", policy: "Full 100% Charge / Thermal Watch On", band: "translateX(70%) scaleX(0.22)" },
-        overnight: { badge: "70% Overnight Hold", window: "Daily at 22:30", policy: "Hold at 70% / Silent Passive Cooling", band: "translateX(8%) scaleX(0.28)" }
+        travel: { badge: "100% Travel Top-Up", window: "Fridays at 17:00", policy: "Full 100% Charge / Heat Guard On", band: "translateX(70%) scaleX(0.22)" },
+        overnight: { badge: "Auto-Calibration", window: "Monthly on Day 1 at 09:00", policy: "Starts 5-Stage Calibration Cycle", band: "translateX(37%) scaleX(0.18)" }
       };
       const schedBtns = Array.from(document.querySelectorAll("[data-sched-profile]"));
       const schedBadge = document.getElementById("sched-mode-badge");
@@ -860,7 +981,7 @@
         });
       });
 
-      // Tab 4: Multi-Stage Animated Update Progress Simulator
+      // Tab 4: Update Progress Check
       const updateBtn = document.getElementById("update-check-btn");
       const updateOut = document.getElementById("update-status-out");
       const updateBar = document.getElementById("update-progress-bar");
@@ -869,16 +990,31 @@
         updateOut.textContent = "Checking update feed...";
         updateBar.style.transform = "scaleX(0.28)";
         setTimeout(() => {
-          updateOut.textContent = "Verifying build 3 checksum...";
+          updateOut.textContent = "Verifying build 4 checksum...";
           updateBar.style.transform = "scaleX(0.68)";
         }, 320);
         setTimeout(() => {
-          updateOut.textContent = "Up to date: VoltGuard v1.2.0 (Build 3)";
+          updateOut.textContent = "Up to date: VoltGuard v1.3.0 (Build 4)";
           updateBar.style.transform = "scaleX(1.0)";
           updateBtn.textContent = "Checked Just Now";
           updateBtn.setAttribute("aria-pressed", "true");
           updateBtn.disabled = false;
         }, 720);
+      });
+
+      // Feature Guide Category Filter
+      const guideButtons = Array.from(document.querySelectorAll("[data-guide-cat]"));
+      const guideCards = Array.from(document.querySelectorAll(".guide-card"));
+      guideButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const category = btn.dataset.guideCat;
+          guideButtons.forEach((b) => {
+            b.setAttribute("aria-pressed", b.dataset.guideCat === category ? "true" : "false");
+          });
+          guideCards.forEach((card) => {
+            card.hidden = category !== "all" && card.dataset.category !== category;
+          });
+        });
       });
     })();
   </script>

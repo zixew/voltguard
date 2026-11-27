@@ -544,6 +544,14 @@ public struct PopoverView: View {
                         valueColor: conditionColor(telemetry.batteryCondition, palette: palette),
                         palette: palette
                     )
+                    if let hwPct = telemetry.hardwarePercentage {
+                        healthDetailRow(
+                            label: L10n.text(.hardwarePercent, locale: locale),
+                            value: "\(hwPct)%",
+                            valueColor: palette.accent,
+                            palette: palette
+                        )
+                    }
                     if let currentMah = telemetry.currentCapacityMah {
                         healthDetailRow(
                             label: L10n.text(.currentCapacity, locale: locale),

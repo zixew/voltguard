@@ -332,6 +332,13 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case updatesStageCleaningUp
     case updatesStageCompleted
     case updatesCleanHint
+    case hardwarePercent
+    case showHardwarePercent
+    case scheduleStartCalibration
+    case energyThresholdLow
+    case energyThresholdMedium
+    case energyThresholdHigh
+    case energyIncludeBackground
 }
 
 public struct L10n {
@@ -672,7 +679,14 @@ public struct L10n {
         .updatesStageInstalling: "Installing VoltGuard to Applications...",
         .updatesStageCleaningUp: "Cleaning up installer DMG...",
         .updatesStageCompleted: "Update installed! Relaunching...",
-        .updatesCleanHint: "VoltGuard automatically installs the latest app bundle and deletes temporary DMG files once finished."
+        .updatesCleanHint: "VoltGuard automatically installs the latest app bundle and deletes temporary DMG files once finished.",
+        .hardwarePercent: "Hardware Level",
+        .showHardwarePercent: "Show Hardware %",
+        .scheduleStartCalibration: "Start Calibration",
+        .energyThresholdLow: "Low Usage",
+        .energyThresholdMedium: "Medium Usage",
+        .energyThresholdHigh: "High Usage",
+        .energyIncludeBackground: "Include Background"
     ]
 
     public static let id: [L10nKey: String] = [
@@ -1005,7 +1019,14 @@ public struct L10n {
         .updatesStageInstalling: "Memasang VoltGuard ke Applications...",
         .updatesStageCleaningUp: "Menghapus installer DMG...",
         .updatesStageCompleted: "Terpasang! Membuka ulang aplikasi...",
-        .updatesCleanHint: "VoltGuard otomatis memasang aplikasi terbaru dan langsung menghapus berkas DMG setelah pemasangan selesai."
+        .updatesCleanHint: "VoltGuard otomatis memasang aplikasi terbaru dan langsung menghapus berkas DMG setelah pemasangan selesai.",
+        .hardwarePercent: "Level Hardware",
+        .showHardwarePercent: "Tampilkan % Hardware",
+        .scheduleStartCalibration: "Mulai Kalibrasi",
+        .energyThresholdLow: "Pemakaian Rendah",
+        .energyThresholdMedium: "Pemakaian Sedang",
+        .energyThresholdHigh: "Pemakaian Tinggi",
+        .energyIncludeBackground: "Sertakan Proses Latar"
     ]
 }
 

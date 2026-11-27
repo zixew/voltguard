@@ -1,26 +1,26 @@
 {
-  "version": "1.2.0",
-  "build": "3",
+  "version": "1.3.0",
+  "build": "4",
   "publishedAt": "2026-11-27",
   "dmgURL": "https://voltguard-mocha.vercel.app/downloads/VoltGuard.dmg",
   "changesEN": [
-    "Interactive animated Thermal Zone card with inline limit controls and sensor breakdown",
-    "Before vs After calibration capacity comparison card with expected outcome guide",
-    "Restore System Charging on Quit toggle to resume normal 100% charging when closed",
-    "Dedicated Software Update tab with automatic install and DMG cleanup"
+    "Hardware Battery Percentage readout alongside macOS level in Overview and Menu Bar",
+    "Scheduled Calibration action to automate 5-stage battery calibration on recurring days",
+    "Energy Monitor usage threshold filter (Low / Medium / High) and background process toggle",
+    "New Apple Shortcuts intents for Calibration Mode and Low Power Mode"
   ],
   "fixesEN": [
-    "Fixed battery temperature stuck at 21.9 C on macOS 27 and modern Apple Silicon Macs",
-    "Improved visual polish and modern macOS system compatibility"
+    "Verified production appcast update delivery over HTTPS with clean auto-install flow",
+    "Preserved all thermal guard sensors and restore-on-quit battery protections"
   ],
   "changesID": [
-    "Kartu Thermal Zone interaktif beranimasi dengan atur batas suhu langsung",
-    "Kartu perbandingan kapasitas Before vs After kalibrasi beserta penjelasan hasilnya",
-    "Opsi Restore System Charging on Quit agar Mac mengisi normal 100% saat app ditutup",
-    "Halaman Pembaruan Aplikasi tersendiri dengan pasang otomatis dan hapus file DMG"
+    "Pembacaan Persentase Baterai Hardware di samping persentase macOS pada Overview dan Menu Bar",
+    "Aksi jadwal Start Calibration untuk menjalankan kalibrasi 5 tahap secara berkala",
+    "Filter tingkat pemakaian di Energy Monitor (Rendah / Sedang / Tinggi) dan proses latar",
+    "Aksi Apple Shortcuts tambahan untuk Kalibrasi dan Low Power Mode"
   ],
   "fixesID": [
-    "Memperbaiki suhu baterai yang macet di 21.9 C pada macOS 27 dan Mac Apple Silicon terbaru",
-    "Peningkatan tampilan dan kompatibilitas penuh dengan macOS modern"
+    "Verifikasi manifest pembaruan HTTPS secara bersih beserta instalasi otomatis DMG",
+    "Peningkatan kelengkapan metrik sensor termal dan proteksi pengisian"
   ]
 }

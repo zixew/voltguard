@@ -37,5 +37,13 @@ public struct EnergyAppUsage: Equatable, Identifiable, Sendable {
 
 public protocol EnergyMonitorGateway: Sendable {
     func fetchTopEnergyApps(limit: Int) async throws -> [EnergyAppUsage]
+    func fetchTopEnergyApps(limit: Int, threshold: EnergyUsageThreshold, includeBackground: Bool) async throws -> [EnergyAppUsage]
     @MainActor func terminateApp(pid: Int32) -> Bool
+}
+
+public extension EnergyMonitorGateway {
+    func fetchTopEnergyApps(limit: Int, threshold: EnergyUsageThreshold, includeBackground: Bool) async throws -> [EnergyAppUsage] {
+        let apps = try await fetchTopEnergyApps(limit: limit)
+        return apps.filter { $0.cpuPercent >= threshold.minimumCPUPercent }
+    }
 }

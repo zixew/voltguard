@@ -134,6 +134,8 @@ public struct VoltGuardViewState: Equatable {
 public enum VoltGuardAction {
     case refreshTelemetry
     case refreshEnergyApps
+    case setEnergyThreshold(EnergyUsageThreshold)
+    case toggleIncludeBackgroundEnergy
     case terminateEnergyApp(Int32)
     case applyProfileTier(BatteryProfileTier)
     case setChargeLimit(Int)
@@ -307,8 +309,12 @@ public final class VoltGuardInteractor {
         timer = nil
     }
 
-    public func fetchTopEnergyApps() async throws -> [EnergyAppUsage] {
-        try await energyMonitor.fetchTopEnergyApps(limit: AppLayoutConstants.energyTopAppCount)
+    public func fetchTopEnergyApps(threshold: EnergyUsageThreshold = .lowUsage, includeBackground: Bool = false) async throws -> [EnergyAppUsage] {
+        try await energyMonitor.fetchTopEnergyApps(
+            limit: AppLayoutConstants.energyTopAppCount,
+            threshold: threshold,
+            includeBackground: includeBackground
+        )
     }
 
     @MainActor
@@ -338,6 +344,21 @@ public final class VoltGuardInteractor {
                         mutableSettings.policy.manualDischarge = true
                     case .disableDischarge:
                         mutableSettings.policy.manualDischarge = false
+                    case .startCalibration:
+                        if !mutableCalibration.isActive {
+                            mutableCalibration = CalibrationSession(
+                                stage: .chargingToFull,
+                                stageStartedAt: now,
+                                startedAt: now,
+                                targetLowPercent: VoltGuardLimits.calibrationLowPercent,
+                                holdDurationSeconds: VoltGuardLimits.calibrationHoldSeconds,
+                                beforeMaxCapacityMah: telemetry.maxCapacityMah,
+                                beforeHealthPercent: telemetry.healthPercent,
+                                beforeCycleCount: telemetry.cycleCount
+                            )
+                            mutableSettings.policy.topUpActive = false
+                            mutableSettings.calibrationSession = mutableCalibration
+                        }
                     }
                 }
             }
@@ -913,15 +934,28 @@ public final class VoltGuardPresenter: ObservableObject {
             }
         case .refreshEnergyApps:
             state.energyState = .loading
+            let threshold = state.settings.energyUsageThreshold
+            let includeBackground = state.settings.includeBackgroundEnergyProcesses
             Task { [weak self] in
                 guard let self else { return }
                 do {
-                    let apps = try await self.interactor.fetchTopEnergyApps()
+                    let apps = try await self.interactor.fetchTopEnergyApps(
+                        threshold: threshold,
+                        includeBackground: includeBackground
+                    )
                     self.state.energyState = .loaded(apps)
                 } catch {
                     self.state.energyState = .error(error.localizedDescription)
                 }
             }
+        case .setEnergyThreshold(let threshold):
+            state.settings.energyUsageThreshold = threshold
+            interactor.saveSettings(state.settings)
+            dispatch(.refreshEnergyApps)
+        case .toggleIncludeBackgroundEnergy:
+            state.settings.includeBackgroundEnergyProcesses.toggle()
+            interactor.saveSettings(state.settings)
+            dispatch(.refreshEnergyApps)
         case .terminateEnergyApp(let pid):
             _ = interactor.terminateEnergyApp(pid: pid)
             dispatch(.refreshEnergyApps)

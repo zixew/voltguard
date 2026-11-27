@@ -65,18 +65,69 @@ public struct StartTopUpIntent: AppIntent {
     }
 }
 
+public struct StartCalibrationIntent: AppIntent {
+    public static var title: LocalizedStringResource = "Start VoltGuard Calibration"
+    public static var description = IntentDescription("Begins the guided 5-stage battery calibration workflow.")
+
+    public init() {}
+
+    public func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        let repo = JSONSettingsRepository()
+        var settings = repo.load()
+        let reader = IOKitBatteryReader()
+        let telemetry = try? reader.readTelemetry()
+        settings.calibrationSession = CalibrationSession(
+            stage: .chargingToFull,
+            stageStartedAt: Date(),
+            startedAt: Date(),
+            targetLowPercent: settings.calibrationSession.targetLowPercent,
+            holdDurationSeconds: settings.calibrationSession.holdDurationSeconds,
+            beforeMaxCapacityMah: telemetry?.maxCapacityMah,
+            beforeHealthPercent: telemetry?.healthPercent,
+            beforeCycleCount: telemetry?.cycleCount
+        )
+        settings.policy.topUpActive = false
+        saveAndNotify(settings, repo: repo)
+        return .result(value: "Calibration started")
+    }
+}
+
+public struct SetLowPowerModeIntent: AppIntent {
+    public static var title: LocalizedStringResource = "Set VoltGuard Low Power Mode"
+    public static var description = IntentDescription("Controls macOS Low Power Mode automatically when unplugged or always.")
+
+    @Parameter(title: "On Battery Only", default: true)
+    public var onBatteryOnly: Bool
+
+    @Parameter(title: "Always Enabled", default: false)
+    public var alwaysEnabled: Bool
+
+    public init() {}
+
+    public func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        let repo = JSONSettingsRepository()
+        var settings = repo.load()
+        settings.policy.lowPowerModeOnBattery = onBatteryOnly
+        settings.policy.lowPowerModeAlways = alwaysEnabled
+        saveAndNotify(settings, repo: repo)
+        return .result(value: "Low Power Mode policy updated")
+    }
+}
+
 public struct GetBatteryStatusIntent: AppIntent {
     public static var title: LocalizedStringResource = "Get VoltGuard Battery Telemetry"
-    public static var description = IntentDescription("Reads current battery percentage, temperature, and health.")
+    public static var description = IntentDescription("Reads current macOS and hardware battery percentages, temperature, and health.")
 
     public init() {}
 
     public func perform() async throws -> some IntentResult & ReturnsValue<String> {
         let reader = IOKitBatteryReader()
         let telemetry = try reader.readTelemetry()
+        let hw = telemetry.hardwarePercentage.map { " | HW: \($0)%" } ?? ""
         let summary = String(
-            format: "Battery: %d%% | Temp: %.1fC | Health: %d%% (%@) | Cycles: %d",
+            format: "Battery: %d%%%@ | Temp: %.1fC | Health: %d%% (%@) | Cycles: %d",
             telemetry.percentage,
+            hw,
             telemetry.temperatureCelsius,
             telemetry.healthPercent,
             telemetry.batteryCondition.rawValue,
@@ -99,6 +150,12 @@ public struct VoltGuardShortcutsProvider: AppShortcutsProvider {
             phrases: ["Top up battery with \(.applicationName)"],
             shortTitle: "Top Up 100%",
             systemImageName: "bolt.batteryblock"
+        )
+        AppShortcut(
+            intent: StartCalibrationIntent(),
+            phrases: ["Calibrate battery with \(.applicationName)"],
+            shortTitle: "Start Calibration",
+            systemImageName: "arrow.triangle.2.circlepath"
         )
         AppShortcut(
             intent: GetBatteryStatusIntent(),

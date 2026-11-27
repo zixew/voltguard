@@ -121,6 +121,7 @@ public struct ThemeConfig: Codable, Equatable, Sendable {
 public struct MenuBarIconConfig: Codable, Equatable, Sendable {
     public var style: MenuBarIconStyle
     public var showPercentage: Bool
+    public var showHardwarePercentage: Bool
     public var showWattage: Bool
     public var showTemperature: Bool
     public var showTimeRemaining: Bool
@@ -128,15 +129,27 @@ public struct MenuBarIconConfig: Codable, Equatable, Sendable {
     public init(
         style: MenuBarIconStyle = .shieldBattery,
         showPercentage: Bool = true,
+        showHardwarePercentage: Bool = false,
         showWattage: Bool = false,
         showTemperature: Bool = false,
         showTimeRemaining: Bool = false
     ) {
         self.style = style
         self.showPercentage = showPercentage
+        self.showHardwarePercentage = showHardwarePercentage
         self.showWattage = showWattage
         self.showTemperature = showTemperature
         self.showTimeRemaining = showTimeRemaining
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.style = try c.decodeIfPresent(MenuBarIconStyle.self, forKey: .style) ?? .shieldBattery
+        self.showPercentage = try c.decodeIfPresent(Bool.self, forKey: .showPercentage) ?? true
+        self.showHardwarePercentage = try c.decodeIfPresent(Bool.self, forKey: .showHardwarePercentage) ?? false
+        self.showWattage = try c.decodeIfPresent(Bool.self, forKey: .showWattage) ?? false
+        self.showTemperature = try c.decodeIfPresent(Bool.self, forKey: .showTemperature) ?? false
+        self.showTimeRemaining = try c.decodeIfPresent(Bool.self, forKey: .showTimeRemaining) ?? false
     }
 }
 
@@ -250,6 +263,12 @@ public struct BatteryTelemetry: Equatable, Sendable {
     public var healthPercent: Int {
         // Round to nearest integer to match macOS System Information Maximum Capacity.
         let raw = (Double(maxCapacityMah) / Double(designCapacityMah)) * 100.0
+        return min(max(Int(raw.rounded()), 0), 100)
+    }
+
+    public var hardwarePercentage: Int? {
+        guard let cur = currentCapacityMah, maxCapacityMah > 0 else { return nil }
+        let raw = (Double(cur) / Double(maxCapacityMah)) * 100.0
         return min(max(Int(raw.rounded()), 0), 100)
     }
 
@@ -516,45 +535,61 @@ public struct AppUpdateCheckResult: Equatable, Sendable {
 }
 
 public enum AppReleaseInfo {
-    public static let currentVersion = "1.2.0"
-    public static let buildNumber = "3"
+    public static let currentVersion = "1.3.0"
+    public static let buildNumber = "4"
     public static let latestPublishedDate = "2026-11-27"
     public static let websiteURL = "https://voltguard-mocha.vercel.app"
     public static let feedURL = "https://voltguard-mocha.vercel.app/appcast.json"
     public static let dmgURL = "https://voltguard-mocha.vercel.app/downloads/VoltGuard.dmg"
 
     public static let latestChangesEN: [String] = [
-        "Interactive animated Thermal Zone card with inline limit controls and sensor breakdown",
-        "Before vs After calibration capacity comparison card with expected outcome guide",
-        "Restore System Charging on Quit toggle to resume normal 100% charging when closed",
-        "Dedicated Software Update tab with automatic install and DMG cleanup"
+        "Hardware Battery Percentage readout alongside macOS level in Overview and Menu Bar",
+        "Scheduled Calibration action to automate 5-stage battery calibration on recurring days",
+        "Energy Monitor usage threshold filter (Low / Medium / High) and background process toggle",
+        "New Apple Shortcuts intents for Calibration Mode and Low Power Mode"
     ]
 
     public static let latestFixesEN: [String] = [
-        "Fixed battery temperature stuck at 21.9 C on macOS 27 and modern Apple Silicon Macs",
-        "Improved visual polish and modern macOS system compatibility"
+        "Verified production appcast update delivery over HTTPS with clean auto-install flow",
+        "Preserved all thermal guard sensors and restore-on-quit battery protections"
     ]
 
     public static let latestChangesID: [String] = [
-        "Kartu Thermal Zone interaktif beranimasi dengan atur batas suhu langsung",
-        "Kartu perbandingan kapasitas Before vs After kalibrasi beserta penjelasan hasilnya",
-        "Opsi Restore System Charging on Quit agar Mac mengisi normal 100% saat app ditutup",
-        "Halaman Pembaruan Aplikasi tersendiri dengan pasang otomatis dan hapus file DMG"
+        "Pembacaan Persentase Baterai Hardware di samping persentase macOS pada Overview dan Menu Bar",
+        "Aksi jadwal Start Calibration untuk menjalankan kalibrasi 5 tahap secara berkala",
+        "Filter tingkat pemakaian di Energy Monitor (Rendah / Sedang / Tinggi) dan proses latar",
+        "Aksi Apple Shortcuts tambahan untuk Kalibrasi dan Low Power Mode"
     ]
 
     public static let latestFixesID: [String] = [
-        "Memperbaiki suhu baterai yang macet di 21.9 C pada macOS 27 dan Mac Apple Silicon terbaru",
-        "Peningkatan tampilan dan kompatibilitas penuh dengan macOS modern"
+        "Verifikasi manifest pembaruan HTTPS secara bersih beserta instalasi otomatis DMG",
+        "Peningkatan kelengkapan metrik sensor termal dan proteksi pengisian"
     ]
 
     public static let changelog: [AppReleaseChangelogEntry] = [
+        AppReleaseChangelogEntry(
+            version: "1.3.0",
+            date: "2026-11-27",
+            titleEN: "What's New in v1.3.0",
+            titleID: "Pembaruan Versi 1.3.0",
+            highlightsEN: latestChangesEN + latestFixesEN,
+            highlightsID: latestChangesID + latestFixesID
+        ),
         AppReleaseChangelogEntry(
             version: "1.2.0",
             date: "2026-11-27",
             titleEN: "What's New & Fixes in v1.2.0",
             titleID: "Perubahan & Perbaikan Versi 1.2.0",
-            highlightsEN: latestChangesEN + latestFixesEN,
-            highlightsID: latestChangesID + latestFixesID
+            highlightsEN: [
+                "Interactive animated Thermal Zone card and multi-sensor AppleSMC thermistors",
+                "Before vs After calibration fuel-gauge capacity comparison card",
+                "Restore System Charging on Quit toggle and dedicated Software Update tab"
+            ],
+            highlightsID: [
+                "Kartu Thermal Zone interaktif dengan multi-sensor AppleSMC",
+                "Kartu perbandingan kapasitas Before vs After kalibrasi",
+                "Opsi Restore System Charging on Quit dan halaman Pembaruan Aplikasi"
+            ]
         )
     ]
 
@@ -887,11 +922,26 @@ public struct DiagnosticsReport: Equatable, Sendable {
     }
 }
 
+public enum EnergyUsageThreshold: String, Codable, CaseIterable, Sendable {
+    case lowUsage
+    case mediumUsage
+    case highUsage
+
+    public var minimumCPUPercent: Double {
+        switch self {
+        case .lowUsage: return 0.5
+        case .mediumUsage: return 8.0
+        case .highUsage: return 25.0
+        }
+    }
+}
+
 public enum ScheduleAction: String, Codable, CaseIterable, Sendable {
     case setLimit80
     case topUp100
     case enableDischarge
     case disableDischarge
+    case startCalibration
 }
 
 public struct ScheduleRule: Codable, Equatable, Identifiable, Sendable {
@@ -950,6 +1000,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var locale: AppLocale
     public var launchAtLogin: Bool
     public var alertsEnabled: Bool
+    public var energyUsageThreshold: EnergyUsageThreshold
+    public var includeBackgroundEnergyProcesses: Bool
     public var customProfile: CustomBatteryProfile?
     public var calibrationSession: CalibrationSession
     public var lastCalibrationResult: CalibrationResultRecord?
@@ -964,6 +1016,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         locale: AppLocale = .en,
         launchAtLogin: Bool = false,
         alertsEnabled: Bool = true,
+        energyUsageThreshold: EnergyUsageThreshold = .lowUsage,
+        includeBackgroundEnergyProcesses: Bool = false,
         customProfile: CustomBatteryProfile? = nil,
         calibrationSession: CalibrationSession = CalibrationSession(),
         lastCalibrationResult: CalibrationResultRecord? = nil,
@@ -977,6 +1031,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.locale = locale
         self.launchAtLogin = launchAtLogin
         self.alertsEnabled = alertsEnabled
+        self.energyUsageThreshold = energyUsageThreshold
+        self.includeBackgroundEnergyProcesses = includeBackgroundEnergyProcesses
         self.customProfile = customProfile
         self.calibrationSession = calibrationSession
         self.lastCalibrationResult = lastCalibrationResult
@@ -993,6 +1049,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.locale = try container.decodeIfPresent(AppLocale.self, forKey: .locale) ?? .en
         self.launchAtLogin = try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         self.alertsEnabled = try container.decodeIfPresent(Bool.self, forKey: .alertsEnabled) ?? true
+        self.energyUsageThreshold = try container.decodeIfPresent(EnergyUsageThreshold.self, forKey: .energyUsageThreshold) ?? .lowUsage
+        self.includeBackgroundEnergyProcesses = try container.decodeIfPresent(Bool.self, forKey: .includeBackgroundEnergyProcesses) ?? false
         self.customProfile = try container.decodeIfPresent(CustomBatteryProfile.self, forKey: .customProfile)
         self.calibrationSession = try container.decodeIfPresent(CalibrationSession.self, forKey: .calibrationSession) ?? CalibrationSession()
         self.lastCalibrationResult = try container.decodeIfPresent(CalibrationResultRecord.self, forKey: .lastCalibrationResult)

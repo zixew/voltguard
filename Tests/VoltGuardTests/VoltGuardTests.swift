@@ -1328,7 +1328,7 @@ final class VoltGuardTests: XCTestCase {
         let energySlides: [(String, DashboardSection)] = [
             ("Energy Monitor: Top Consumers", .energy),
             ("System Self-Checks: 8/8 Passed", .system),
-            ("Software Update: v1.2.0 Feed", .updates),
+            ("Software Update: v1.3.0 Feed", .updates),
             ("Live Energy Impact Tracking", .energy)
         ]
         let energyFrames: [AnyView] = energySlides.map { (badge, section) in
@@ -2269,8 +2269,8 @@ final class VoltGuardStabilityTests: XCTestCase {
     func testAppcastDecodingLatestChangesAndFixesOnly() throws {
         let json = """
         {
-          "version": "1.3.0",
-          "build": "4",
+          "version": "1.4.0",
+          "build": "5",
           "publishedAt": "2026-12-01",
           "dmgURL": "https://voltguard-mocha.vercel.app/downloads/VoltGuard.dmg",
           "changesEN": ["Dedicated Software Update tab"],
@@ -2281,12 +2281,64 @@ final class VoltGuardStabilityTests: XCTestCase {
         """.data(using: .utf8)!
         let decoded = try AppUpdateService.decodeAppcast(data: json)
         XCTAssertTrue(decoded.isUpdateAvailable)
-        XCTAssertEqual(decoded.latestVersion, "1.3.0")
-        XCTAssertEqual(decoded.latestBuild, "4")
+        XCTAssertEqual(decoded.latestVersion, "1.4.0")
+        XCTAssertEqual(decoded.latestBuild, "5")
         XCTAssertEqual(decoded.latestChangesEN, ["Dedicated Software Update tab"])
         XCTAssertEqual(decoded.latestFixesEN, ["Auto-deletes temporary DMG after install"])
         XCTAssertEqual(decoded.latestChangesID, ["Tab Pembaruan tersendiri"])
         XCTAssertEqual(decoded.latestFixesID, ["Hapus DMG sementara otomatis setelah terpasang"])
+    }
+
+    func testHardwarePercentageEnergyThresholdAndScheduledCalibration() {
+        let t = BatteryTelemetry(
+            percentage: 80,
+            isCharging: false,
+            isPluggedIn: true,
+            temperatureCelsius: 30.0,
+            voltageVolts: 12.6,
+            amperageAmps: 0.0,
+            adapterWatts: 19.0,
+            cycleCount: 120,
+            currentCapacityMah: 3311,
+            maxCapacityMah: 4295,
+            designCapacityMah: 4629
+        )
+        XCTAssertEqual(t.hardwarePercentage, 77)
+
+        let psSample = """
+         101 28.4 /Applications/Xcode.app/Contents/MacOS/Xcode
+         102 12.0 /Applications/Safari.app/Contents/MacOS/Safari
+         103  9.5 /usr/libexec/mediaanalysisd
+        """
+        let meta: [Int32: (String, String?)] = [
+            101: ("Xcode", "com.apple.dt.Xcode"),
+            102: ("Safari", "com.apple.Safari")
+        ]
+        let highOnly = SystemEnergyMonitor.parsePSOutput(
+            psSample,
+            runningAppMetadata: meta,
+            limit: 10,
+            minimumCPUPercent: EnergyUsageThreshold.highUsage.minimumCPUPercent,
+            includeBackground: false
+        )
+        XCTAssertEqual(highOnly.map(\.name), ["Xcode"])
+
+        let withBg = SystemEnergyMonitor.parsePSOutput(
+            psSample,
+            runningAppMetadata: meta,
+            limit: 10,
+            minimumCPUPercent: EnergyUsageThreshold.mediumUsage.minimumCPUPercent,
+            includeBackground: true
+        )
+        XCTAssertEqual(withBg.map(\.name), ["Xcode", "Safari", "mediaanalysisd"])
+
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        let date = cal.date(from: DateComponents(year: 2026, month: 12, day: 1, hour: 9, minute: 0))!
+        let weekday = cal.component(.weekday, from: date)
+        let rule = ScheduleRule(title: "Monthly Calibration", hour: 9, minute: 0, weekdays: [weekday], action: .startCalibration)
+        let matched = ScheduleEvaluatorUseCase().matchingActions(rules: [rule], date: date, calendar: cal)
+        XCTAssertEqual(matched, [.startCalibration])
     }
 
     func testUpdateDMGCleanupRemovesStagedArtifacts() throws {
