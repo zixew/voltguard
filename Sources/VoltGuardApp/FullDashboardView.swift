@@ -45,6 +45,8 @@ public struct FullDashboardView: View {
     @State private var newRuleWeekdays: Set<Int> = [2, 3, 4, 5, 6]
     @State private var newRuleAction: ScheduleAction = .setLimit80
     @State private var customHexInput: String = ""
+    @State private var hoveredSidebarSection: DashboardSection?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(presenter: VoltGuardPresenter, initialSection: DashboardSection = .overview) {
         self.presenter = presenter
@@ -70,9 +72,19 @@ public struct FullDashboardView: View {
 
                 ScrollView {
                     detailContent(locale: locale, palette: palette)
+                        .id(selectedSection)
+                        .transition(
+                            reduceMotion
+                                ? .identity
+                                : .asymmetric(
+                                    insertion: .opacity.combined(with: .offset(y: 8)),
+                                    removal: .opacity
+                                )
+                        )
                         .padding(24)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.86), value: selectedSection)
             }
         }
         .frame(
@@ -94,6 +106,21 @@ public struct FullDashboardView: View {
 
     @ViewBuilder
     private func sidebarRail(locale: AppLocale, palette: ThemePalette) -> some View {
+        let liveTelemetry: (BatteryTelemetry, PowerFlowMetrics)? = {
+            if case .loaded(let t, let f) = presenter.state.telemetryState { return (t, f) }
+            return nil
+        }()
+        let activeLEDColor: Color = {
+            let reason = presenter.state.lastReason
+            if reason == .manualDischarge || reason == .automaticDischarge {
+                return palette.secondaryText.opacity(0.45)
+            }
+            if reason == .limitReached || reason == .sailingPaused {
+                return Color(hex: "#22C55E")
+            }
+            return Color(hex: "#F59E0B")
+        }()
+
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 BrandLogoView(size: 30, accentColor: palette.accent)
@@ -101,50 +128,111 @@ public struct FullDashboardView: View {
                     Text(L10n.text(.appTitle, locale: locale))
                         .font(.headline)
                         .foregroundStyle(palette.primaryText)
-                    Text(L10n.text(presenter.state.helperConnected ? .helperConnected : .helperDryRun, locale: locale))
-                        .font(.caption2)
-                        .foregroundStyle(palette.secondaryText)
-                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(presenter.state.helperConnected ? palette.accent : palette.warning)
+                            .frame(width: 6, height: 6)
+                        Text(L10n.text(presenter.state.helperConnected ? .helperConnected : .helperDryRun, locale: locale))
+                            .font(.caption2)
+                            .foregroundStyle(palette.secondaryText)
+                            .lineLimit(1)
+                    }
                 }
                 Spacer()
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 14)
 
+            if let (telemetry, flow) = liveTelemetry {
+                let watts = flow.adapterInputWatts > 0 ? flow.adapterInputWatts : flow.systemLoadWatts
+                HStack(spacing: 8) {
+                    HStack(spacing: 5) {
+                        Image(systemName: telemetry.isCharging ? "bolt.fill" : (telemetry.isPluggedIn ? "powerplug.fill" : "battery.75percent"))
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(palette.accent)
+                        Text("\(telemetry.percentage)%")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                            .foregroundStyle(palette.primaryText)
+                    }
+
+                    Spacer()
+
+                    Text(String(format: "%.1f W", watts))
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .contentTransition(.numericText())
+                        .foregroundStyle(palette.secondaryText)
+
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(activeLEDColor)
+                            .frame(width: 7, height: 7)
+                            .shadow(color: activeLEDColor.opacity(0.75), radius: 3)
+                        Text("LED")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundStyle(palette.secondaryText)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(palette.surface)
+                    .clipShape(Capsule())
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(palette.background.opacity(0.65))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(palette.border.opacity(0.7), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
+            }
+
             VStack(spacing: 4) {
                 ForEach(DashboardSection.allCases) { section in
                     let isSelected = selectedSection == section
+                    let isHovered = hoveredSidebarSection == section
                     Button {
-                        selectedSection = section
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.85)) {
+                            selectedSection = section
+                        }
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: section.icon)
                                 .font(.system(size: 13, weight: .semibold))
                                 .frame(width: 18)
-                                .foregroundStyle(isSelected ? palette.accent : palette.secondaryText)
+                                .foregroundStyle(isSelected ? palette.accent : (isHovered ? palette.primaryText : palette.secondaryText))
                                 .accessibilityHidden(true)
                             Text(section.title(locale: locale))
                                 .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-                                .foregroundStyle(palette.primaryText)
+                                .foregroundStyle(isSelected ? palette.primaryText : (isHovered ? palette.primaryText : palette.secondaryText))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.9)
                             Spacer()
+                            if isSelected {
+                                Capsule()
+                                    .fill(palette.accent)
+                                    .frame(width: 3, height: 14)
+                            }
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(isSelected ? palette.accent.opacity(0.18) : Color.clear)
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(isSelected ? palette.accent.opacity(0.18) : (isHovered ? palette.background.opacity(0.55) : Color.clear))
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(isSelected ? palette.accent.opacity(0.55) : Color.clear, lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder(isSelected ? palette.accent.opacity(0.55) : Color.clear, lineWidth: 1)
                         )
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .focusEffectDisabled()
+                    .onHover { hovering in
+                        hoveredSidebarSection = hovering ? section : (hoveredSidebarSection == section ? nil : hoveredSidebarSection)
+                    }
                 }
             }
             .padding(.horizontal, 10)
@@ -156,30 +244,65 @@ public struct FullDashboardView: View {
                 .frame(height: 1)
 
             VStack(spacing: 8) {
-                Picker("", selection: Binding(
-                    get: { locale },
-                    set: { presenter.dispatch(.updateLocale($0)) }
-                )) {
+                HStack(spacing: 4) {
                     ForEach(AppLocale.allCases, id: \.self) { loc in
-                        Text(loc.rawValue.uppercased()).tag(loc)
+                        let isCurrent = locale == loc
+                        Button {
+                            presenter.dispatch(.updateLocale(loc))
+                        } label: {
+                            Text(loc.rawValue.uppercased())
+                                .font(.system(size: 11, weight: isCurrent ? .bold : .medium))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 5)
+                                .foregroundStyle(isCurrent ? (palette.isDark ? Color.black : Color.white) : palette.secondaryText)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(isCurrent ? palette.accent : Color.clear)
+                                )
+                                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .focusEffectDisabled()
                     }
                 }
-                .pickerStyle(.segmented)
+                .padding(3)
+                .background(palette.background.opacity(0.75))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(palette.border, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 HStack(spacing: 6) {
-                    Button(L10n.text(.minimizeToBackground, locale: locale)) {
+                    Button {
                         presenter.dispatch(.minimizeToBackground)
+                    } label: {
+                        Text(L10n.text(.minimizeToBackground, locale: locale))
+                            .font(.system(size: 11, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .foregroundStyle(palette.primaryText)
+                            .background(palette.background.opacity(0.7))
+                            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(palette.border, lineWidth: 1))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
-                    .buttonStyle(.bordered)
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.plain)
+                    .focusEffectDisabled()
 
-                    Button(L10n.text(.quit, locale: locale)) {
+                    Button {
                         presenter.dispatch(.quitApp)
+                    } label: {
+                        Text(L10n.text(.quit, locale: locale))
+                            .font(.system(size: 11, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .foregroundStyle(palette.danger)
+                            .background(palette.danger.opacity(0.12))
+                            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(palette.danger.opacity(0.45), lineWidth: 1))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
-                    .buttonStyle(.bordered)
-                    .tint(palette.danger)
+                    .buttonStyle(.plain)
+                    .focusEffectDisabled()
                 }
-                .controlSize(.small)
             }
             .padding(12)
         }
@@ -328,14 +451,10 @@ public struct FullDashboardView: View {
                     isVisible: presenter.state.isUIVisible
                 )
 
-                HStack(spacing: 16) {
-                    statCard(title: L10n.text(.batteryHealth, locale: locale), value: "\(telemetry.healthPercent)% (\(telemetry.cycleCount))", palette: palette)
-                    statCard(title: L10n.text(.temperature, locale: locale), value: String(format: "%.1f C", telemetry.temperatureCelsius), palette: palette)
-                    statCard(
-                        title: L10n.text(.timeRemaining, locale: locale),
-                        value: BatteryETAFormatter.text(for: presenter.state.batteryETA, locale: locale) ?? L10n.text(.etaCalculating, locale: locale),
-                        palette: palette
-                    )
+                HStack(spacing: 14) {
+                    healthGaugeCard(telemetry: telemetry, locale: locale, palette: palette)
+                    thermalZoneCard(telemetry: telemetry, maxAllowedTemp: presenter.state.settings.policy.maxTemperatureCelsius, locale: locale, palette: palette)
+                    timeAndModeCard(telemetry: telemetry, locale: locale, palette: palette)
                 }
 
                 batteryConditionDetailCard(telemetry: telemetry, flow: flow, locale: locale, palette: palette)
@@ -431,6 +550,46 @@ public struct FullDashboardView: View {
                     palette: palette
                 )
             }
+
+            // Visual Capacity Comparison Bar (Current mAh vs Max Capacity vs Design Capacity)
+            let designCap = Double(max(telemetry.designCapacityMah, 1))
+            let maxCapRatio = min(max(Double(telemetry.maxCapacityMah) / designCap, 0.05), 1.0)
+            let curMah = Double(telemetry.currentCapacityMah ?? Int(Double(telemetry.maxCapacityMah) * Double(telemetry.percentage) / 100.0))
+            let curRatio = min(max(curMah / designCap, 0.02), maxCapRatio)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack {
+                    Text("\(L10n.text(.currentCapacity, locale: locale)): \(Int(curMah)) mAh")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(palette.accent)
+                    Spacer()
+                    Text("\(L10n.text(.maxCapacity, locale: locale)): \(telemetry.maxCapacityMah) / \(telemetry.designCapacityMah) mAh (\(telemetry.healthPercent)%)")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(palette.secondaryText)
+                }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(palette.background)
+                        Capsule()
+                            .fill(palette.secondaryText.opacity(0.28))
+                            .frame(width: geo.size.width * CGFloat(maxCapRatio))
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [palette.accent.opacity(0.8), palette.accent],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geo.size.width * CGFloat(curRatio))
+                    }
+                }
+                .frame(height: 8)
+            }
+            .padding(10)
+            .background(palette.background.opacity(0.6))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(palette.border.opacity(0.6), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(L10n.text(.healthTrendTitle, locale: locale))
@@ -595,20 +754,152 @@ public struct FullDashboardView: View {
     }
 
     @ViewBuilder
-    private func statCard(title: String, value: String, palette: ThemePalette) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(palette.secondaryText)
-            Text(value)
-                .font(.title3.bold().monospacedDigit())
-                .foregroundStyle(palette.primaryText)
+    private func healthGaugeCard(telemetry: BatteryTelemetry, locale: AppLocale, palette: ThemePalette) -> some View {
+        let fraction = min(max(Double(telemetry.healthPercent) / 100.0, 0), 1)
+        let ringColor: Color = telemetry.healthPercent >= 85 ? palette.accent : (telemetry.healthPercent >= 80 ? palette.warning : palette.danger)
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .stroke(palette.border.opacity(0.6), lineWidth: 5.5)
+                Circle()
+                    .trim(from: 0, to: CGFloat(fraction))
+                    .stroke(ringColor, style: StrokeStyle(lineWidth: 5.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Text("\(telemetry.healthPercent)%")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(palette.primaryText)
+            }
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(L10n.text(.batteryHealth, locale: locale))
+                    .font(.caption)
+                    .foregroundStyle(palette.secondaryText)
+                Text("\(telemetry.healthPercent)%")
+                    .font(.title3.bold().monospacedDigit())
+                    .contentTransition(.numericText())
+                    .foregroundStyle(palette.primaryText)
+                Text("\(telemetry.cycleCount) \(L10n.text(.cycles, locale: locale).lowercased())")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(palette.secondaryText)
+            }
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(13)
         .background(palette.surface)
-        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius).stroke(palette.border, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous).strokeBorder(palette.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func thermalZoneCard(telemetry: BatteryTelemetry, maxAllowedTemp: Double, locale: AppLocale, palette: ThemePalette) -> some View {
+        let temp = telemetry.temperatureCelsius
+        let normalized = min(max((temp - 20.0) / 25.0, 0.04), 1.0)
+        let limitNorm = min(max((maxAllowedTemp - 20.0) / 25.0, 0.1), 0.98)
+        let tempColor: Color = temp >= maxAllowedTemp ? palette.danger : (temp >= maxAllowedTemp - 2.5 ? palette.warning : palette.accent)
+
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(L10n.text(.temperature, locale: locale))
+                    .font(.caption)
+                    .foregroundStyle(palette.secondaryText)
+                Spacer()
+                Text("Max \(Int(maxAllowedTemp)) C")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(palette.secondaryText)
+            }
+
+            Text(String(format: "%.1f C", temp))
+                .font(.title3.bold().monospacedDigit())
+                .contentTransition(.numericText())
+                .foregroundStyle(tempColor)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(palette.background)
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [palette.accent, palette.warning, palette.danger],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(geo.size.width * CGFloat(normalized), 6))
+                    Rectangle()
+                        .fill(palette.primaryText)
+                        .frame(width: 2, height: 10)
+                        .offset(x: geo.size.width * CGFloat(limitNorm))
+                }
+            }
+            .frame(height: 6)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(13)
+        .background(palette.surface)
+        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous).strokeBorder(palette.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func timeAndModeCard(telemetry: BatteryTelemetry, locale: AppLocale, palette: ThemePalette) -> some View {
+        let etaText = BatteryETAFormatter.text(for: presenter.state.batteryETA, locale: locale) ?? L10n.text(.etaCalculating, locale: locale)
+        let reason = presenter.state.lastReason
+        let modeBadge: (String, Color) = {
+            switch reason {
+            case .limitReached, .sailingPaused:
+                return (L10n.text(.bypassActiveBadge, locale: locale), palette.accent)
+            case .heatProtectionPaused:
+                return (L10n.text(.statusHeatPaused, locale: locale), palette.danger)
+            case .manualDischarge, .automaticDischarge:
+                return (L10n.text(.statusManualDischarge, locale: locale), palette.warning)
+            case .calibrationActive:
+                return (L10n.text(.statusCalibration, locale: locale), palette.warning)
+            case .topUpActive:
+                return (L10n.text(.statusTopUp, locale: locale), palette.accent)
+            case .sleepingInhibited:
+                return (L10n.text(.statusSleepingInhibited, locale: locale), palette.secondaryText)
+            case .normalCharging:
+                return telemetry.isPluggedIn
+                    ? (L10n.text(.statusCharging, locale: locale), palette.accent)
+                    : (L10n.text(.statusOnBattery, locale: locale), palette.warning)
+            }
+        }()
+
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(L10n.text(.timeRemaining, locale: locale))
+                    .font(.caption)
+                    .foregroundStyle(palette.secondaryText)
+                Spacer()
+                Text(modeBadge.0)
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(modeBadge.1.opacity(0.18))
+                    .foregroundStyle(modeBadge.1)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .lineLimit(1)
+            }
+            Text(etaText)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .contentTransition(.numericText())
+                .foregroundStyle(palette.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(String(format: "%+.2f A  |  %.2f V", telemetry.amperageAmps, telemetry.voltageVolts))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(palette.secondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(13)
+        .background(palette.surface)
+        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous).strokeBorder(palette.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous))
     }
 
     @ViewBuilder
@@ -879,36 +1170,52 @@ public struct FullDashboardView: View {
                     .background(palette.surface)
                     .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
             case .loaded(let apps):
+                let maxCPU = max(apps.map(\.cpuPercent).max() ?? 25.0, 25.0)
                 VStack(spacing: 8) {
                     ForEach(apps) { app in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(app.name)
-                                    .font(.headline)
-                                    .foregroundStyle(palette.primaryText)
-                                Text(String(format: "PID %d  |  CPU %.1f%%", app.pid, app.cpuPercent))
-                                    .font(.caption.monospaced())
-                                    .foregroundStyle(palette.secondaryText)
-                            }
-                            Spacer()
-                            Text(impactLabel(app.impact, locale: locale))
-                                .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(impactColor(app.impact, palette: palette).opacity(0.18))
-                                .foregroundStyle(impactColor(app.impact, palette: palette))
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        let barColor = impactColor(app.impact, palette: palette)
+                        let ratio = min(max(app.cpuPercent / maxCPU, 0.04), 1.0)
+                        VStack(alignment: .leading, spacing: 7) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(app.name)
+                                        .font(.headline)
+                                        .foregroundStyle(palette.primaryText)
+                                    Text(String(format: "PID %d  |  CPU %.1f%%", app.pid, app.cpuPercent))
+                                        .font(.caption.monospaced())
+                                        .foregroundStyle(palette.secondaryText)
+                                }
+                                Spacer()
+                                Text(impactLabel(app.impact, locale: locale))
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(barColor.opacity(0.18))
+                                    .foregroundStyle(barColor)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
-                            Button(L10n.text(.energyQuitApp, locale: locale)) {
-                                presenter.dispatch(.terminateEnergyApp(app.pid))
+                                Button(L10n.text(.energyQuitApp, locale: locale)) {
+                                    presenter.dispatch(.terminateEnergyApp(app.pid))
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(palette.danger)
                             }
-                            .buttonStyle(.bordered)
-                            .tint(palette.danger)
+
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule()
+                                        .fill(palette.background)
+                                    Capsule()
+                                        .fill(barColor)
+                                        .frame(width: geo.size.width * CGFloat(ratio))
+                                }
+                            }
+                            .frame(height: 5)
                         }
                         .padding(12)
                         .background(palette.surface)
-                        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius).stroke(palette.border, lineWidth: 1))
-                        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+                        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous).strokeBorder(palette.border, lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous))
                     }
                 }
             }
@@ -1989,33 +2296,96 @@ private struct HealthTrendChartView: View {
     let snapshots: [BatteryHealthSnapshot]
     let palette: ThemePalette
 
+    @State private var hoverRatio: CGFloat?
+
     var body: some View {
         let recent = Array(snapshots.suffix(30))
-        Canvas { graphics, size in
-            guard recent.count >= 2 else { return }
-            let values = recent.map { Double($0.healthPercent) }
-            let minVal = max((values.min() ?? 80) - 2, 0)
-            let maxVal = min((values.max() ?? 100) + 1, 100)
-            let span = max(maxVal - minVal, 1)
-            let stepX = size.width / CGFloat(recent.count - 1)
+        let hoveredSnap: BatteryHealthSnapshot? = {
+            guard let ratio = hoverRatio, !recent.isEmpty else { return nil }
+            let idx = min(max(Int((ratio * CGFloat(recent.count - 1)).rounded()), 0), recent.count - 1)
+            return recent[idx]
+        }()
 
-            var path = Path()
-            for (idx, val) in values.enumerated() {
-                let x = CGFloat(idx) * stepX
-                let normalized = (val - minVal) / span
-                let y = size.height - CGFloat(normalized) * (size.height - 8) - 4
-                if idx == 0 {
-                    path.move(to: CGPoint(x: x, y: y))
-                } else {
-                    path.addLine(to: CGPoint(x: x, y: y))
+        VStack(alignment: .leading, spacing: 4) {
+            if let snap = hoveredSnap {
+                Text(String(format: "%@  |  Health %d%%  |  %d cycles  |  Peak %.1f C", snap.id, snap.healthPercent, snap.cycleCount, snap.peakTemperatureCelsius))
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(palette.accent)
+            }
+
+            GeometryReader { geo in
+                Canvas { graphics, size in
+                    guard recent.count >= 2 else { return }
+                    let values = recent.map { Double($0.healthPercent) }
+                    let minVal = max((values.min() ?? 80) - 2, 0)
+                    let maxVal = min((values.max() ?? 100) + 1, 100)
+                    let span = max(maxVal - minVal, 1)
+                    let stepX = size.width / CGFloat(recent.count - 1)
+
+                    var path = Path()
+                    var area = Path()
+                    var lastPt: CGPoint = .zero
+
+                    for (idx, val) in values.enumerated() {
+                        let x = CGFloat(idx) * stepX
+                        let normalized = (val - minVal) / span
+                        let y = size.height - CGFloat(normalized) * (size.height - 10) - 5
+                        let pt = CGPoint(x: x, y: y)
+                        if idx == 0 {
+                            path.move(to: pt)
+                            area.move(to: CGPoint(x: x, y: size.height))
+                            area.addLine(to: pt)
+                        } else {
+                            path.addLine(to: pt)
+                            area.addLine(to: pt)
+                        }
+                        lastPt = pt
+                    }
+                    area.addLine(to: CGPoint(x: lastPt.x, y: size.height))
+                    area.closeSubpath()
+
+                    graphics.fill(
+                        area,
+                        with: .linearGradient(
+                            Gradient(colors: [palette.accent.opacity(0.30), palette.accent.opacity(0.02)]),
+                            startPoint: CGPoint(x: size.width / 2, y: 0),
+                            endPoint: CGPoint(x: size.width / 2, y: size.height)
+                        )
+                    )
+                    graphics.stroke(path, with: .color(palette.accent), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+
+                    for (idx, val) in values.enumerated() {
+                        let x = CGFloat(idx) * stepX
+                        let normalized = (val - minVal) / span
+                        let y = size.height - CGFloat(normalized) * (size.height - 10) - 5
+                        let dotRect = CGRect(x: x - 2.5, y: y - 2.5, width: 5, height: 5)
+                        graphics.fill(Path(ellipseIn: dotRect), with: .color(palette.accent))
+                    }
+
+                    if let ratio = hoverRatio {
+                        let idx = min(max(Int((ratio * CGFloat(recent.count - 1)).rounded()), 0), recent.count - 1)
+                        let hx = CGFloat(idx) * stepX
+                        var cursor = Path()
+                        cursor.move(to: CGPoint(x: hx, y: 0))
+                        cursor.addLine(to: CGPoint(x: hx, y: size.height))
+                        graphics.stroke(cursor, with: .color(palette.primaryText.opacity(0.5)), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                    }
+                }
+                .contentShape(Rectangle())
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let loc):
+                        hoverRatio = min(max(loc.x / max(geo.size.width, 1), 0), 1)
+                    case .ended:
+                        hoverRatio = nil
+                    }
                 }
             }
-            graphics.stroke(path, with: .color(palette.accent), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            .frame(height: 56)
+            .padding(8)
+            .background(palette.background)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .frame(height: 54)
-        .padding(8)
-        .background(palette.background)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityHidden(true)
     }
 }

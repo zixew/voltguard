@@ -461,24 +461,40 @@ public struct PopoverView: View {
 
     @ViewBuilder
     private func batteryHealthCard(telemetry: BatteryTelemetry, palette: ThemePalette, locale: AppLocale) -> some View {
+        let designCap = Double(max(telemetry.designCapacityMah, 1))
+        let maxCapRatio = min(max(Double(telemetry.maxCapacityMah) / designCap, 0.05), 1.0)
+        let curMah = Double(telemetry.currentCapacityMah ?? Int(Double(telemetry.maxCapacityMah) * Double(telemetry.percentage) / 100.0))
+        let curRatio = min(max(curMah / designCap, 0.02), maxCapRatio)
+
         VStack(spacing: 8) {
-            Button {
-                withAnimation(reduceMotion ? nil : .easeInOut(duration: MotionConstants.uiTransitionDuration)) {
+            HStack(spacing: 8) {
+                healthCell(label: L10n.text(.batteryHealth, locale: locale), value: "\(telemetry.healthPercent)%", palette: palette)
+                healthCell(label: L10n.text(.cycles, locale: locale), value: "\(telemetry.cycleCount)", palette: palette)
+                healthCell(label: L10n.text(.temperature, locale: locale), value: String(format: "%.1f°C", telemetry.temperatureCelsius), palette: palette)
+                Image(systemName: isHealthExpanded ? "chevron.up.circle.fill" : "chevron.down.circle")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(isHealthExpanded ? palette.accent : palette.secondaryText)
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.82)) {
                     isHealthExpanded.toggle()
                 }
-            } label: {
-                HStack(spacing: 8) {
-                    healthCell(label: L10n.text(.batteryHealth, locale: locale), value: "\(telemetry.healthPercent)%", palette: palette)
-                    healthCell(label: L10n.text(.cycles, locale: locale), value: "\(telemetry.cycleCount)", palette: palette)
-                    healthCell(label: L10n.text(.temperature, locale: locale), value: String(format: "%.1f°C", telemetry.temperatureCelsius), palette: palette)
-                    Image(systemName: isHealthExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(palette.secondaryText)
-                        .accessibilityHidden(true)
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(palette.background)
+                    Capsule()
+                        .fill(palette.secondaryText.opacity(0.28))
+                        .frame(width: geo.size.width * CGFloat(maxCapRatio))
+                    Capsule()
+                        .fill(palette.accent)
+                        .frame(width: geo.size.width * CGFloat(curRatio))
                 }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text(L10n.text(.batteryHealth, locale: locale)))
+            .frame(height: 4.5)
 
             if isHealthExpanded {
                 Divider()
@@ -511,13 +527,13 @@ public struct PopoverView: View {
                         palette: palette
                     )
                 }
-                .transition(.opacity)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(10)
         .background(palette.surface)
-        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius).stroke(palette.border, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous).strokeBorder(palette.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous))
     }
 
     @ViewBuilder

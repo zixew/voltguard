@@ -272,12 +272,18 @@ public struct PowerTopologyCardView: View {
         let isBypassing = telemetry.isPluggedIn
             && !telemetry.isCharging
             && abs(flow.batteryNetWatts) < MotionConstants.activeFlowWattThreshold
+        let maxRefWatts = max(flow.adapterInputWatts, flow.systemLoadWatts, abs(flow.batteryNetWatts), 30.0)
 
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(L10n.text(.livePowerFlow, locale: locale))
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(palette.primaryText)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(telemetry.isPluggedIn ? palette.accent : palette.warning)
+                        .frame(width: 7, height: 7)
+                    Text(L10n.text(.livePowerFlow, locale: locale))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(palette.primaryText)
+                }
                 if isBypassing {
                     HStack(spacing: 4) {
                         Image(systemName: "bolt.horizontal.circle.fill")
@@ -293,17 +299,20 @@ public struct PowerTopologyCardView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 5))
                 }
                 Spacer()
-                Button {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: MotionConstants.uiTransitionDuration)) {
-                        isExpanded.toggle()
-                    }
-                } label: {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+                HStack(spacing: 6) {
+                    Text(String(format: "%.1fV  %.2fA", telemetry.voltageVolts, telemetry.amperageAmps))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundStyle(palette.secondaryText)
+                    Image(systemName: isExpanded ? "chevron.up.circle.fill" : "chevron.down.circle")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(isExpanded ? palette.accent : palette.secondaryText)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Toggle telemetry details"))
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.82)) {
+                    isExpanded.toggle()
+                }
             }
 
             if isBypassing {
@@ -317,18 +326,24 @@ public struct PowerTopologyCardView: View {
                     icon: "powerplug.fill",
                     label: L10n.text(.adapterInput, locale: locale),
                     watts: flow.adapterInputWatts,
+                    ratio: min(max(flow.adapterInputWatts / maxRefWatts, 0), 1),
+                    tone: telemetry.isPluggedIn ? palette.accent : palette.secondaryText,
                     active: telemetry.isPluggedIn
                 )
                 topologyNode(
                     icon: "laptopcomputer",
                     label: L10n.text(.systemLoad, locale: locale),
                     watts: flow.systemLoadWatts,
+                    ratio: min(max(flow.systemLoadWatts / maxRefWatts, 0.08), 1),
+                    tone: palette.accent,
                     active: true
                 )
                 topologyNode(
-                    icon: "battery.100percent",
+                    icon: isBypassing ? "bolt.horizontal.fill" : (flow.batteryNetWatts < -0.5 ? "arrow.down.circle.fill" : "battery.100percent.bolt"),
                     label: L10n.text(.batteryNet, locale: locale),
                     watts: flow.batteryNetWatts,
+                    ratio: min(max(abs(flow.batteryNetWatts) / maxRefWatts, 0), 1),
+                    tone: flow.batteryNetWatts < -0.5 ? palette.warning : palette.accent,
                     active: abs(flow.batteryNetWatts) >= MotionConstants.activeFlowWattThreshold
                 )
             }
@@ -342,13 +357,11 @@ public struct PowerTopologyCardView: View {
             )
 
             if isExpanded {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(String(format: "%.2f V", telemetry.voltageVolts))
-                        Spacer()
-                        Text(String(format: "%.2f A", telemetry.amperageAmps))
-                        Spacer()
-                        Text(String(format: "%.1f C", telemetry.temperatureCelsius))
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        telemetryPill(icon: "bolt.circle", text: String(format: "%.2f V", telemetry.voltageVolts), palette: palette)
+                        telemetryPill(icon: "waveform.path.ecg", text: String(format: "%+.2f A", telemetry.amperageAmps), palette: palette)
+                        telemetryPill(icon: "thermometer.medium", text: String(format: "%.1f C", telemetry.temperatureCelsius), palette: palette)
                     }
                     let etaLabel = BatteryETAFormatter.text(for: batteryETA, locale: locale)
                     if telemetry.isPluggedIn || etaLabel != nil {
@@ -361,45 +374,78 @@ public struct PowerTopologyCardView: View {
                             Spacer()
                             if let etaLabel {
                                 Text("\(L10n.text(.timeRemaining, locale: locale)): \(etaLabel)")
+                                    .foregroundStyle(palette.accent)
                             }
                         }
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(palette.secondaryText)
                     }
                 }
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(palette.secondaryText)
                 .padding(.top, 2)
-                .transition(.opacity)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(12)
         .background(palette.surface)
-        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius).stroke(palette.border, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous).strokeBorder(palette.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous))
     }
 
     @ViewBuilder
-    private func topologyNode(icon: String, label: String, watts: Double, active: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+    private func telemetryPill(icon: String, text: String, palette: ThemePalette) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(palette.accent)
+            Text(text)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(palette.primaryText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 5)
+        .background(palette.background.opacity(0.75))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(palette.border.opacity(0.7), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func topologyNode(icon: String, label: String, watts: Double, ratio: Double, tone: Color, active: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(active ? palette.accent : palette.secondaryText)
+                    .foregroundStyle(active ? tone : palette.secondaryText)
                     .accessibilityHidden(true)
                 Text(label)
-                    .font(.system(size: 10))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(palette.secondaryText)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
             Text(String(format: "%.1f W", watts))
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
                 .contentTransition(.numericText())
-                .foregroundStyle(palette.primaryText)
+                .foregroundStyle(active ? palette.primaryText : palette.secondaryText)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(palette.border.opacity(0.45))
+                    Capsule()
+                        .fill(active ? tone : palette.secondaryText.opacity(0.35))
+                        .frame(width: max(geo.size.width * CGFloat(ratio), active ? 6 : 2))
+                }
+            }
+            .frame(height: 3.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(8)
-        .background(palette.background)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(9)
+        .background(palette.background.opacity(0.78))
+        .overlay(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(active ? tone.opacity(0.45) : palette.border.opacity(0.55), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 }
 
@@ -407,30 +453,110 @@ public struct TelemetrySparklineView: View {
     public let samples: [TelemetrySample]
     public let palette: ThemePalette
 
+    @State private var hoverRatio: CGFloat?
+
     public init(samples: [TelemetrySample], palette: ThemePalette) {
         self.samples = samples
         self.palette = palette
     }
 
     public var body: some View {
-        Canvas { graphics, size in
-            guard samples.count >= 2 else { return }
-            let maxW = max(samples.map(\.watts).max() ?? 10, 10)
-            let stepX = size.width / CGFloat(samples.count - 1)
+        let wattsList = samples.map(\.watts)
+        let peakW = wattsList.max() ?? 0
+        let avgW = wattsList.isEmpty ? 0 : (wattsList.reduce(0, +) / Double(wattsList.count))
+        let hoveredSample: TelemetrySample? = {
+            guard let ratio = hoverRatio, !samples.isEmpty else { return nil }
+            let idx = min(max(Int((ratio * CGFloat(samples.count - 1)).rounded()), 0), samples.count - 1)
+            return samples[idx]
+        }()
 
-            var line = Path()
-            for (idx, sample) in samples.enumerated() {
-                let x = CGFloat(idx) * stepX
-                let y = size.height - (CGFloat(sample.watts / maxW) * (size.height - 6)) - 3
-                if idx == 0 {
-                    line.move(to: CGPoint(x: x, y: y))
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                if let hoveredSample {
+                    Text(String(format: "Live Sample: %.1f W  |  %.1f C", hoveredSample.watts, hoveredSample.temperatureCelsius))
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(palette.accent)
                 } else {
-                    line.addLine(to: CGPoint(x: x, y: y))
+                    Text(String(format: "Avg %.1f W  |  Peak %.1f W", avgW, peakW))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(palette.secondaryText)
+                }
+                Spacer()
+            }
+
+            GeometryReader { geo in
+                Canvas { graphics, size in
+                    guard samples.count >= 2 else { return }
+                    let maxW = max(samples.map(\.watts).max() ?? 10, 10) * 1.08
+                    let stepX = size.width / CGFloat(samples.count - 1)
+
+                    var line = Path()
+                    var area = Path()
+                    var lastPt: CGPoint = .zero
+
+                    for (idx, sample) in samples.enumerated() {
+                        let x = CGFloat(idx) * stepX
+                        let y = size.height - (CGFloat(sample.watts / maxW) * (size.height - 8)) - 4
+                        let pt = CGPoint(x: x, y: y)
+                        if idx == 0 {
+                            line.move(to: pt)
+                            area.move(to: CGPoint(x: x, y: size.height))
+                            area.addLine(to: pt)
+                        } else {
+                            line.addLine(to: pt)
+                            area.addLine(to: pt)
+                        }
+                        lastPt = pt
+                    }
+                    area.addLine(to: CGPoint(x: lastPt.x, y: size.height))
+                    area.closeSubpath()
+
+                    graphics.fill(
+                        area,
+                        with: .linearGradient(
+                            Gradient(colors: [palette.accent.opacity(0.32), palette.accent.opacity(0.02)]),
+                            startPoint: CGPoint(x: size.width / 2, y: 0),
+                            endPoint: CGPoint(x: size.width / 2, y: size.height)
+                        )
+                    )
+                    graphics.stroke(line, with: .color(palette.accent), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+
+                    // Live endpoint dot
+                    let liveHalo = CGRect(x: lastPt.x - 5, y: lastPt.y - 5, width: 10, height: 10)
+                    let liveCore = CGRect(x: lastPt.x - 2.5, y: lastPt.y - 2.5, width: 5, height: 5)
+                    graphics.fill(Path(ellipseIn: liveHalo), with: .color(palette.accent.opacity(0.28)))
+                    graphics.fill(Path(ellipseIn: liveCore), with: .color(palette.accent))
+
+                    // Hover crosshair and marker
+                    if let ratio = hoverRatio {
+                        let idx = min(max(Int((ratio * CGFloat(samples.count - 1)).rounded()), 0), samples.count - 1)
+                        let hx = CGFloat(idx) * stepX
+                        let hy = size.height - (CGFloat(samples[idx].watts / maxW) * (size.height - 8)) - 4
+                        var cursorLine = Path()
+                        cursorLine.move(to: CGPoint(x: hx, y: 0))
+                        cursorLine.addLine(to: CGPoint(x: hx, y: size.height))
+                        graphics.stroke(cursorLine, with: .color(palette.primaryText.opacity(0.45)), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+
+                        let marker = CGRect(x: hx - 3.5, y: hy - 3.5, width: 7, height: 7)
+                        graphics.fill(Path(ellipseIn: marker), with: .color(palette.primaryText))
+                    }
+                }
+                .contentShape(Rectangle())
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active(let loc):
+                        hoverRatio = min(max(loc.x / max(geo.size.width, 1), 0), 1)
+                    case .ended:
+                        hoverRatio = nil
+                    }
                 }
             }
-            graphics.stroke(line, with: .color(palette.accent), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            .frame(height: 46)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
+            .background(palette.background.opacity(0.55))
+            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
-        .frame(height: 48)
         .accessibilityHidden(true)
     }
 }
@@ -477,47 +603,54 @@ public struct LivePowerFlowStreamView: View {
 
             Canvas { graphics, size in
                 let y = size.height / 2
-                let startX: CGFloat = 6
+                let startX: CGFloat = 8
                 let midX: CGFloat = size.width / 2
-                let endX: CGFloat = size.width - 6
-                let leftSpan = max(midX - startX - 6, 1)
-                let rightSpan = max(endX - (midX + 6), 1)
+                let endX: CGFloat = size.width - 8
+                let leftSpan = max(midX - startX - 8, 1)
+                let rightSpan = max(endX - (midX + 8), 1)
 
                 var leftTrack = Path()
                 leftTrack.move(to: CGPoint(x: startX, y: y))
-                leftTrack.addLine(to: CGPoint(x: midX - 5, y: y))
-                graphics.stroke(leftTrack, with: .color(hasAdapterFlow ? palette.accent.opacity(0.35) : palette.border), lineWidth: 2)
+                leftTrack.addLine(to: CGPoint(x: midX - 7, y: y))
+                graphics.stroke(leftTrack, with: .color(hasAdapterFlow ? palette.accent.opacity(0.32) : palette.border.opacity(0.6)), style: StrokeStyle(lineWidth: 3, lineCap: .round))
 
                 var rightTrack = Path()
-                rightTrack.move(to: CGPoint(x: midX + 5, y: y))
+                rightTrack.move(to: CGPoint(x: midX + 7, y: y))
                 rightTrack.addLine(to: CGPoint(x: endX, y: y))
-                graphics.stroke(rightTrack, with: .color(hasBatteryFlow ? batteryFlowColor.opacity(0.35) : palette.border), lineWidth: 2)
+                graphics.stroke(rightTrack, with: .color(hasBatteryFlow ? batteryFlowColor.opacity(0.32) : palette.border.opacity(0.6)), style: StrokeStyle(lineWidth: 3, lineCap: .round))
 
-                let hubRect = CGRect(x: midX - 3, y: y - 3, width: 6, height: 6)
-                graphics.fill(Path(ellipseIn: hubRect), with: .color(palette.secondaryText.opacity(0.6)))
+                // Central Mac Hub Node with outer ring
+                let hubOuter = CGRect(x: midX - 6, y: y - 6, width: 12, height: 12)
+                let hubInner = CGRect(x: midX - 3, y: y - 3, width: 6, height: 6)
+                graphics.fill(Path(ellipseIn: hubOuter), with: .color((hasAdapterFlow ? palette.accent : batteryFlowColor).opacity(0.22)))
+                graphics.fill(Path(ellipseIn: hubInner), with: .color(hasAdapterFlow || hasBatteryFlow ? palette.accent : palette.secondaryText))
 
                 if hasAdapterFlow {
-                    let dotCount = 3
+                    let dotCount = 4
                     for index in 0..<dotCount {
                         let offset = (phase + Double(index) / Double(dotCount)).truncatingRemainder(dividingBy: 1.0)
                         let x = startX + CGFloat(offset) * leftSpan
-                        let dotRect = CGRect(x: x - 3, y: y - 3, width: 6, height: 6)
-                        graphics.fill(Path(ellipseIn: dotRect), with: .color(palette.accent))
+                        let haloRect = CGRect(x: x - 5.5, y: y - 5.5, width: 11, height: 11)
+                        let coreRect = CGRect(x: x - 2.8, y: y - 2.8, width: 5.6, height: 5.6)
+                        graphics.fill(Path(ellipseIn: haloRect), with: .color(palette.accent.opacity(0.24)))
+                        graphics.fill(Path(ellipseIn: coreRect), with: .color(palette.accent))
                     }
                 }
 
                 if hasBatteryFlow {
-                    let dotCount = 3
+                    let dotCount = 4
                     for index in 0..<dotCount {
                         let rawOffset = (phase + Double(index) / Double(dotCount)).truncatingRemainder(dividingBy: 1.0)
                         let directed = isDischarging ? (1.0 - rawOffset) : rawOffset
-                        let x = (midX + 6) + CGFloat(directed) * rightSpan
-                        let dotRect = CGRect(x: x - 3, y: y - 3, width: 6, height: 6)
-                        graphics.fill(Path(ellipseIn: dotRect), with: .color(batteryFlowColor))
+                        let x = (midX + 8) + CGFloat(directed) * rightSpan
+                        let haloRect = CGRect(x: x - 5.5, y: y - 5.5, width: 11, height: 11)
+                        let coreRect = CGRect(x: x - 2.8, y: y - 2.8, width: 5.6, height: 5.6)
+                        graphics.fill(Path(ellipseIn: haloRect), with: .color(batteryFlowColor.opacity(0.24)))
+                        graphics.fill(Path(ellipseIn: coreRect), with: .color(batteryFlowColor))
                     }
                 }
             }
-            .frame(height: 12)
+            .frame(height: 16)
         }
         .accessibilityHidden(true)
     }
