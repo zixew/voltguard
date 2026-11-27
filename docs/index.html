@@ -15,7 +15,7 @@
     <div class="container masthead__inner">
       <a class="wordmark" href="#top">
         <span class="wordmark__badge">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 2.5L4.5 5.6V11.8C4.5 16.5 7.7 20.6 12 22C16.3 20.6 19.5 16.5 19.5 11.8V5.6L12 2.5Z" stroke="currentColor" stroke-width="1.8"/>
             <path d="M13.2 6.8L8.9 12.6H12.2L10.8 17.2L15.1 11.4H11.8L13.2 6.8Z" fill="currentColor"/>
           </svg>
@@ -27,7 +27,7 @@
         <a href="#calibration">Calibration</a>
         <a href="#compatibility">Devices</a>
         <a href="#download">Download</a>
-        <a class="btn btn--primary btn--sm" href="./downloads/VoltGuard.dmg">Download Mac App</a>
+        <a class="btn btn--primary btn--sm" href="./downloads/VoltGuard.dmg">Download App</a>
       </nav>
     </div>
   </header>
@@ -36,21 +36,23 @@
     <section class="hero">
       <div class="container hero__stage-grid">
         <div class="hero__copy">
-          <span class="chip chip--emerald">VoltGuard 1.2 for macOS &amp; iPhone</span>
           <h1>Protect your Mac battery lifespan</h1>
           <p class="lead">Hold daily charging near 80%, pause during heat, and preserve capacity.</p>
           <div class="hero__actions">
             <a class="btn btn--primary" href="./downloads/VoltGuard.dmg">Download for macOS</a>
             <a class="btn" href="#features">Explore Features</a>
           </div>
-          <p class="hero__meta">For Apple Silicon and Intel Macs (macOS 13 and newer), paired with iPhone and iPad.</p>
+          <p class="hero__meta">Version 1.2 for macOS 13 and newer, paired with iPhone and iPad</p>
         </div>
 
         <div class="screen-frame">
-          <img src="./assets/voltguard-hero-showcase.png" alt="VoltGuard desktop dashboard displaying charge limit slider, thermal guard card, and real-time power flow">
+          <img id="hero-media" src="./assets/voltguard-hero-showcase.png" data-design="./assets/voltguard-hero-showcase.png" data-gif="./assets/voltguard-live-motion.gif" alt="VoltGuard macOS window showing charge limit controls, animated battery cell, and thermal zone monitor">
           <div class="screen-frame__bar">
-            <span>VoltGuard Desktop Overview</span>
-            <span class="measured">Smart Limit, Heat Guard, Power Flow</span>
+            <span id="hero-caption">Overview Design Preview</span>
+            <div class="mode-toggle" role="group" aria-label="Preview format">
+              <button class="mode-toggle__btn" type="button" id="btn-hero-design" aria-pressed="true">Design PNG</button>
+              <button class="mode-toggle__btn" type="button" id="btn-hero-gif" aria-pressed="false">Live Motion GIF</button>
+            </div>
           </div>
         </div>
       </div>
@@ -60,28 +62,32 @@
       <div class="container">
         <div class="section__head">
           <h2>Designed for long-term battery health</h2>
-          <p class="lead">Switch views to inspect daily protection, guided calibration, and automatic app updates.</p>
+          <p class="lead">Mix live motion animations with interface screens to inspect every tool inside VoltGuard.</p>
         </div>
 
         <div class="switcher-controls" role="tablist" aria-label="VoltGuard features">
-          <button class="switcher-tab" role="tab" id="tab-thermal" aria-selected="true" aria-controls="panel-thermal">Limit &amp; Cooling</button>
-          <button class="switcher-tab" role="tab" id="tab-calibration" aria-selected="false" aria-controls="panel-calibration">Calibration &amp; Themes</button>
-          <button class="switcher-tab" role="tab" id="tab-diagnostics" aria-selected="false" aria-controls="panel-diagnostics">Safety &amp; Updates</button>
+          <button class="switcher-tab" role="tab" id="tab-thermal" aria-selected="true" aria-controls="panel-thermal">Live Charging GIF</button>
+          <button class="switcher-tab" role="tab" id="tab-calibration" aria-selected="false" aria-controls="panel-calibration">Calibration Motion</button>
+          <button class="switcher-tab" role="tab" id="tab-diagnostics" aria-selected="false" aria-controls="panel-diagnostics">Safety &amp; Design</button>
         </div>
 
         <div class="switcher-panel" role="tabpanel" id="panel-thermal" aria-labelledby="tab-thermal">
           <div class="switcher-panel__media">
-            <img src="./assets/voltguard-hero-showcase.png" alt="Charge limit slider, live temperature protection, and charger verifier inside VoltGuard">
+            <img src="./assets/voltguard-live-motion.gif" alt="Animated preview of VoltGuard battery wave rising toward the 80% target limit alongside power flow and thermal bar">
+            <div class="switcher-panel__caption">
+              <span>Live Motion Capture (GIF)</span>
+              <span>Liquid Battery, Power Flow, Heat Bar</span>
+            </div>
           </div>
           <div class="switcher-panel__body">
             <div>
               <h3>Stay at 80% on desk days, charge cooler</h3>
-              <p>Keep desk-plugged MacBooks away from stressful 100% full states while automatically pausing charge when the battery gets warm.</p>
+              <p>Keep desk-plugged MacBooks away from stressful full states while automatically pausing charging when temperatures climb.</p>
             </div>
             <ul class="spec-list">
               <li><span class="spec-list__k">Daily charge limit</span><span class="spec-list__v measured">20% to 100%</span></li>
               <li><span class="spec-list__k">Thermal protection</span><span class="spec-list__v">Auto-pause when warm</span></li>
-              <li><span class="spec-list__k">Charger check</span><span class="spec-list__v">Live fast-charge readout</span></li>
+              <li><span class="spec-list__k">Charger check</span><span class="spec-list__v">Live power readout</span></li>
               <li><span class="spec-list__k">Exit behavior</span><span class="spec-list__v">Restore 100% option</span></li>
             </ul>
           </div>
@@ -89,16 +95,20 @@
 
         <div class="switcher-panel" role="tabpanel" id="panel-calibration" aria-labelledby="tab-calibration" hidden>
           <div class="switcher-panel__media">
-            <img src="./assets/voltguard-themes-calibration.png" alt="Five-stage battery calibration tracker and four custom themes across Mac and iPhone">
+            <img src="./assets/voltguard-calibration-motion.gif" alt="Animated preview of the 5-stage battery calibration tracker completing and recording Before vs After capacity results">
+            <div class="switcher-panel__caption">
+              <span>Animated Cycle Walkthrough (GIF)</span>
+              <span>5 Stages and Result Log</span>
+            </div>
           </div>
           <div class="switcher-panel__body">
             <div>
               <h3>Clear calibration results and synced themes</h3>
-              <p>Guided 5-stage calibration recalibrates battery percentage accuracy and compares Before vs After health capacity alongside four visual themes.</p>
+              <p>Guided 5-stage calibration restores battery percentage accuracy and compares Before vs After health capacity with four calm themes.</p>
             </div>
             <ul class="spec-list">
               <li><span class="spec-list__k">Guided calibration</span><span class="spec-list__v">5 automated stages</span></li>
-              <li><span class="spec-list__k">Clear outcome</span><span class="spec-list__v">Before vs After comparison</span></li>
+              <li><span class="spec-list__k">Clear outcome</span><span class="spec-list__v">Before vs After delta</span></li>
               <li><span class="spec-list__k">Visual themes</span><span class="spec-list__v">Obsidian, Light, Mist, Amber</span></li>
               <li><span class="spec-list__k">Languages</span><span class="spec-list__v">English and Indonesian</span></li>
             </ul>
@@ -107,17 +117,21 @@
 
         <div class="switcher-panel" role="tabpanel" id="panel-diagnostics" aria-labelledby="tab-diagnostics" hidden>
           <div class="switcher-panel__media">
-            <img src="./assets/voltguard-diagnostics-energy.png" alt="Built-in system safety checks and energy monitor inside VoltGuard">
+            <img src="./assets/voltguard-themes-calibration.png" alt="Side-by-side static design view of VoltGuard Paper Light theme and Calibration Schedule view">
+            <div class="switcher-panel__caption">
+              <span>Full Interface Design (PNG)</span>
+              <span>Themes and Daily Schedule</span>
+            </div>
           </div>
           <div class="switcher-panel__body">
             <div>
               <h3>Self-checks and quiet one-click updates</h3>
-              <p>VoltGuard checks sensor compatibility once per device, monitors high-drain apps, and installs app updates cleanly in the background.</p>
+              <p>VoltGuard verifies device capabilities once per machine, tracks high-drain apps, and installs app updates cleanly with automatic cleanup.</p>
             </div>
             <ul class="spec-list">
               <li><span class="spec-list__k">Compatibility check</span><span class="spec-list__v">Runs automatically once</span></li>
               <li><span class="spec-list__k">Energy monitor</span><span class="spec-list__v">Spots battery-draining apps</span></li>
-              <li><span class="spec-list__k">Built-in updater</span><span class="spec-list__v">Downloads and replaces app</span></li>
+              <li><span class="spec-list__k">Built-in updater</span><span class="spec-list__v">Downloads and installs app</span></li>
               <li><span class="spec-list__k">Auto cleanup</span><span class="spec-list__v">Removes installer after update</span></li>
             </ul>
           </div>
@@ -152,7 +166,7 @@
             <div class="diff-row diff-row--changed">
               <span>Drifted battery percentage</span>
               <span class="diff-old">Sudden shutdown near 15%</span>
-              <span class="diff-new">Calibrated Before &amp; After log</span>
+              <span class="diff-new">Calibrated Before vs After log</span>
             </div>
             <div class="diff-row diff-row--changed">
               <span>Quitting the app</span>
@@ -164,11 +178,11 @@
           <div class="trail" aria-label="Latest update highlights">
             <article class="trail__item">
               <div class="trail__meta">
-                <span class="chip chip--emerald measured">Version 1.2.0</span>
-                <span class="trail__date measured">2026-11-27</span>
+                <span>Version 1.2.0</span>
+                <span class="trail__date">2026-11-27</span>
               </div>
               <h3 class="trail__title">Interactive Thermal Card, Calibration Outcomes &amp; Built-in Updates</h3>
-              <p class="trail__note">Adds accurate temperature tracking on modern Macs, interactive thermal controls, Before vs After calibration records, Restore on Quit, and dedicated in-app updates.</p>
+              <p class="trail__note">Adds live temperature tracking on modern Macs, interactive thermal controls, Before vs After calibration records, Restore on Quit, and dedicated in-app updates.</p>
             </article>
           </div>
         </div>
@@ -179,7 +193,7 @@
       <div class="container">
         <div class="section__head">
           <h2>Works across Apple devices</h2>
-          <p class="lead">Unsupported features are automatically hidden based on your hardware so every control works cleanly.</p>
+          <p class="lead">Unsupported features stay disabled automatically based on your device so every control works reliably.</p>
         </div>
 
         <div class="matrix-wrap">
@@ -233,7 +247,7 @@
         <div class="screen-frame">
           <img src="./assets/voltguard-diagnostics-energy.png" alt="VoltGuard health diagnostics and background app energy monitor">
           <div class="screen-frame__bar">
-            <span>VoltGuard Self-Checks &amp; Energy Monitor</span>
+            <span>VoltGuard Self-Checks Design Preview</span>
             <span class="measured">Version 1.2.0</span>
           </div>
         </div>
@@ -258,6 +272,25 @@
 
   <script>
     (function () {
+      const heroMedia = document.getElementById('hero-media');
+      const heroCaption = document.getElementById('hero-caption');
+      const btnDesign = document.getElementById('btn-hero-design');
+      const btnGif = document.getElementById('btn-hero-gif');
+      if (heroMedia && btnDesign && btnGif) {
+        btnDesign.addEventListener('click', () => {
+          heroMedia.src = heroMedia.dataset.design;
+          heroCaption.textContent = 'Overview Design Preview';
+          btnDesign.setAttribute('aria-pressed', 'true');
+          btnGif.setAttribute('aria-pressed', 'false');
+        });
+        btnGif.addEventListener('click', () => {
+          heroMedia.src = heroMedia.dataset.gif;
+          heroCaption.textContent = 'Live Animated Motion (GIF)';
+          btnGif.setAttribute('aria-pressed', 'true');
+          btnDesign.setAttribute('aria-pressed', 'false');
+        });
+      }
+
       const tabs = Array.from(document.querySelectorAll('.switcher-tab'));
       const panels = Array.from(document.querySelectorAll('.switcher-panel'));
       if (!tabs.length) return;

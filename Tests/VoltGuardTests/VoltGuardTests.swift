@@ -1,5 +1,7 @@
 import AppKit
+import ImageIO
 import SwiftUI
+import UniformTypeIdentifiers
 import XCTest
 @testable import VoltGuardDomain
 @testable import VoltGuardData
@@ -1064,6 +1066,200 @@ final class VoltGuardTests: XCTestCase {
 
         let diagEnergyCanvas = Self.buildDiagnosticsAndEnergyCanvas(presenter: presenter)
         try Self.saveViewAsPNG(diagEnergyCanvas, size: CGSize(width: 1760, height: 1020), to: outDir.appendingPathComponent("voltguard-diagnostics-energy.png"))
+
+        // Render real live motion GIFs directly from SwiftUI views.
+        let palette = ThemePalette.resolve(ThemeConfig(preset: .nordicMist))
+        let motionFrames: [AnyView] = (0..<16).map { idx in
+            let progress = Double(idx) / 15.0
+            let pct = idx < 11 ? (74 + (idx / 2)) : 80
+            let holdingAtLimit = pct >= 80
+            let watts = holdingAtLimit ? 19.2 : (48.0 - progress * 8.0)
+            let netAmps = holdingAtLimit ? 0.0 : (1.9 - progress * 0.7)
+            let netWatts = holdingAtLimit ? 0.0 : (watts - 18.4)
+            let temp = 30.1 + sin(progress * .pi) * 1.4
+            let t = BatteryTelemetry(
+                percentage: pct,
+                isCharging: !holdingAtLimit,
+                isPluggedIn: true,
+                temperatureCelsius: temp,
+                voltageVolts: 12.6,
+                amperageAmps: netAmps,
+                adapterWatts: watts,
+                cycleCount: 210,
+                currentCapacityMah: pct * 43,
+                maxCapacityMah: 4295,
+                designCapacityMah: 4629,
+                batteryThermalSensors: [temp, temp - 0.1, temp + 0.1],
+                palmRestTemperatureCelsius: temp - 0.6
+            )
+            let flow = PowerFlowMetrics(adapterInputWatts: watts, batteryNetWatts: netWatts, systemLoadWatts: 18.4)
+            return AnyView(
+                ZStack {
+                    Color(hex: "#1D2228")
+                    VStack(spacing: 16) {
+                        HStack {
+                            BrandLogoView(size: 30, accentColor: palette.accent)
+                            Text("VoltGuard Live Charging & Thermal Motion")
+                                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color(hex: "#CBD3DA"))
+                            Spacer()
+                            Text(holdingAtLimit ? "80% Target Hold" : "Charging \(pct)%")
+                                .font(.system(size: 12, weight: .semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(palette.accent.opacity(0.18))
+                                .foregroundStyle(palette.accent)
+                                .clipShape(Capsule())
+                        }
+
+                        HStack(spacing: 20) {
+                            VStack(spacing: 12) {
+                                LiquidBatteryCellView(
+                                    percentage: pct,
+                                    limitPercent: 80,
+                                    sailingDeltaPercent: 5,
+                                    temperatureCelsius: temp,
+                                    colorStyle: .adaptiveSpectrum,
+                                    mode: holdingAtLimit ? .limitReached : .charging,
+                                    palette: palette,
+                                    isVisible: true,
+                                    width: 112,
+                                    height: 174
+                                )
+                                Text(holdingAtLimit ? "Hold Active" : "Charging to 80%")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(Color(hex: "#9AA7B8"))
+                            }
+                            .frame(width: 200, height: 290)
+                            .background(Color(hex: "#262C34"))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                            VStack(spacing: 14) {
+                                PowerTopologyCardView(
+                                    telemetry: t,
+                                    flow: flow,
+                                    palette: palette,
+                                    locale: .en,
+                                    batteryETA: BatteryETA(kind: holdingAtLimit ? .steady : .toTargetLimit, minutes: holdingAtLimit ? nil : max(11 - idx, 1), targetPercent: 80),
+                                    isVisible: true
+                                )
+                                InteractiveThermalZoneCard(
+                                    telemetry: t,
+                                    maxAllowedTemp: 35.0,
+                                    heatProtectionEnabled: true,
+                                    locale: .en,
+                                    palette: palette,
+                                    isVisible: true,
+                                    onAdjustMaxTemp: { _ in },
+                                    onToggleHeatProtection: {}
+                                )
+                            }
+                        }
+                    }
+                    .padding(24)
+                }
+                .frame(width: 920, height: 540)
+                .environment(\.colorScheme, .dark)
+            )
+        }
+        try Self.saveFramesAsGIF(
+            frames: motionFrames,
+            size: CGSize(width: 920, height: 540),
+            frameDelay: 0.14,
+            to: outDir.appendingPathComponent("voltguard-live-motion.gif")
+        )
+
+        let calStages: [(CalibrationStage, Int, String)] = [
+            (.chargingToFull, 88, "Stage 1: Charging to 100%"),
+            (.holdingFull, 100, "Stage 2: Holding at 100%"),
+            (.dischargingToLow, 42, "Stage 3: Draining to 15%"),
+            (.holdingLow, 15, "Stage 4: Resting at 15%"),
+            (.restoringLimit, 68, "Stage 5: Restoring 80% Limit"),
+            (.completed, 80, "Completed: Capacity Verified")
+        ]
+        let calibrationFrames: [AnyView] = calStages.map { (stage, pct, caption) in
+            let sess = CalibrationSession(
+                stage: stage,
+                stageStartedAt: Date().addingTimeInterval(-600),
+                startedAt: Date().addingTimeInterval(-3600),
+                targetLowPercent: 15,
+                holdDurationSeconds: 3600,
+                beforeMaxCapacityMah: 4180,
+                beforeHealthPercent: 90,
+                beforeCycleCount: 209
+            )
+            return AnyView(
+                ZStack {
+                    Color(hex: "#1D2228")
+                    VStack(alignment: .leading, spacing: 18) {
+                        HStack {
+                            BrandLogoView(size: 28, accentColor: palette.accent)
+                            Text("Guided 5-Stage Battery Calibration")
+                                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color(hex: "#CBD3DA"))
+                            Spacer()
+                            Text(caption)
+                                .font(.system(size: 12, weight: .semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(palette.accent.opacity(0.18))
+                                .foregroundStyle(palette.accent)
+                                .clipShape(Capsule())
+                        }
+
+                        CalibrationProgressView(
+                            session: sess,
+                            currentPercentage: pct,
+                            palette: palette,
+                            locale: .en,
+                            compact: false,
+                            isVisible: true
+                        )
+
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Before Calibration")
+                                    .font(.caption)
+                                    .foregroundStyle(Color(hex: "#8F9AA6"))
+                                Text("4180 mAh (90%)")
+                                    .font(.headline.monospacedDigit())
+                                    .foregroundStyle(Color(hex: "#CBD3DA"))
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(Color(hex: "#262C34"))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                            Image(systemName: "arrow.right")
+                                .font(.headline)
+                                .foregroundStyle(palette.accent)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(stage == .completed ? "After Calibration" : "Target Outcome")
+                                    .font(.caption)
+                                    .foregroundStyle(Color(hex: "#8F9AA6"))
+                                Text(stage == .completed ? "4295 mAh (93%) · +115 mAh" : "Accurate % & Full mAh Log")
+                                    .font(.headline.monospacedDigit())
+                                    .foregroundStyle(palette.accent)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(Color(hex: "#262C34"))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        }
+                    }
+                    .padding(24)
+                }
+                .frame(width: 920, height: 540)
+                .environment(\.colorScheme, .dark)
+            )
+        }
+        try Self.saveFramesAsGIF(
+            frames: calibrationFrames,
+            size: CGSize(width: 920, height: 540),
+            frameDelay: 0.75,
+            to: outDir.appendingPathComponent("voltguard-calibration-motion.gif")
+        )
     }
 
     @MainActor
@@ -1158,7 +1354,7 @@ final class VoltGuardTests: XCTestCase {
                         Text("VoltGuard")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(Color.white)
-                        Text("Battery Guard & AppleSMC Control")
+                        Text("Smart Battery Care")
                             .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(Color.white.opacity(0.62))
                     }
@@ -1195,13 +1391,13 @@ final class VoltGuardTests: XCTestCase {
                             Text("VoltGuard for macOS")
                                 .font(.system(size: 24, weight: .bold, design: .rounded))
                                 .foregroundStyle(Color(hex: "#F4F7FA"))
-                            Text("Universal Apple Silicon (M1-M5) & Intel  |  macOS 14-27 Adapter Mode (CHIE)  |  Live Power Topology")
+                            Text("Daily Charge Limit  |  Thermal Guard  |  Guided Calibration  |  Live Power Flow")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Color(hex: "#9AA7B8"))
                         }
                     }
                     Spacer()
-                    Text("Universal arm64 + x86_64")
+                    Text("macOS 13 and Newer")
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -1214,8 +1410,8 @@ final class VoltGuardTests: XCTestCase {
 
                 HStack(alignment: .top, spacing: 24) {
                     macOSWindowFrame(
-                        title: "VoltGuard : Overview & Telemetry",
-                        badge: "0.0% Idle CPU",
+                        title: "VoltGuard : Overview & Health",
+                        badge: "Active Protection",
                         accent: palette.accent,
                         borderColor: palette.border,
                         width: 990,
@@ -1229,7 +1425,7 @@ final class VoltGuardTests: XCTestCase {
                             Image(systemName: "menubar.rectangle")
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(palette.accent)
-                            Text("Menu Bar Popover (Cmd+Option+V)")
+                            Text("Menu Bar Quick Control")
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(Color(hex: "#F2F4F8"))
                             Spacer()
@@ -1277,8 +1473,8 @@ final class VoltGuardTests: XCTestCase {
 
                 HStack(alignment: .top, spacing: 24) {
                     macOSWindowFrame(
-                        title: "Paper Light Theme & Menu Bar Studio",
-                        badge: "WCAG AA Light",
+                        title: "Paper Light Theme & Appearance",
+                        badge: "Soft Daylight",
                         accent: lightPalette.accent,
                         borderColor: lightPalette.border,
                         titleBarBg: Color(hex: "#ECEEF2"),
@@ -1318,10 +1514,10 @@ final class VoltGuardTests: XCTestCase {
             VStack(spacing: 18) {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Live Energy Monitor, Self-Diagnostic & Crash Guard")
+                        Text("Live Energy Monitor & Self-Diagnostics")
                             .font(.system(size: 22, weight: .bold, design: .rounded))
                             .foregroundStyle(Color(hex: "#F4F7FA"))
-                        Text("Identify Power-Hungry Apps  |  7-Point Hardware & Helper Self-Test  |  Native Crash & Signal Protection")
+                        Text("Identify Power-Hungry Apps  |  Automatic Safety & Sensor Self-Checks  |  One-Click App Updates")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color(hex: "#9AA7B8"))
                     }
@@ -1342,8 +1538,8 @@ final class VoltGuardTests: XCTestCase {
                     }
 
                     macOSWindowFrame(
-                        title: "System Diagnostics & AppleSMC Guard",
-                        badge: "7/7 Passed",
+                        title: "System Safety Checks & Backup",
+                        badge: "8/8 Passed",
                         accent: palette.accent,
                         borderColor: palette.border,
                         width: 825,
@@ -1361,7 +1557,46 @@ final class VoltGuardTests: XCTestCase {
     }
 
     @MainActor
+    private static func saveFramesAsGIF(
+        frames: [AnyView],
+        size: CGSize,
+        frameDelay: Double,
+        to url: URL
+    ) throws {
+        guard let dest = CGImageDestinationCreateWithURL(
+            url as CFURL,
+            UTType.gif.identifier as CFString,
+            frames.count,
+            nil
+        ) else {
+            throw NSError(domain: "ShowcaseRenderer", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to initialize GIF encoder"])
+        }
+        let gifProps = [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary
+        CGImageDestinationSetProperties(dest, gifProps)
+
+        let frameProps = [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: frameDelay]] as CFDictionary
+        for view in frames {
+            let rep = try renderBitmap(view, size: size, scale: 1.0)
+            if let cgImage = rep.cgImage {
+                CGImageDestinationAddImage(dest, cgImage, frameProps)
+            }
+        }
+        guard CGImageDestinationFinalize(dest) else {
+            throw NSError(domain: "ShowcaseRenderer", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to finalize GIF output"])
+        }
+    }
+
+    @MainActor
     private static func saveViewAsPNG<V: View>(_ view: V, size: CGSize, to url: URL) throws {
+        let rep = try renderBitmap(view, size: size, scale: 2.0)
+        guard let pngData = rep.representation(using: .png, properties: [:]) else {
+            throw NSError(domain: "ShowcaseRenderer", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to encode PNG"])
+        }
+        try pngData.write(to: url, options: .atomic)
+    }
+
+    @MainActor
+    private static func renderBitmap<V: View>(_ view: V, size: CGSize, scale: CGFloat) throws -> NSBitmapImageRep {
         let hostingView = NSHostingView(rootView: view.frame(width: size.width, height: size.height))
         hostingView.frame = NSRect(origin: .zero, size: size)
 
@@ -1374,11 +1609,11 @@ final class VoltGuardTests: XCTestCase {
         window.appearance = NSAppearance(named: .darkAqua)
         window.contentView = hostingView
         hostingView.layoutSubtreeIfNeeded()
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.08))
         hostingView.layoutSubtreeIfNeeded()
 
-        let pixelWidth = Int(size.width * 2)
-        let pixelHeight = Int(size.height * 2)
+        let pixelWidth = Int(size.width * scale)
+        let pixelHeight = Int(size.height * scale)
         guard let rep = NSBitmapImageRep(
             bitmapDataPlanes: nil,
             pixelsWide: pixelWidth,
@@ -1395,11 +1630,7 @@ final class VoltGuardTests: XCTestCase {
         }
         rep.size = size
         hostingView.cacheDisplay(in: hostingView.bounds, to: rep)
-
-        guard let pngData = rep.representation(using: .png, properties: [:]) else {
-            throw NSError(domain: "ShowcaseRenderer", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to encode PNG"])
-        }
-        try pngData.write(to: url, options: .atomic)
+        return rep
     }
 }
 

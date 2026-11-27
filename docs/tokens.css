@@ -1,22 +1,22 @@
 :root {
   color-scheme: dark;
   --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
-  --text-xs: 0.8125rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.25rem; --text-xl: 1.5625rem; --text-2xl: 1.953rem; --text-3xl: 2.441rem;
-  --text-display-s: clamp(2rem, 3.2vw + 0.5rem, 3rem); --text-display: clamp(2.35rem, 3.5vw + 0.65rem, 3.5rem);
-  --text-section: clamp(2rem, 2.4vw + 0.8rem, 2.75rem); --text-title: clamp(1.2rem, 0.7vw + 0.85rem, 1.5rem); --text-lead: clamp(1.0625rem, 0.3vw + 0.95rem, 1.25rem);
+  --text-xs: 0.8125rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.5rem; --text-2xl: 1.9rem; --text-3xl: 2.35rem;
+  --text-display-s: clamp(1.9rem, 2.8vw + 0.5rem, 2.75rem); --text-display: clamp(2.15rem, 3vw + 0.6rem, 3.1rem);
+  --text-section: clamp(1.85rem, 2.1vw + 0.7rem, 2.5rem); --text-title: clamp(1.15rem, 0.6vw + 0.85rem, 1.4rem); --text-lead: clamp(1.02rem, 0.25vw + 0.92rem, 1.18rem);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
-  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 96px; --section-gap: 120px; --section-gap-l: 144px;
+  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 88px; --section-gap: 112px; --section-gap-l: 136px;
   --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
-  --color-paper: oklch(16% 0.014 235); --color-paper-2: oklch(20% 0.015 235); --color-paper-3: oklch(13% 0.012 235);
-  --color-ink: oklch(95% 0.008 235); --color-ink-2: oklch(84% 0.012 235); --color-muted: oklch(72% 0.015 235);
-  --color-rule: oklch(28% 0.016 235); --color-rule-2: oklch(38% 0.02 235);
-  --color-accent: oklch(72% 0.165 162); --color-accent-ink: oklch(15% 0.04 162); --color-accent-soft: oklch(26% 0.055 162); --color-focus: oklch(72% 0.165 162);
-  --color-cool: oklch(76% 0.115 225); --color-cool-soft: oklch(25% 0.045 225);
-  --color-ok: oklch(72% 0.155 160); --color-ok-soft: oklch(23% 0.04 160); --color-bad: oklch(70% 0.15 25); --color-bad-soft: oklch(23% 0.04 25);
+  --color-paper: oklch(24.5% 0.012 225); --color-paper-2: oklch(28.5% 0.013 225); --color-paper-3: oklch(21.5% 0.011 225);
+  --color-ink: oklch(87% 0.008 210); --color-ink-2: oklch(78% 0.010 215); --color-muted: oklch(69% 0.012 220);
+  --color-rule: oklch(34% 0.013 225); --color-rule-2: oklch(43% 0.016 225);
+  --color-accent: oklch(69% 0.085 168); --color-accent-ink: oklch(16% 0.025 168); --color-accent-soft: oklch(29% 0.028 168); --color-focus: oklch(69% 0.09 168);
+  --color-cool: oklch(72% 0.075 220); --color-cool-soft: oklch(29% 0.025 220);
+  --color-ok: oklch(68% 0.085 165); --color-ok-soft: oklch(27% 0.028 165); --color-bad: oklch(68% 0.095 25); --color-bad-soft: oklch(27% 0.03 25);
   --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif; --font-body: var(--font-display);
   --font-outlier: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
   --radius-card: 12px; --radius-pill: 8px; --rule-hair: 1px;
   --shadow-card: none;
-  --tracking-display: -0.025em; --display-weight: 600;
+  --tracking-display: -0.02em; --display-weight: 500;
 }
