@@ -1,27 +1,29 @@
 {
-  "version": "1.5.0",
-  "build": "6",
+  "version": "1.6.0",
+  "build": "7",
   "publishedAt": "2026-11-28",
   "installerURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard-Windows-Setup.exe",
-  "sha256": "ab6436f407d6f7c9b07c0787989bb6c123c302fb1150393efe43a9a48665bec0",
+  "sha256": "1ad7c9ab0d503384e834b6c2cc6e4c610a8a35b2b89034531314075cfedeb056",
   "binaryURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard.exe",
-  "binarySha256": "3835b40f85972dfdf2dc66a2da3a8ed31285ddd6135ff2d586730392a17839a5",
+  "binarySha256": "f795db99f298937f2199a2d01615be63c169d7a3755db86be5993a98a2e79489",
   "changesEN": [
-    "Capability-gated Windows 10/11 hardware features: removed unsupported Force Discharge and disabled Sailing Mode when OEM EC write is unavailable (e.g. Acer Aspire 14)",
-    "Always-alive sinusoidal liquid wave, ambient rising bubbles, and live PowerTopologyCard energy flow at 100% AC",
-    "Honest OEM guidance recommending Acer Care Center / Sense, MyASUS, Vantage, Dell Power Manager, or MSI Center when firmware hides EC writes"
+    "Sleep Control (SetThreadExecutionState) keeps laptops awake during 5-stage calibration and Top-Up",
+    "Customizable System Tray Badge (Percentage / Wattage / Temperature / Shield) and Tray Popover quick-limits toggle",
+    "CLI automation flags (--limit, --topup, --power-saver, --balanced) plus 1-click Open OEM Power App launcher (Acer Care Center / Sense, Vantage, MyASUS)",
+    "16-Feature Windows 10/11 Compatibility Matrix in System & Guide and smooth interactive card hover transitions"
   ],
   "fixesEN": [
-    "Fixed false-positive OemHardwareLimit status from read-only WMI SELECT probes on Acer, Dell, HP, and MSI",
-    "Verified capability gating, GDI leak safety, and silent in-place update integrity on windows-latest"
+    "Verified zero GDI handle leaks across all TrayIconStyle badge modes",
+    "Verified silent installer/uninstaller and v1.6.0.7 binary integrity on windows-latest"
   ],
   "changesID": [
-    "Penyesuaian fitur berdasarkan dukungan hardware resmi Windows 10/11: hapus Force Discharge dan nonaktifkan Sailing Mode jika EC write OEM tidak tersedia (mis. Acer Aspire 14)",
-    "Animasi gelombang baterai sinus, gelembung pengisian, dan aliran PowerTopologyCard tetap hidup di 100% AC",
-    "Panduan OEM jujur (Acer Care Center / Sense, MyASUS, Vantage, Dell Power Manager, MSI Center) saat firmware tidak membuka EC write"
+    "Sleep Control (SetThreadExecutionState) menjaga laptop tetap terjaga selama kalibrasi 5 tahap dan Top-Up",
+    "Kustomisasi Badge System Tray (Persentase / Watt / Suhu / Shield) dan pengaturan modul cepat di Tray Popover",
+    "Otomatisasi CLI (--limit, --topup, --power-saver, --balanced) + tombol 1-klik buka aplikasi daya OEM (Acer Care Center / Sense, Vantage, MyASUS)",
+    "Matriks kompatibilitas 16 fitur Windows 10/11 di System & Guide serta animasi hover kartu yang halus"
   ],
   "fixesID": [
-    "Perbaikan false-positive status OemHardwareLimit dari probe WMI read-only pada Acer, Dell, HP, dan MSI",
-    "Verifikasi gating kapabilitas, bebas kebocoran GDI, dan integritas auto-update senyap di windows-latest"
+    "Verifikasi bebas kebocoran handle GDI di semua mode badge TrayIconStyle",
+    "Verifikasi installer/uninstaller senyap dan integritas biner v1.6.0.7 di windows-latest"
   ]
 }
