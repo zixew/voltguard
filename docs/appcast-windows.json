@@ -1,25 +1,29 @@
 {
-  "version": "1.0.0",
-  "build": "1",
+  "version": "1.1.0",
+  "build": "2",
   "publishedAt": "2026-11-28",
   "installerURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard-Windows-Setup.exe",
-  "sha256": "90880c998925440a7cb6f3189f90637daa67abfa2b7e9e3466ff0d8bfdaa7358",
+  "sha256": "5d3bc86b9a67c8967dc98efa84927187fe7654060c6e0e0b118ab139059a098d",
   "changesEN": [
-    "Initial VoltGuard for Windows release with 7-tab WPF dashboard and live system tray percentage",
-    "Hybrid OEM charge limit adapter (ASUS / Lenovo) with Universal Windows Power Guard fallback",
-    "Real-time WMI battery, thermal guard, sailing hysteresis, and 5-stage guided calibration",
-    "In-app HTTPS software updater with SHA-256 verification and silent installer support"
+    "PerMonitorV2 DPI scaling and full Obsidian Dark / Paper Light styling across DataGrid, ComboBox, CheckBox, and Slider",
+    "Async background WMI & process polling with debounced policy persistence for zero UI stutter",
+    "Expanded OEM vendor classification (Lenovo, ASUS, Dell, HP, MSI, Acer, Surface) and safe Desktop/VM no-battery handling",
+    "Streaming SHA-256 auto-updater with silent Inno Setup relaunch and automatic temp cleanup"
   ],
   "fixesEN": [
-    "Self-contained Win-x64 build with zero external .NET runtime dependency"
+    "Fixed GDI HICON handle leak in System Tray icon updates and added DestroyIcon cleanup",
+    "Fixed WMI uint32 0xFFFFFFFF sentinel overflow and multi-battery capacity summation",
+    "Added critical OS process guard in Energy Monitor and Task Manager StartupApproved sync"
   ],
   "changesID": [
-    "Rilis awal VoltGuard untuk Windows dengan dashboard WPF 7 tab dan persentase system tray langsung",
-    "Adapter batas pengisian Hybrid OEM (ASUS / Lenovo) dengan fallback Universal Windows Power Guard",
-    "Pemantauan baterai WMI real-time, proteksi suhu, sailing hysteresis, dan kalibrasi 5 tahap",
-    "Pembaruan aplikasi HTTPS bawaan dengan verifikasi SHA-256 dan instalasi senyap"
+    "Skala DPI PerMonitorV2 dan tema Obsidian Dark / Paper Light penuh pada DataGrid, ComboBox, CheckBox, dan Slider",
+    "Polling WMI dan proses latar belakang secara asinkron agar antarmuka tetap responsif",
+    "Deteksi OEM lebih luas (Lenovo, ASUS, Dell, HP, MSI, Acer, Surface) serta mode aman Desktop/VM tanpa baterai",
+    "Pembaruan streaming SHA-256 dengan instalasi senyap Inno Setup dan pembersihan file sementara otomatis"
   ],
   "fixesID": [
-    "Paket Win-x64 mandiri tanpa perlu instalasi runtime .NET terpisah"
+    "Perbaikan kebocoran handle GDI HICON pada ikon System Tray dengan DestroyIcon",
+    "Perbaikan overflow sentinel WMI 0xFFFFFFFF dan penjumlahan dual-baterai",
+    "Proteksi proses kritis OS di Energy Monitor dan sinkronisasi status Startup Windows 10/11"
   ]
 }
