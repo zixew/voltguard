@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "build": "1",
+  "publishedAt": "2026-11-28",
+  "installerURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard-Windows-Setup.exe",
+  "sha256": "90880c998925440a7cb6f3189f90637daa67abfa2b7e9e3466ff0d8bfdaa7358",
+  "changesEN": [
+    "Initial VoltGuard for Windows release with 7-tab WPF dashboard and live system tray percentage",
+    "Hybrid OEM charge limit adapter (ASUS / Lenovo) with Universal Windows Power Guard fallback",
+    "Real-time WMI battery, thermal guard, sailing hysteresis, and 5-stage guided calibration",
+    "In-app HTTPS software updater with SHA-256 verification and silent installer support"
+  ],
+  "fixesEN": [
+    "Self-contained Win-x64 build with zero external .NET runtime dependency"
+  ],
+  "changesID": [
+    "Rilis awal VoltGuard untuk Windows dengan dashboard WPF 7 tab dan persentase system tray langsung",
+    "Adapter batas pengisian Hybrid OEM (ASUS / Lenovo) dengan fallback Universal Windows Power Guard",
+    "Pemantauan baterai WMI real-time, proteksi suhu, sailing hysteresis, dan kalibrasi 5 tahap",
+    "Pembaruan aplikasi HTTPS bawaan dengan verifikasi SHA-256 dan instalasi senyap"
+  ],
+  "fixesID": [
+    "Paket Win-x64 mandiri tanpa perlu instalasi runtime .NET terpisah"
+  ]
+}

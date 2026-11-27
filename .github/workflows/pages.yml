@@ -31,11 +31,16 @@ jobs:
           python3 - <<'PY'
           import json, os, re
 
-          # 1. Verify appcast.json schema
+          # 1. Verify appcast.json & appcast-windows.json schemas
           with open("docs/appcast.json", "r", encoding="utf-8") as f:
               cast = json.load(f)
           for key in ("version", "build", "publishedAt", "dmgURL", "changesEN", "fixesEN", "changesID", "fixesID"):
               assert cast.get(key), f"Missing or empty key in appcast.json: {key}"
+
+          with open("docs/appcast-windows.json", "r", encoding="utf-8") as f:
+              win_cast = json.load(f)
+          for key in ("version", "build", "publishedAt", "installerURL", "changesEN", "fixesEN", "changesID", "fixesID"):
+              assert win_cast.get(key), f"Missing or empty key in appcast-windows.json: {key}"
 
           # 2. Verify DMG payload exists and is non-trivial
           dmg_size = os.path.getsize("docs/downloads/VoltGuard.dmg")
@@ -60,4 +65,5 @@ jobs:
         run: |
           curl -fsSI https://voltguard-mocha.vercel.app/
           curl -fsSI https://voltguard-mocha.vercel.app/appcast.json
+          curl -fsSI https://voltguard-mocha.vercel.app/appcast-windows.json
           curl -fsSI https://voltguard-mocha.vercel.app/downloads/VoltGuard.dmg
