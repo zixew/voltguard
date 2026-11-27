@@ -320,7 +320,7 @@ final class VoltGuardTests: XCTestCase {
     }
 
     @MainActor
-    func testPresenterFullFeatureDispatchAndRouter() {
+    func testPresenterFullFeatureDispatchAndRouter() async {
         final class MockRouter: AppRouterProtocol {
             var didOpenFullApp = false
             var didMinimize = false
