@@ -528,11 +528,11 @@ final class VoltGuardTests: XCTestCase {
         XCTAssertEqual(etaEmpty.kind, .toEmpty)
         XCTAssertEqual(etaEmpty.minutes, 144)
 
-        // 50% -> 80% of 4800 mAh = 1440 mAh needed; charging at +1.5 A -> 57 min
+        // 50% -> 80% of 4800 mAh = 1440 mAh needed; charging at +1.5 A -> 57.6 min -> rounded to 58 min
         let charging = sampleTelemetry(pct: 50, isCharging: true, isPluggedIn: true, amperage: 1.5)
         let etaLimit = calc.update(telemetry: charging, targetLimit: 80)
         XCTAssertEqual(etaLimit.kind, .toTargetLimit)
-        XCTAssertEqual(etaLimit.minutes, 57)
+        XCTAssertEqual(etaLimit.minutes, 58)
 
         // Charging below limit with near-zero initial current -> calculating state
         var lowCurrentCalc = BatteryETACalculator()
@@ -551,8 +551,8 @@ final class VoltGuardTests: XCTestCase {
         // Formatting checks (ID & EN)
         XCTAssertEqual(BatteryETAFormatter.text(for: etaEmpty, locale: .id), "2j 24m sampai habis")
         XCTAssertEqual(BatteryETAFormatter.text(for: etaEmpty, locale: .en), "2h 24m until empty")
-        XCTAssertEqual(BatteryETAFormatter.text(for: etaLimit, locale: .id), "57m sampai penuh 80%")
-        XCTAssertEqual(BatteryETAFormatter.text(for: etaLimit, locale: .en), "57m to 80% full")
+        XCTAssertEqual(BatteryETAFormatter.text(for: etaLimit, locale: .id), "58m sampai penuh 80%")
+        XCTAssertEqual(BatteryETAFormatter.text(for: etaLimit, locale: .en), "58m to 80% full")
         XCTAssertEqual(BatteryETAFormatter.text(for: etaSteady, locale: .id), "Batas 80% (Bypass Aktif)")
         XCTAssertEqual(BatteryETAFormatter.text(for: etaSteady, locale: .en), "80% limit (Bypass Active)")
         XCTAssertEqual(BatteryETAFormatter.text(for: etaCalculating, locale: .id), "Menghitung sisa waktu...")
