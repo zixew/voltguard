@@ -3,10 +3,8 @@ import VoltGuardDomain
 
 public struct PopoverView: View {
     @ObservedObject var presenter: VoltGuardPresenter
-    @Namespace private var presetNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHealthExpanded = false
-    @FocusState private var focusedPreset: Int?
 
     public init(presenter: VoltGuardPresenter) {
         self.presenter = presenter
@@ -222,34 +220,27 @@ public struct PopoverView: View {
                     HStack(spacing: 6) {
                         ForEach(VoltGuardLimits.quickPresets, id: \.self) { preset in
                             let isSelected = state.settings.policy.limitPercent == preset
-                            Button("\(preset)%") {
-                                withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8)) {
-                                    presenter.dispatch(.setChargeLimit(preset))
-                                }
+                            Button {
+                                presenter.dispatch(.setChargeLimit(preset))
+                            } label: {
+                                Text("\(preset)%")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 6)
+                                    .foregroundStyle(isSelected ? (palette.isDark ? Color.black : Color.white) : palette.primaryText)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                            .fill(isSelected ? palette.accent : palette.background.opacity(0.65))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                            .strokeBorder(isSelected ? Color.clear : palette.border.opacity(0.65), lineWidth: 1)
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                                    .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                             }
                             .buttonStyle(.plain)
                             .focusEffectDisabled()
-                            .font(.system(size: 11, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 5)
-                            .contentShape(Rectangle())
-                            .background {
-                                if isSelected {
-                                    RoundedRectangle(cornerRadius: 7)
-                                        .fill(palette.accent)
-                                        .matchedGeometryEffect(id: "popoverPreset", in: presetNamespace)
-                                } else {
-                                    RoundedRectangle(cornerRadius: 7)
-                                        .fill(palette.background.opacity(0.65))
-                                }
-                            }
-                            .foregroundStyle(isSelected ? (palette.isDark ? Color.black : Color.white) : palette.primaryText)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 7)
-                                    .stroke(focusedPreset == preset ? palette.accent : (isSelected ? Color.clear : palette.border.opacity(0.6)), lineWidth: focusedPreset == preset ? 2 : 1)
-                            )
-                            .focusable()
-                            .focused($focusedPreset, equals: preset)
                         }
                     }
                 }
@@ -397,15 +388,21 @@ public struct PopoverView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(active ? palette.accent.opacity(0.18) : palette.background)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(active ? palette.accent : palette.primaryText)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(active ? palette.accent : palette.border, lineWidth: 1)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(active ? palette.accent.opacity(0.18) : palette.background)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(active ? palette.accent : palette.border, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
-        .buttonStyle(InteractiveCardButtonStyle())
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
     }
 
     @ViewBuilder

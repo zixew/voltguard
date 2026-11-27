@@ -285,24 +285,27 @@ public struct FullDashboardView: View {
                         HStack(spacing: 8) {
                             ForEach(VoltGuardLimits.quickPresets, id: \.self) { preset in
                                 let isSelected = presenter.state.settings.policy.limitPercent == preset
-                                Button("\(preset)%") {
+                                Button {
                                     presenter.dispatch(.setChargeLimit(preset))
+                                } label: {
+                                    Text("\(preset)%")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 7)
+                                        .foregroundStyle(isSelected ? (palette.isDark ? Color.black : Color.white) : palette.primaryText)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                                .fill(isSelected ? palette.accent : palette.background.opacity(0.65))
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                                .strokeBorder(isSelected ? Color.clear : palette.border, lineWidth: 1)
+                                        )
+                                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                                        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
                                 .focusEffectDisabled()
-                                .font(.system(size: 12, weight: .semibold))
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 6)
-                                .contentShape(Rectangle())
-                                .background(
-                                    RoundedRectangle(cornerRadius: 7)
-                                        .fill(isSelected ? palette.accent : palette.background.opacity(0.65))
-                                )
-                                .foregroundStyle(isSelected ? (palette.isDark ? Color.black : Color.white) : palette.primaryText)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 7)
-                                        .stroke(isSelected ? Color.clear : palette.border, lineWidth: 1)
-                                )
                             }
                         }
 
@@ -1670,7 +1673,7 @@ public struct FullDashboardView: View {
                 .foregroundStyle(isOn ? palette.accent : palette.secondaryText)
                 .frame(width: 26, height: 26)
                 .background(
-                    RoundedRectangle(cornerRadius: 6)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(isOn ? palette.accent.opacity(0.16) : palette.surface)
                 )
 
@@ -1696,13 +1699,18 @@ public struct FullDashboardView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(isOn ? palette.accent.opacity(0.08) : palette.background.opacity(0.5))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(isOn ? palette.accent.opacity(0.45) : palette.border.opacity(0.65), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(isOn ? palette.accent.opacity(0.45) : palette.border.opacity(0.65), lineWidth: 1)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onTapGesture {
+            onToggle()
+        }
     }
 
     private func ledDotColor(_ mode: MagSafeLEDMode, palette: ThemePalette) -> Color {
