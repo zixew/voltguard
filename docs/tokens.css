@@ -1,22 +1,76 @@
+/* Hallmark: Sky Daylight macOS Instrument, soft sky mist surfaces, calm navy ink, cerulean accent */
+/* Critique check: 3 sections only, macOS focus, single primary Download CTA, zero emerald green */
 :root {
-  color-scheme: dark;
-  --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
-  --text-xs: 0.8125rem; --text-sm: 0.875rem; --text-md: 1rem; --text-lg: 1.2rem; --text-xl: 1.5rem; --text-2xl: 1.9rem; --text-3xl: 2.35rem;
-  --text-display-s: clamp(1.9rem, 2.8vw + 0.5rem, 2.75rem); --text-display: clamp(2.15rem, 3vw + 0.6rem, 3.1rem);
-  --text-section: clamp(1.85rem, 2.1vw + 0.7rem, 2.5rem); --text-title: clamp(1.15rem, 0.6vw + 0.85rem, 1.4rem); --text-lead: clamp(1.02rem, 0.25vw + 0.92rem, 1.18rem);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
-  --container: 1440px; --gutter: 64px; --gap-columns: 32px; --section-gap-s: 88px; --section-gap: 112px; --section-gap-l: 136px;
-  --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
-  --color-paper: oklch(24.5% 0.012 225); --color-paper-2: oklch(28.5% 0.013 225); --color-paper-3: oklch(21.5% 0.011 225);
-  --color-ink: oklch(87% 0.008 210); --color-ink-2: oklch(78% 0.010 215); --color-muted: oklch(69% 0.012 220);
-  --color-rule: oklch(34% 0.013 225); --color-rule-2: oklch(43% 0.016 225);
-  --color-accent: oklch(69% 0.085 168); --color-accent-ink: oklch(16% 0.025 168); --color-accent-soft: oklch(29% 0.028 168); --color-focus: oklch(69% 0.09 168);
-  --color-cool: oklch(72% 0.075 220); --color-cool-soft: oklch(29% 0.025 220);
-  --color-ok: oklch(68% 0.085 165); --color-ok-soft: oklch(27% 0.028 165); --color-bad: oklch(68% 0.095 25); --color-bad-soft: oklch(27% 0.03 25);
-  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif; --font-body: var(--font-display);
+  color-scheme: light;
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 88px;
+
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.45rem;
+  --text-2xl: 1.85rem;
+  --text-display: clamp(2.1rem, 3.1vw + 0.55rem, 3.05rem);
+  --text-section: clamp(1.65rem, 1.9vw + 0.65rem, 2.25rem);
+  --text-title: clamp(1.12rem, 0.55vw + 0.85rem, 1.32rem);
+  --text-lead: clamp(1.02rem, 0.25vw + 0.92rem, 1.16rem);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-micro: 140ms;
+  --dur-short: 240ms;
+  --dur-long: 460ms;
+
+  --container: 1320px;
+  --gutter: 48px;
+  --gap-columns: 28px;
+  --section-gap: 88px;
+
+  --z-base: 1;
+  --z-raised: 10;
+  --z-sticky-nav: 300;
+
+  /* Soft Sky Blue Daylight palette */
+  --color-paper: oklch(93.8% 0.024 232);
+  --color-paper-2: oklch(96.8% 0.014 230);
+  --color-paper-3: oklch(89.2% 0.030 232);
+  --color-ink: oklch(24.0% 0.038 245);
+  --color-ink-2: oklch(36.0% 0.036 242);
+  --color-muted: oklch(43.5% 0.035 240);
+
+  --color-rule: oklch(82.5% 0.028 232);
+  --color-rule-2: oklch(71.0% 0.042 234);
+
+  --color-accent: oklch(47.5% 0.142 245);
+  --color-accent-bright: oklch(59.0% 0.132 236);
+  --color-accent-ink: oklch(98.0% 0.006 230);
+  --color-accent-soft: oklch(88.5% 0.046 235);
+  --color-accent-deep: oklch(38.0% 0.120 245);
+  --color-focus: oklch(47.5% 0.145 245);
+
+  --color-cool: oklch(54.0% 0.110 226);
+  --color-cool-soft: oklch(89.5% 0.036 226);
+  --color-warn: oklch(56.0% 0.135 58);
+  --color-warn-ink: oklch(35.0% 0.115 56);
+  --color-warn-soft: oklch(92.0% 0.040 68);
+  --color-bad: oklch(46.0% 0.165 25);
+  --color-bad-soft: oklch(92.0% 0.042 25);
+
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-display);
   --font-outlier: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
-  --radius-card: 12px; --radius-pill: 8px; --rule-hair: 1px;
-  --shadow-card: none;
-  --tracking-display: -0.02em; --display-weight: 500;
+
+  --radius-card: 14px;
+  --radius-pill: 10px;
+  --rule-hair: 1px;
+  --shadow-card: 0 12px 28px -18px oklch(35% 0.06 240 / 0.22);
+  --tracking-display: -0.025em;
+  --display-weight: 700;
 }

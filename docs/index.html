@@ -3,309 +3,725 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VoltGuard: Battery Care for Mac and iPhone</title>
-  <meta name="description" content="Keep your Mac and iPhone battery healthy with smart charge limits, cool charging protection, guided calibration, and automatic updates.">
+  <title>VoltGuard: Battery Protection for macOS</title>
+  <meta name="description" content="VoltGuard protects your Mac battery with daily charge limits, live thermal guard, guided 5-stage calibration, and automatic updates.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%231768B2' d='M16 2 5 6.8v7.7c0 7.1 4.7 13.4 11 15.5 6.3-2.1 11-8.4 11-15.5V6.8L16 2Z'/%3E%3Cpath fill='%23F5FAFF' d='M17.3 8.5 11.4 17h4.2l-1 6.5 6-8.5h-4.3l1-6.5Z'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <header class="masthead">
-    <div class="container masthead__inner">
-      <a class="wordmark" href="#top">
-        <span class="wordmark__badge">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 2.5L4.5 5.6V11.8C4.5 16.5 7.7 20.6 12 22C16.3 20.6 19.5 16.5 19.5 11.8V5.6L12 2.5Z" stroke="currentColor" stroke-width="1.8"/>
-            <path d="M13.2 6.8L8.9 12.6H12.2L10.8 17.2L15.1 11.4H11.8L13.2 6.8Z" fill="currentColor"/>
-          </svg>
-        </span>
+<body id="top">
+  <header class="site-nav">
+    <div class="container site-nav__inner">
+      <a class="brand-link" href="#top">
+        <svg class="brand-link__mark" viewBox="0 0 32 32" aria-hidden="true">
+          <path fill="currentColor" d="M16 2 5 6.8v7.7c0 7.1 4.7 13.4 11 15.5 6.3-2.1 11-8.4 11-15.5V6.8L16 2Z"/>
+          <path fill="var(--color-accent-ink)" d="M17.3 8.5 11.4 17h4.2l-1 6.5 6-8.5h-4.3l1-6.5Z"/>
+        </svg>
         <span>VoltGuard</span>
       </a>
-      <nav class="masthead__links" aria-label="Primary navigation">
+      <nav class="nav-links" aria-label="Primary sections">
+        <a href="#overview" aria-current="true">Overview</a>
         <a href="#features">Features</a>
-        <a href="#calibration">Calibration</a>
-        <a href="#compatibility">Devices</a>
         <a href="#download">Download</a>
-        <a class="btn btn--primary btn--sm" href="./downloads/VoltGuard.dmg">Download App</a>
       </nav>
     </div>
   </header>
 
-  <main id="top">
-    <section class="hero">
-      <div class="container hero__stage-grid">
-        <div class="hero__copy">
-          <h1>Protect your Mac battery lifespan</h1>
-          <p class="lead">Hold daily charging near 80%, pause during heat, and preserve capacity.</p>
-          <div class="hero__actions">
-            <a class="btn btn--primary" href="./downloads/VoltGuard.dmg">Download for macOS</a>
-            <a class="btn" href="#features">Explore Features</a>
-          </div>
-          <p class="hero__meta">Version 1.2 for macOS 13 and newer, paired with iPhone and iPad</p>
-        </div>
-
-        <div class="screen-frame">
-          <img id="hero-media" src="./assets/voltguard-hero-showcase.png" data-design="./assets/voltguard-hero-showcase.png" data-gif="./assets/voltguard-live-motion.gif" alt="VoltGuard macOS window showing charge limit controls, animated battery cell, and thermal zone monitor">
-          <div class="screen-frame__bar">
-            <span id="hero-caption">Overview Design Preview</span>
-            <div class="mode-toggle" role="group" aria-label="Preview format">
-              <button class="mode-toggle__btn" type="button" id="btn-hero-design" aria-pressed="true">Design PNG</button>
-              <button class="mode-toggle__btn" type="button" id="btn-hero-gif" aria-pressed="false">Live Motion GIF</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section section--band" id="features">
+  <main>
+    <!-- 1. OVERVIEW -->
+    <section id="overview" class="band band--tight">
       <div class="container">
-        <div class="section__head">
-          <h2>Designed for long-term battery health</h2>
-          <p class="lead">Mix live motion animations with interface screens to inspect every tool inside VoltGuard.</p>
-        </div>
-
-        <div class="switcher-controls" role="tablist" aria-label="VoltGuard features">
-          <button class="switcher-tab" role="tab" id="tab-thermal" aria-selected="true" aria-controls="panel-thermal">Live Charging GIF</button>
-          <button class="switcher-tab" role="tab" id="tab-calibration" aria-selected="false" aria-controls="panel-calibration">Calibration Motion</button>
-          <button class="switcher-tab" role="tab" id="tab-diagnostics" aria-selected="false" aria-controls="panel-diagnostics">Safety &amp; Design</button>
-        </div>
-
-        <div class="switcher-panel" role="tabpanel" id="panel-thermal" aria-labelledby="tab-thermal">
-          <div class="switcher-panel__media">
-            <img src="./assets/voltguard-live-motion.gif" alt="Animated preview of VoltGuard battery wave rising toward the 80% target limit alongside power flow and thermal bar">
-            <div class="switcher-panel__caption">
-              <span>Live Motion Capture (GIF)</span>
-              <span>Liquid Battery, Power Flow, Heat Bar</span>
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <h1>Calm battery protection built for every Mac.</h1>
+            <p class="lead">
+              Limit daily charge, stop heat stress, and calibrate from your menu bar.
+            </p>
+            <div class="hero-actions">
+              <a class="text-cta" href="#features">Try Features</a>
+              <a class="text-cta" href="#download">macOS Release</a>
             </div>
-          </div>
-          <div class="switcher-panel__body">
-            <div>
-              <h3>Stay at 80% on desk days, charge cooler</h3>
-              <p>Keep desk-plugged MacBooks away from stressful full states while automatically pausing charging when temperatures climb.</p>
-            </div>
-            <ul class="spec-list">
-              <li><span class="spec-list__k">Daily charge limit</span><span class="spec-list__v measured">20% to 100%</span></li>
-              <li><span class="spec-list__k">Thermal protection</span><span class="spec-list__v">Auto-pause when warm</span></li>
-              <li><span class="spec-list__k">Charger check</span><span class="spec-list__v">Live power readout</span></li>
-              <li><span class="spec-list__k">Exit behavior</span><span class="spec-list__v">Restore 100% option</span></li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="switcher-panel" role="tabpanel" id="panel-calibration" aria-labelledby="tab-calibration" hidden>
-          <div class="switcher-panel__media">
-            <img src="./assets/voltguard-calibration-motion.gif" alt="Animated preview of the 5-stage battery calibration tracker completing and recording Before vs After capacity results">
-            <div class="switcher-panel__caption">
-              <span>Animated Cycle Walkthrough (GIF)</span>
-              <span>5 Stages and Result Log</span>
-            </div>
-          </div>
-          <div class="switcher-panel__body">
-            <div>
-              <h3>Clear calibration results and synced themes</h3>
-              <p>Guided 5-stage calibration restores battery percentage accuracy and compares Before vs After health capacity with four calm themes.</p>
-            </div>
-            <ul class="spec-list">
-              <li><span class="spec-list__k">Guided calibration</span><span class="spec-list__v">5 automated stages</span></li>
-              <li><span class="spec-list__k">Clear outcome</span><span class="spec-list__v">Before vs After delta</span></li>
-              <li><span class="spec-list__k">Visual themes</span><span class="spec-list__v">Obsidian, Light, Mist, Amber</span></li>
-              <li><span class="spec-list__k">Languages</span><span class="spec-list__v">English and Indonesian</span></li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="switcher-panel" role="tabpanel" id="panel-diagnostics" aria-labelledby="tab-diagnostics" hidden>
-          <div class="switcher-panel__media">
-            <img src="./assets/voltguard-themes-calibration.png" alt="Side-by-side static design view of VoltGuard Paper Light theme and Calibration Schedule view">
-            <div class="switcher-panel__caption">
-              <span>Full Interface Design (PNG)</span>
-              <span>Themes and Daily Schedule</span>
-            </div>
-          </div>
-          <div class="switcher-panel__body">
-            <div>
-              <h3>Self-checks and quiet one-click updates</h3>
-              <p>VoltGuard verifies device capabilities once per machine, tracks high-drain apps, and installs app updates cleanly with automatic cleanup.</p>
-            </div>
-            <ul class="spec-list">
-              <li><span class="spec-list__k">Compatibility check</span><span class="spec-list__v">Runs automatically once</span></li>
-              <li><span class="spec-list__k">Energy monitor</span><span class="spec-list__v">Spots battery-draining apps</span></li>
-              <li><span class="spec-list__k">Built-in updater</span><span class="spec-list__v">Downloads and installs app</span></li>
-              <li><span class="spec-list__k">Auto cleanup</span><span class="spec-list__v">Removes installer after update</span></li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="calibration">
-      <div class="container">
-        <div class="section__head">
-          <h2>Visible results and what is new</h2>
-          <p class="lead">Track measurable differences in daily battery care alongside the latest version improvements.</p>
-        </div>
-
-        <div class="diff-layout">
-          <div class="diff-panel" aria-label="Before and after using VoltGuard">
-            <div class="diff-panel__header">
-              <span>Scenario</span>
-              <span>Without VoltGuard</span>
-              <span>With VoltGuard</span>
-            </div>
-            <div class="diff-row diff-row--changed">
-              <span>All-day desk charging</span>
-              <span class="diff-old">Held constantly at 100%</span>
-              <span class="diff-new">Held safely around 80%</span>
-            </div>
-            <div class="diff-row diff-row--changed">
-              <span>Warm battery sessions</span>
-              <span class="diff-old">Charges through high heat</span>
-              <span class="diff-new">Pauses until cool again</span>
-            </div>
-            <div class="diff-row diff-row--changed">
-              <span>Drifted battery percentage</span>
-              <span class="diff-old">Sudden shutdown near 15%</span>
-              <span class="diff-new">Calibrated Before vs After log</span>
-            </div>
-            <div class="diff-row diff-row--changed">
-              <span>Quitting the app</span>
-              <span class="diff-old">Stays capped at last limit</span>
-              <span class="diff-new">Optionally restores 100%</span>
+            <div class="spec-row">
+              <span class="spec-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+                Apple Silicon &amp; Intel Macs
+              </span>
+              <span class="spec-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></svg>
+                Multi-Zone Thermal Guard
+              </span>
+              <span class="spec-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                Built-In Auto Updates
+              </span>
             </div>
           </div>
 
-          <div class="trail" aria-label="Latest update highlights">
-            <article class="trail__item">
-              <div class="trail__meta">
-                <span>Version 1.2.0</span>
-                <span class="trail__date">2026-11-27</span>
+          <!-- Interactive Live Battery & Thermal Simulator -->
+          <div class="console-panel" aria-label="Interactive battery limit and thermal guard simulator">
+            <div class="console-split">
+              <div class="battery-stage">
+                <svg class="battery-svg" viewBox="0 0 148 222" role="img" aria-label="Animated liquid battery indicator">
+                  <defs>
+                    <clipPath id="cellClip">
+                      <rect x="20" y="26" width="108" height="176" rx="18"/>
+                    </clipPath>
+                  </defs>
+
+                  <rect class="battery-terminal" x="54" y="10" width="40" height="10" rx="4"/>
+
+                  <g clip-path="url(#cellClip)">
+                    <rect class="battery-hull" x="20" y="26" width="108" height="176" rx="18"/>
+                    <g id="sim-liquid-group" class="battery-liquid-group" style="transform: translateY(35px);">
+                      <g class="wave-anim-b">
+                        <path id="sim-wave-back" class="battery-wave battery-wave--back" d="M 0 6 Q 30 -2 60 6 T 120 6 T 180 6 T 240 6 T 300 6 L 300 210 L 0 210 Z"/>
+                      </g>
+                      <g class="wave-anim-a">
+                        <path id="sim-wave-front" class="battery-wave" d="M 0 6 Q 30 14 60 6 T 120 6 T 180 6 T 240 6 T 300 6 L 300 210 L 0 210 Z"/>
+                      </g>
+                      <circle class="battery-bubble" cx="46" cy="118" r="3"/>
+                      <circle class="battery-bubble battery-bubble--two" cx="84" cy="134" r="2.4"/>
+                      <circle class="battery-bubble battery-bubble--three" cx="102" cy="110" r="2"/>
+                    </g>
+                    <g id="sim-limit-group" class="battery-limit-group" style="transform: translateY(61px);">
+                      <line class="battery-limit-line" x1="20" y1="0" x2="128" y2="0"/>
+                      <rect class="battery-limit-pill" x="88" y="-17" width="36" height="14" rx="5"/>
+                      <text id="sim-limit-badge" class="battery-limit-text" x="106" y="-7" text-anchor="middle">80%</text>
+                    </g>
+                  </g>
+
+                  <rect id="sim-battery-hull" class="battery-hull" fill="none" x="20" y="26" width="108" height="176" rx="18" style="fill: none;"/>
+
+                  <text id="sim-pct-text" class="battery-pct-label" x="74" y="114" text-anchor="middle">76%</text>
+                  <text id="sim-mode-text" class="battery-sub-label" x="74" y="135" text-anchor="middle">Charging</text>
+                </svg>
+                <span id="sim-status-pill" class="status-pill">Active Charge Flow</span>
               </div>
-              <h3 class="trail__title">Interactive Thermal Card, Calibration Outcomes &amp; Built-in Updates</h3>
-              <p class="trail__note">Adds live temperature tracking on modern Macs, interactive thermal controls, Before vs After calibration records, Restore on Quit, and dedicated in-app updates.</p>
-            </article>
+
+              <div class="control-stack">
+                <div class="control-block">
+                  <div class="control-header">
+                    <label for="sim-limit-range">Daily Charge Ceiling</label>
+                    <span id="sim-limit-readout" class="mono-readout num">80%</span>
+                  </div>
+                  <input id="sim-limit-range" class="range-input" type="range" min="20" max="100" step="5" value="80">
+                  <div class="chip-row" role="group" aria-label="Charge limit presets">
+                    <button class="preset-chip" type="button" data-limit-preset="60" aria-pressed="false">60%</button>
+                    <button class="preset-chip" type="button" data-limit-preset="80" aria-pressed="true">80%</button>
+                    <button class="preset-chip" type="button" data-limit-preset="90" aria-pressed="false">90%</button>
+                    <button class="preset-chip" type="button" data-limit-preset="100" aria-pressed="false">100%</button>
+                  </div>
+                </div>
+
+                <div class="control-block">
+                  <div class="control-header">
+                    <label for="sim-temp-range">Simulated Battery Temp</label>
+                    <span id="sim-temp-readout" class="mono-readout num">31.2 C</span>
+                  </div>
+                  <input id="sim-temp-range" class="range-input" type="range" min="25" max="43" step="0.5" value="31.2">
+                </div>
+
+                <div class="control-block">
+                  <div class="control-header">
+                    <span>Thermal Guard Ceiling</span>
+                    <div class="inline-stepper">
+                      <button class="step-btn" type="button" id="sim-max-temp-down" aria-label="Decrease max allowed temperature">-</button>
+                      <span id="sim-max-temp-readout" class="mono-readout num">35.0 C</span>
+                      <button class="step-btn" type="button" id="sim-max-temp-up" aria-label="Increase max allowed temperature">+</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="toggle-line">
+                  <label for="sim-heat-switch">Auto-Pause When Warm</label>
+                  <button id="sim-heat-switch" class="switch-btn" type="button" role="switch" aria-checked="true">
+                    <span class="switch-btn__thumb"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="telemetry-strip">
+              <div class="metric-cell">
+                <span class="metric-cell__label">Adapter Input</span>
+                <span id="sim-adapter-w" class="metric-cell__val num">48.2 W</span>
+              </div>
+              <div class="metric-cell">
+                <span class="metric-cell__label">Battery Net Flow</span>
+                <span id="sim-battery-w" class="metric-cell__val num">+29.8 W</span>
+              </div>
+              <div class="metric-cell">
+                <span class="metric-cell__label">Thermal Status</span>
+                <span id="sim-thermal-state" class="metric-cell__val">Cool Headroom</span>
+              </div>
+            </div>
           </div>
+        </div>
+
+        <!-- Mixed PNG App Window & Real Animated GIF Preview -->
+        <div class="media-duo">
+          <figure class="media-figure">
+            <div class="media-figure__frame">
+              <img src="assets/voltguard-hero-showcase.png" alt="VoltGuard macOS dashboard and menu bar quick control window showing battery limit and system health" loading="eager">
+            </div>
+            <figcaption class="media-figure__caption">
+              <span class="media-figure__title">Full macOS Window &amp; Menu Bar Control</span>
+              <span class="media-figure__kind">Static App View</span>
+            </figcaption>
+          </figure>
+          <figure class="media-figure">
+            <div class="media-figure__frame media-figure__frame--gif">
+              <img src="assets/voltguard-live-motion.gif" alt="Animated preview of VoltGuard live power topology, charging liquid wave, and thermal guard meter" loading="lazy">
+            </div>
+            <figcaption class="media-figure__caption">
+              <span class="media-figure__title">Live Power Topology &amp; Thermal Motion</span>
+              <span class="media-figure__kind">Animated GIF</span>
+            </figcaption>
+          </figure>
         </div>
       </div>
     </section>
 
-    <section class="section section--band" id="compatibility">
+    <!-- 2. FEATURES -->
+    <section id="features" class="band">
       <div class="container">
-        <div class="section__head">
-          <h2>Works across Apple devices</h2>
-          <p class="lead">Unsupported features stay disabled automatically based on your device so every control works reliably.</p>
+        <div class="section-head">
+          <h2>Test every control directly before installing.</h2>
+          <p class="section-desc">
+            Switch between VoltGuard workflows below. Each panel pairs interactive controls with real app previews and motion recordings.
+          </p>
         </div>
 
-        <div class="matrix-wrap">
-          <table class="matrix-table">
-            <thead>
-              <tr>
-                <th>Device</th>
-                <th>System Version</th>
-                <th>Included Features</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>MacBook Air &amp; MacBook Pro (Apple Silicon)</td>
-                <td class="measured">macOS 13 and newer</td>
-                <td class="status-ok">Charge Limit, Cool Guard, Calibration, MagSafe Indicator</td>
-              </tr>
-              <tr>
-                <td>MacBook (Intel)</td>
-                <td class="measured">macOS 13 through 26</td>
-                <td class="status-ok">Charge Limit, Controlled Discharge, Live Temperature</td>
-              </tr>
-              <tr>
-                <td>Desktop Mac (Mac mini, Studio, iMac)</td>
-                <td class="measured">macOS 13 and newer</td>
-                <td class="status-cool">Energy Monitor, System Diagnostics, Safe Battery Skip</td>
-              </tr>
-              <tr>
-                <td>iPhone &amp; iPad Companion</td>
-                <td class="measured">iOS 16 and newer</td>
-                <td class="status-cool">Live Percentage &amp; ETA, Heat Alerts, Custom Themes</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="tab-bar" role="tablist" aria-label="VoltGuard features">
+          <button class="tab-btn" type="button" role="tab" id="tab-charge" aria-controls="panel-charge" aria-selected="true" data-tab-target="charge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 11v2"/><path d="m11 10-2 3h3l-1 3"/></svg>
+            Charge &amp; Sailing
+          </button>
+          <button class="tab-btn" type="button" role="tab" id="tab-calibration" aria-controls="panel-calibration" aria-selected="false" data-tab-target="calibration">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/></svg>
+            5-Stage Calibration
+          </button>
+          <button class="tab-btn" type="button" role="tab" id="tab-schedules" aria-controls="panel-schedules" aria-selected="false" data-tab-target="schedules">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
+            Themes &amp; Schedules
+          </button>
+          <button class="tab-btn" type="button" role="tab" id="tab-updates" aria-controls="panel-updates" aria-selected="false" data-tab-target="updates">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 20h16"/></svg>
+            Energy &amp; Updates
+          </button>
+        </div>
+
+        <!-- Panel 1: Charge & Sailing -->
+        <div class="feature-panel" id="panel-charge" role="tabpanel" aria-labelledby="tab-charge">
+          <div class="feature-sandbox">
+            <h3>Sailing Mode &amp; Quit Restoration</h3>
+            <p class="feature-sandbox__copy">
+              Sailing Mode lets your Mac drop gracefully by your chosen hysteresis window before starting a top-up cycle, reducing shallow micro-charges on desk setups.
+            </p>
+            <div class="control-block">
+              <div class="control-header">
+                <span>Sailing Buffer Window (Below 80%)</span>
+                <span id="sail-delta-readout" class="mono-readout num">5% (Re-arm at 75%)</span>
+              </div>
+              <div class="chip-row" role="group" aria-label="Sailing delta options">
+                <button class="preset-chip" type="button" data-sail-delta="2" aria-pressed="false">2%</button>
+                <button class="preset-chip" type="button" data-sail-delta="5" aria-pressed="true">5%</button>
+                <button class="preset-chip" type="button" data-sail-delta="8" aria-pressed="false">8%</button>
+                <button class="preset-chip" type="button" data-sail-delta="10" aria-pressed="false">10%</button>
+              </div>
+            </div>
+            <div class="control-block">
+              <div class="control-header">
+                <label for="sail-soc-range">Current Battery Level</label>
+                <span id="sail-soc-readout" class="mono-readout num">77%</span>
+              </div>
+              <input id="sail-soc-range" class="range-input" type="range" min="65" max="85" step="1" value="77">
+            </div>
+            <div class="toggle-line">
+              <label for="quit-restore-switch">Restore System Charging (100%) on Quit</label>
+              <button id="quit-restore-switch" class="switch-btn" type="button" role="switch" aria-checked="true">
+                <span class="switch-btn__thumb"></span>
+              </button>
+            </div>
+            <div class="sim-rows divider-top">
+              <div class="sim-row">
+                <span>Live Decision Engine</span>
+                <span id="sail-decision-out" class="sim-row__metric">Sailing Coast (Inside 75%-80% Buffer)</span>
+              </div>
+              <div class="sim-row">
+                <span>On App Exit Behavior</span>
+                <span id="quit-restore-out" class="sim-row__metric">Restores Normal 100% macOS Charging</span>
+              </div>
+            </div>
+          </div>
+          <div class="feature-visual">
+            <img src="assets/voltguard-live-motion.gif" alt="VoltGuard animated charging and thermal coasting preview" loading="lazy">
+            <div class="feature-visual__meta">
+              <span>Live Charging &amp; Coast Hold Motion</span>
+              <span>Animated GIF</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: 5-Stage Calibration -->
+        <div class="feature-panel" id="panel-calibration" role="tabpanel" aria-labelledby="tab-calibration" hidden>
+          <div class="feature-sandbox">
+            <h3>Guided 5-Stage Capacity Calibration</h3>
+            <p class="feature-sandbox__copy">
+              Step through or play the full cycle that anchors upper and lower battery gauge endpoints before restoring your daily cap and logging capacity gains.
+            </p>
+            <div class="control-header">
+              <span id="cal-stage-heading">Stage 1: Charging to 100%</span>
+              <button id="cal-autoplay-btn" class="preset-chip" type="button" aria-pressed="false">Play Cycle</button>
+            </div>
+            <div class="cal-track-wrap" aria-hidden="true">
+              <span id="cal-track-fill" class="cal-track-fill" style="transform: scaleX(0.18);"></span>
+            </div>
+            <div class="cal-stages" role="group" aria-label="Calibration stages">
+              <button class="cal-stage-btn" type="button" data-cal-stage="0" aria-pressed="true">1. Charge 100%</button>
+              <button class="cal-stage-btn" type="button" data-cal-stage="1" aria-pressed="false">2. Hold Full</button>
+              <button class="cal-stage-btn" type="button" data-cal-stage="2" aria-pressed="false">3. Drain 15%</button>
+              <button class="cal-stage-btn" type="button" data-cal-stage="3" aria-pressed="false">4. Rest Baseline</button>
+              <button class="cal-stage-btn" type="button" data-cal-stage="4" aria-pressed="false">5. Restore 80%</button>
+              <button class="cal-stage-btn" type="button" data-cal-stage="5" aria-pressed="false">Verified Done</button>
+            </div>
+            <div class="sim-rows divider-top">
+              <div class="sim-row">
+                <span>Before Snapshot</span>
+                <span class="sim-row__metric">4180 mAh (90% Health)</span>
+              </div>
+              <div class="sim-row">
+                <span id="cal-after-label">Expected Outcome</span>
+                <span id="cal-after-val" class="sim-row__metric">Full gauge alignment pending</span>
+              </div>
+            </div>
+          </div>
+          <div class="feature-visual">
+            <img src="assets/voltguard-calibration-motion.gif" alt="VoltGuard animated 5-stage battery calibration workflow" loading="lazy">
+            <div class="feature-visual__meta">
+              <span>5-Stage Persistent Calibration Cycle</span>
+              <span>Animated GIF</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Themes & Schedules -->
+        <div class="feature-panel" id="panel-schedules" role="tabpanel" aria-labelledby="tab-schedules" hidden>
+          <div class="feature-sandbox">
+            <h3>Daylight Presets &amp; Automated Schedules</h3>
+            <p class="feature-sandbox__copy">
+              Match desktop lighting with Paper Light or Slate themes while weekday rules prepare a 100% top-up right before travel.
+            </p>
+            <div class="control-block">
+              <div class="control-header">
+                <span>Simulate Active Rule Profile</span>
+                <span id="sched-mode-badge" class="mono-readout">80% Cap Active</span>
+              </div>
+              <div class="chip-row" role="group" aria-label="Schedule profiles">
+                <button class="preset-chip" type="button" data-sched-profile="office" aria-pressed="true">Weekday Desk (80%)</button>
+                <button class="preset-chip" type="button" data-sched-profile="travel" aria-pressed="false">Friday Travel (100%)</button>
+                <button class="preset-chip" type="button" data-sched-profile="overnight" aria-pressed="false">Overnight Cool (70%)</button>
+              </div>
+            </div>
+            <div class="sim-rows divider-top">
+              <div class="sim-row">
+                <span>Scheduled Window</span>
+                <span id="sched-window-out" class="sim-row__metric">Mon to Fri at 08:30</span>
+              </div>
+              <div class="sim-row">
+                <span>Target Policy &amp; Thermal Safe</span>
+                <span id="sched-policy-out" class="sim-row__metric">Hold at 80% / Max 35.0 C</span>
+              </div>
+            </div>
+          </div>
+          <div class="feature-visual">
+            <img src="assets/voltguard-themes-calibration.png" alt="VoltGuard appearance studio showing Paper Light theme, Nordic Slate theme, and calibration scheduler" loading="lazy">
+            <div class="feature-visual__meta">
+              <span>Theme Presets &amp; Weekday Scheduler</span>
+              <span>Static App View</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 4: Energy & Updates -->
+        <div class="feature-panel" id="panel-updates" role="tabpanel" aria-labelledby="tab-updates" hidden>
+          <div class="feature-sandbox">
+            <h3>Energy Insights &amp; Native App Updater</h3>
+            <p class="feature-sandbox__copy">
+              Spot background apps warming up your battery and keep VoltGuard up to date inside the native Software Update view with automatic DMG cleanup.
+            </p>
+            <div class="control-header">
+              <span>VoltGuard v1.2.0 (Build 3)</span>
+              <button id="update-check-btn" class="preset-chip" type="button" aria-pressed="false">Check for Updates</button>
+            </div>
+            <div class="sim-rows">
+              <div class="sim-row">
+                <span>Update Status</span>
+                <span id="update-status-out" class="sim-row__metric">Ready to verify latest release</span>
+              </div>
+              <div class="sim-row">
+                <span>Xcode Build Service</span>
+                <span class="sim-row__metric">28.4% CPU</span>
+              </div>
+              <div class="sim-row">
+                <span>Safari Renderer</span>
+                <span class="sim-row__metric">14.2% CPU</span>
+              </div>
+              <div class="sim-row">
+                <span>Installer Cleanup Policy</span>
+                <span class="sim-row__metric">Deletes Temp DMG After Install</span>
+              </div>
+            </div>
+          </div>
+          <div class="feature-visual">
+            <img src="assets/voltguard-diagnostics-energy.png" alt="VoltGuard Energy Monitor and System Diagnostics view" loading="lazy">
+            <div class="feature-visual__meta">
+              <span>Energy Monitor &amp; Self-Checks</span>
+              <span>Static App View</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="section" id="download">
-      <div class="container close-grid">
-        <div class="close-copy">
-          <h2>Ready for healthier battery cycles</h2>
-          <p>Download the macOS installer, drag VoltGuard to Applications, and set your daily limit in seconds. Future updates install cleanly right inside the app.</p>
-          <div class="close-links">
-            <a class="btn btn--primary" href="./downloads/VoltGuard.dmg">Download VoltGuard 1.2.0</a>
-            <a class="btn" href="#top">Back to Top</a>
+    <!-- 3. DOWNLOAD -->
+    <section id="download" class="band band--download">
+      <div class="container">
+        <div class="download-band">
+          <div class="download-copy">
+            <h2>Ready for your Mac.</h2>
+            <p class="section-desc">
+              Download the universal macOS installer for Apple Silicon and Intel Macs. Future versions update cleanly inside the app.
+            </p>
+            <div class="download-facts">
+              <span>Version 1.2.0 (Build 3)</span>
+              <span>/</span>
+              <span>macOS 13 Ventura and newer</span>
+              <span>/</span>
+              <span>Universal DMG (3.5 MB)</span>
+            </div>
           </div>
-          <p class="hero__meta">Version 1.2.0 for Mac and iPhone</p>
-        </div>
-
-        <div class="screen-frame">
-          <img src="./assets/voltguard-diagnostics-energy.png" alt="VoltGuard health diagnostics and background app energy monitor">
-          <div class="screen-frame__bar">
-            <span>VoltGuard Self-Checks Design Preview</span>
-            <span class="measured">Version 1.2.0</span>
+          <div class="download-cta-box">
+            <a class="btn--primary" href="downloads/VoltGuard.dmg" download>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 20h16"/></svg>
+              Download VoltGuard DMG
+            </a>
           </div>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="letter-footer">
-    <div class="container letter-footer__inner">
-      <div class="letter-footer__sign">
-        <strong>VoltGuard</strong>
-        <p>Thoughtful battery protection and live health monitoring for Mac, iPhone, and iPad.</p>
-      </div>
-      <div class="letter-footer__links">
-        <a href="#features">Features</a>
-        <a href="#calibration">Calibration</a>
-        <a href="#compatibility">Devices</a>
-        <a href="./downloads/VoltGuard.dmg">Download</a>
-      </div>
+  <footer class="site-footer">
+    <div class="container site-footer__inner">
+      <span>VoltGuard for macOS</span>
+      <span>Built for long-term Mac battery health</span>
     </div>
   </footer>
 
   <script>
     (function () {
-      const heroMedia = document.getElementById('hero-media');
-      const heroCaption = document.getElementById('hero-caption');
-      const btnDesign = document.getElementById('btn-hero-design');
-      const btnGif = document.getElementById('btn-hero-gif');
-      if (heroMedia && btnDesign && btnGif) {
-        btnDesign.addEventListener('click', () => {
-          heroMedia.src = heroMedia.dataset.design;
-          heroCaption.textContent = 'Overview Design Preview';
-          btnDesign.setAttribute('aria-pressed', 'true');
-          btnGif.setAttribute('aria-pressed', 'false');
+      // 1. Live Hero Battery Simulator
+      const limitRange = document.getElementById("sim-limit-range");
+      const limitReadout = document.getElementById("sim-limit-readout");
+      const tempRange = document.getElementById("sim-temp-range");
+      const tempReadout = document.getElementById("sim-temp-readout");
+      const maxTempDown = document.getElementById("sim-max-temp-down");
+      const maxTempUp = document.getElementById("sim-max-temp-up");
+      const maxTempReadout = document.getElementById("sim-max-temp-readout");
+      const heatSwitch = document.getElementById("sim-heat-switch");
+      const limitPresets = Array.from(document.querySelectorAll("[data-limit-preset]"));
+
+      const liquidGroup = document.getElementById("sim-liquid-group");
+      const waveFront = document.getElementById("sim-wave-front");
+      const waveBack = document.getElementById("sim-wave-back");
+      const batteryHull = document.getElementById("sim-battery-hull");
+      const limitGroup = document.getElementById("sim-limit-group");
+      const limitBadge = document.getElementById("sim-limit-badge");
+      const pctText = document.getElementById("sim-pct-text");
+      const modeText = document.getElementById("sim-mode-text");
+      const statusPill = document.getElementById("sim-status-pill");
+      const adapterW = document.getElementById("sim-adapter-w");
+      const batteryW = document.getElementById("sim-battery-w");
+      const thermalState = document.getElementById("sim-thermal-state");
+
+      let currentSimCharge = 76;
+      let maxAllowedTemp = 35.0;
+      let heatGuardOn = true;
+
+      function syncHeroSim() {
+        const limit = Number(limitRange.value);
+        const temp = Number(tempRange.value);
+
+        if (limit < currentSimCharge) {
+          currentSimCharge = limit;
+        } else if (currentSimCharge < Math.min(limit, 76)) {
+          currentSimCharge = Math.min(limit, 76);
+        } else if (limit > 80 && currentSimCharge === 80) {
+          currentSimCharge = Math.min(limit, 86);
+        }
+
+        const isHot = heatGuardOn && temp >= maxAllowedTemp;
+        const holdingLimit = currentSimCharge >= limit;
+
+        limitReadout.textContent = limit + "%";
+        limitBadge.textContent = limit + "%";
+        tempReadout.textContent = temp.toFixed(1) + " C";
+        maxTempReadout.textContent = maxAllowedTemp.toFixed(1) + " C";
+        pctText.textContent = currentSimCharge + "%";
+
+        limitPresets.forEach((btn) => {
+          btn.setAttribute("aria-pressed", Number(btn.dataset.limitPreset) === limit ? "true" : "false");
         });
-        btnGif.addEventListener('click', () => {
-          heroMedia.src = heroMedia.dataset.gif;
-          heroCaption.textContent = 'Live Animated Motion (GIF)';
-          btnGif.setAttribute('aria-pressed', 'true');
-          btnDesign.setAttribute('aria-pressed', 'false');
+
+        const cellTop = 26;
+        const cellHeight = 176;
+        const liquidOffsetY = cellTop + cellHeight * (1 - currentSimCharge / 100);
+        const limitOffsetY = cellTop + cellHeight * (1 - limit / 100);
+        liquidGroup.style.transform = "translateY(" + liquidOffsetY.toFixed(1) + "px)";
+        limitGroup.style.transform = "translateY(" + Math.max(limitOffsetY, 44).toFixed(1) + "px)";
+
+        waveFront.classList.remove("battery-wave--warm", "battery-wave--hot");
+        waveBack.classList.remove("battery-wave--warm", "battery-wave--hot");
+        batteryHull.classList.remove("battery-hull--paused", "battery-hull--hot");
+        statusPill.classList.remove("status-pill--warm", "status-pill--alert");
+
+        if (isHot) {
+          modeText.textContent = "Thermal Hold";
+          statusPill.textContent = "Paused: Heat Limit Reached";
+          statusPill.classList.add("status-pill--alert");
+          waveFront.classList.add("battery-wave--hot");
+          waveBack.classList.add("battery-wave--hot");
+          batteryHull.classList.add("battery-hull--hot");
+          adapterW.textContent = "18.4 W";
+          batteryW.textContent = "0.0 W (Hold)";
+          thermalState.textContent = "Thermal Pause Active";
+        } else if (holdingLimit) {
+          modeText.textContent = "Target Hold";
+          statusPill.textContent = "Holding " + limit + "% Ceiling";
+          statusPill.classList.add("status-pill--warm");
+          batteryHull.classList.add("battery-hull--paused");
+          adapterW.textContent = "19.2 W";
+          batteryW.textContent = "0.0 W (Bypass)";
+          thermalState.textContent = temp >= maxAllowedTemp - 2 ? "Warming Near Limit" : "Cool Headroom";
+        } else {
+          const watts = Math.max(24, 58 - (currentSimCharge - 20) * 0.35);
+          const net = Math.max(4.5, watts - 18.4);
+          modeText.textContent = "Charging";
+          statusPill.textContent = "Charging to " + limit + "%";
+          adapterW.textContent = watts.toFixed(1) + " W";
+          batteryW.textContent = "+" + net.toFixed(1) + " W";
+          thermalState.textContent = !heatGuardOn && temp >= maxAllowedTemp ? "Guard Off (Monitor Only)" : "Cool Headroom";
+        }
+      }
+
+      limitRange.addEventListener("input", () => {
+        currentSimCharge = Math.max(15, Number(limitRange.value) - 4);
+        syncHeroSim();
+      });
+
+      limitPresets.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const target = Number(btn.dataset.limitPreset);
+          limitRange.value = String(target);
+          currentSimCharge = Math.max(20, target - 4);
+          syncHeroSim();
+        });
+      });
+
+      tempRange.addEventListener("input", syncHeroSim);
+
+      maxTempDown.addEventListener("click", () => {
+        maxAllowedTemp = Math.max(30, Number((maxAllowedTemp - 0.5).toFixed(1)));
+        syncHeroSim();
+      });
+
+      maxTempUp.addEventListener("click", () => {
+        maxAllowedTemp = Math.min(45, Number((maxAllowedTemp + 0.5).toFixed(1)));
+        syncHeroSim();
+      });
+
+      heatSwitch.addEventListener("click", () => {
+        heatGuardOn = !heatGuardOn;
+        heatSwitch.setAttribute("aria-checked", heatGuardOn ? "true" : "false");
+        syncHeroSim();
+      });
+
+      syncHeroSim();
+
+      // 2. Feature Tab Switcher + Keyboard Navigation
+      const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
+      const tabPanels = {
+        charge: document.getElementById("panel-charge"),
+        calibration: document.getElementById("panel-calibration"),
+        schedules: document.getElementById("panel-schedules"),
+        updates: document.getElementById("panel-updates")
+      };
+
+      function activateTab(key) {
+        tabButtons.forEach((btn) => {
+          const isActive = btn.dataset.tabTarget === key;
+          btn.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+        Object.keys(tabPanels).forEach((k) => {
+          tabPanels[k].hidden = k !== key;
         });
       }
 
-      const tabs = Array.from(document.querySelectorAll('.switcher-tab'));
-      const panels = Array.from(document.querySelectorAll('.switcher-panel'));
-      if (!tabs.length) return;
-      function activate(targetId) {
-        tabs.forEach((t) => {
-          const active = t.getAttribute('aria-controls') === targetId;
-          t.setAttribute('aria-selected', active ? 'true' : 'false');
+      tabButtons.forEach((btn, idx) => {
+        btn.addEventListener("click", () => activateTab(btn.dataset.tabTarget));
+        btn.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowRight") {
+            e.preventDefault();
+            const next = tabButtons[(idx + 1) % tabButtons.length];
+            next.focus();
+            activateTab(next.dataset.tabTarget);
+          } else if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            const prev = tabButtons[(idx - 1 + tabButtons.length) % tabButtons.length];
+            prev.focus();
+            activateTab(prev.dataset.tabTarget);
+          }
         });
-        panels.forEach((p) => {
-          if (p.id === targetId) p.removeAttribute('hidden');
-          else p.setAttribute('hidden', '');
+      });
+
+      // 3. Feature Panel 1: Sailing & Restore on Quit Sandbox
+      const sailButtons = Array.from(document.querySelectorAll("[data-sail-delta]"));
+      const sailDeltaReadout = document.getElementById("sail-delta-readout");
+      const sailSocRange = document.getElementById("sail-soc-range");
+      const sailSocReadout = document.getElementById("sail-soc-readout");
+      const sailDecisionOut = document.getElementById("sail-decision-out");
+      const quitRestoreSwitch = document.getElementById("quit-restore-switch");
+      const quitRestoreOut = document.getElementById("quit-restore-out");
+      let sailDelta = 5;
+      let restoreOnQuit = true;
+
+      function syncSailing() {
+        const soc = Number(sailSocRange.value);
+        const rearmAt = 80 - sailDelta;
+        sailDeltaReadout.textContent = sailDelta + "% (Re-arm at " + rearmAt + "%)";
+        sailSocReadout.textContent = soc + "%";
+        sailButtons.forEach((b) => {
+          b.setAttribute("aria-pressed", Number(b.dataset.sailDelta) === sailDelta ? "true" : "false");
+        });
+        if (soc >= 80) {
+          sailDecisionOut.textContent = "Target Hold (Adapter Bypass)";
+        } else if (soc > rearmAt) {
+          sailDecisionOut.textContent = "Sailing Coast (Inside " + rearmAt + "% to 80% Buffer)";
+        } else {
+          sailDecisionOut.textContent = "Charging Resumed (Below " + rearmAt + "%)";
+        }
+        quitRestoreOut.textContent = restoreOnQuit ? "Restores Normal 100% macOS Charging" : "Keeps Current Ceiling Active";
+      }
+
+      sailButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          sailDelta = Number(btn.dataset.sailDelta);
+          syncSailing();
+        });
+      });
+      sailSocRange.addEventListener("input", syncSailing);
+      quitRestoreSwitch.addEventListener("click", () => {
+        restoreOnQuit = !restoreOnQuit;
+        quitRestoreSwitch.setAttribute("aria-checked", restoreOnQuit ? "true" : "false");
+        syncSailing();
+      });
+
+      // 4. Feature Panel 2: Interactive 5-Stage Calibration Stepper & Auto-Play
+      const calStages = [
+        { title: "Stage 1: Charging to 100%", progress: 0.18, afterLabel: "Expected Outcome", afterVal: "Full gauge alignment pending" },
+        { title: "Stage 2: Holding at 100% (60 min)", progress: 0.36, afterLabel: "Expected Outcome", afterVal: "Upper voltage anchor stabilizing" },
+        { title: "Stage 3: Guided Drain to 15%", progress: 0.56, afterLabel: "Expected Outcome", afterVal: "Measuring usable discharge curve" },
+        { title: "Stage 4: Resting Baseline (60 min)", progress: 0.74, afterLabel: "Expected Outcome", afterVal: "Settling low-voltage resting state" },
+        { title: "Stage 5: Restoring 80% Cap", progress: 0.90, afterLabel: "Expected Outcome", afterVal: "Returning safely to daily ceiling" },
+        { title: "Completed: Capacity Verified", progress: 1.0, afterLabel: "After Calibration", afterVal: "4295 mAh (93% Health) / +115 mAh" }
+      ];
+      const calButtons = Array.from(document.querySelectorAll("[data-cal-stage]"));
+      const calStageHeading = document.getElementById("cal-stage-heading");
+      const calTrackFill = document.getElementById("cal-track-fill");
+      const calAfterLabel = document.getElementById("cal-after-label");
+      const calAfterVal = document.getElementById("cal-after-val");
+      const calAutoBtn = document.getElementById("cal-autoplay-btn");
+      let calIndex = 0;
+      let calTimer = null;
+
+      function syncCalibration(index) {
+        calIndex = index;
+        const step = calStages[index];
+        calStageHeading.textContent = step.title;
+        calTrackFill.style.transform = "scaleX(" + step.progress + ")";
+        calAfterLabel.textContent = step.afterLabel;
+        calAfterVal.textContent = step.afterVal;
+        calButtons.forEach((b) => {
+          b.setAttribute("aria-pressed", Number(b.dataset.calStage) === index ? "true" : "false");
         });
       }
-      tabs.forEach((tab) => {
-        tab.addEventListener('click', () => activate(tab.getAttribute('aria-controls')));
+
+      calButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (calTimer) {
+            clearInterval(calTimer);
+            calTimer = null;
+            calAutoBtn.textContent = "Play Cycle";
+            calAutoBtn.setAttribute("aria-pressed", "false");
+          }
+          syncCalibration(Number(btn.dataset.calStage));
+        });
+      });
+
+      calAutoBtn.addEventListener("click", () => {
+        if (calTimer) {
+          clearInterval(calTimer);
+          calTimer = null;
+          calAutoBtn.textContent = "Play Cycle";
+          calAutoBtn.setAttribute("aria-pressed", "false");
+          return;
+        }
+        calAutoBtn.textContent = "Stop Cycle";
+        calAutoBtn.setAttribute("aria-pressed", "true");
+        calTimer = setInterval(() => {
+          syncCalibration((calIndex + 1) % calStages.length);
+        }, 1250);
+      });
+
+      // 5. Feature Panel 3: Schedule Profile Switcher
+      const schedProfiles = {
+        office: { badge: "80% Cap Active", window: "Mon to Fri at 08:30", policy: "Hold at 80% / Max 35.0 C" },
+        travel: { badge: "100% Travel Top-Up", window: "Fridays at 17:00", policy: "Full 100% Charge / Thermal Watch On" },
+        overnight: { badge: "70% Overnight Hold", window: "Daily at 22:30", policy: "Hold at 70% / Silent Passive Cooling" }
+      };
+      const schedBtns = Array.from(document.querySelectorAll("[data-sched-profile]"));
+      const schedBadge = document.getElementById("sched-mode-badge");
+      const schedWindow = document.getElementById("sched-window-out");
+      const schedPolicy = document.getElementById("sched-policy-out");
+
+      schedBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = btn.dataset.schedProfile;
+          const profile = schedProfiles[key];
+          schedBtns.forEach((b) => b.setAttribute("aria-pressed", b.dataset.schedProfile === key ? "true" : "false"));
+          schedBadge.textContent = profile.badge;
+          schedWindow.textContent = profile.window;
+          schedPolicy.textContent = profile.policy;
+        });
+      });
+
+      // 6. Feature Panel 4: Interactive Update Check Simulation
+      const updateBtn = document.getElementById("update-check-btn");
+      const updateOut = document.getElementById("update-status-out");
+      updateBtn.addEventListener("click", () => {
+        updateBtn.disabled = true;
+        updateOut.textContent = "Verifying signed update feed...";
+        setTimeout(() => {
+          updateOut.textContent = "Up to date: VoltGuard v1.2.0 (Build 3)";
+          updateBtn.textContent = "Checked Just Now";
+          updateBtn.setAttribute("aria-pressed", "true");
+          updateBtn.disabled = false;
+        }, 480);
       });
     })();
   </script>
