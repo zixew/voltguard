@@ -1,29 +1,29 @@
 {
-  "version": "1.6.0",
-  "build": "7",
+  "version": "1.7.0",
+  "build": "8",
   "publishedAt": "2026-11-28",
   "installerURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard-Windows-Setup.exe",
-  "sha256": "1ad7c9ab0d503384e834b6c2cc6e4c610a8a35b2b89034531314075cfedeb056",
+  "sha256": "3ded3744c9baa5fc59a6d9cfa4a226de160e8af1596f6c95edb90ef31ed6136a",
   "binaryURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard.exe",
-  "binarySha256": "f795db99f298937f2199a2d01615be63c169d7a3755db86be5993a98a2e79489",
+  "binarySha256": "625325629e3af67fe266056b9295de885d5a66c5149bbc3a0121bc1eaee9d71f",
   "changesEN": [
-    "Sleep Control (SetThreadExecutionState) keeps laptops awake during 5-stage calibration and Top-Up",
-    "Customizable System Tray Badge (Percentage / Wattage / Temperature / Shield) and Tray Popover quick-limits toggle",
-    "CLI automation flags (--limit, --topup, --power-saver, --balanced) plus 1-click Open OEM Power App launcher (Acer Care Center / Sense, Vantage, MyASUS)",
-    "16-Feature Windows 10/11 Compatibility Matrix in System & Guide and smooth interactive card hover transitions"
+    "Fixed Dark Mode black headings/labels caused by WPF TabControl foreground override so all text meets WCAG AA contrast",
+    "Added non-admin thermal zone temperature reading via Win32_PerfFormattedData_Counters_ThermalZoneInformation",
+    "Fixed 0px CornerRadius legacy settings migration, sidebar double focus border, and 0.0 W sparkline gridlines",
+    "Added interactive Schedule Rule Builder, 60%–100% quick limit presets, and human-readable status titles"
   ],
   "fixesEN": [
-    "Verified zero GDI handle leaks across all TrayIconStyle badge modes",
-    "Verified silent installer/uninstaller and v1.6.0.7 binary integrity on windows-latest"
+    "Unchecked Sailing Mode automatically when OEM EC write is unavailable and added 1-click OEM App button in Power & Limits",
+    "Verified silent installer/uninstaller and v1.7.0.8 binary integrity on windows-latest"
   ],
   "changesID": [
-    "Sleep Control (SetThreadExecutionState) menjaga laptop tetap terjaga selama kalibrasi 5 tahap dan Top-Up",
-    "Kustomisasi Badge System Tray (Persentase / Watt / Suhu / Shield) dan pengaturan modul cepat di Tray Popover",
-    "Otomatisasi CLI (--limit, --topup, --power-saver, --balanced) + tombol 1-klik buka aplikasi daya OEM (Acer Care Center / Sense, Vantage, MyASUS)",
-    "Matriks kompatibilitas 16 fitur Windows 10/11 di System & Guide serta animasi hover kartu yang halus"
+    "Perbaikan judul/label hitam di Dark Mode akibat override foreground WPF TabControl sehingga seluruh teks tajam & kontras",
+    "Pembacaan suhu non-admin via Win32_PerfFormattedData_Counters_ThermalZoneInformation sehingga Live Thermal Trend aktif",
+    "Perbaikan migrasi CornerRadius 0px dari settings lama, hilangkan double border fokus di sidebar, dan tambah gridlines + dot di sparkline",
+    "Tambah form pembuat jadwal interaktif (nama, jam, limit), preset cepat 60%–100%, dan judul status yang mudah dibaca"
   ],
   "fixesID": [
-    "Verifikasi bebas kebocoran handle GDI di semua mode badge TrayIconStyle",
-    "Verifikasi installer/uninstaller senyap dan integritas biner v1.6.0.7 di windows-latest"
+    "Otomatis uncheck Sailing Mode saat EC write OEM tidak tersedia beserta tombol 1-klik aplikasi OEM di Power & Limits",
+    "Verifikasi installer/uninstaller senyap dan integritas biner v1.7.0.8 di windows-latest"
   ]
 }
