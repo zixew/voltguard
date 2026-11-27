@@ -1,29 +1,29 @@
 {
-  "version": "1.1.0",
-  "build": "2",
+  "version": "1.2.0",
+  "build": "3",
   "publishedAt": "2026-11-28",
   "installerURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard-Windows-Setup.exe",
-  "sha256": "5d3bc86b9a67c8967dc98efa84927187fe7654060c6e0e0b118ab139059a098d",
+  "sha256": "190398d032e5a2261f36ce6ecde3fb8516cb92a2e06be31d85f92c4262776bca",
+  "binaryURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard.exe",
+  "binarySha256": "5739d05c4cce7685df7a6336562b8e14854dc7a40912b104f42bea6a61cdec98",
   "changesEN": [
-    "PerMonitorV2 DPI scaling and full Obsidian Dark / Paper Light styling across DataGrid, ComboBox, CheckBox, and Slider",
-    "Async background WMI & process polling with debounced policy persistence for zero UI stutter",
-    "Expanded OEM vendor classification (Lenovo, ASUS, Dell, HP, MSI, Acer, Surface) and safe Desktop/VM no-battery handling",
-    "Streaming SHA-256 auto-updater with silent Inno Setup relaunch and automatic temp cleanup"
+    "Full macOS UI parity: 4 theme presets (Obsidian Slate, Paper Light, Nordic Mist, Midnight Amber), accent swatches, and corner radius",
+    "New BrandLogoView, animated LiquidBatteryCell, HealthGaugeRing, and Recommended Profiles on Overview",
+    "Taskbar-anchored Tray Quick Popover on left-click plus Windows 10/11 Dark/Light DWM Titlebar",
+    "True silent in-place binary auto-updater (no installer window opened during updates)"
   ],
   "fixesEN": [
-    "Fixed GDI HICON handle leak in System Tray icon updates and added DestroyIcon cleanup",
-    "Fixed WMI uint32 0xFFFFFFFF sentinel overflow and multi-battery capacity summation",
-    "Added critical OS process guard in Energy Monitor and Task Manager StartupApproved sync"
+    "Disambiguated WPF controls and verified 0 GDI handle leaks across 200 tray icon renders",
+    "Verified silent install/uninstall and v1.2.0.3 binary integrity on windows-latest"
   ],
   "changesID": [
-    "Skala DPI PerMonitorV2 dan tema Obsidian Dark / Paper Light penuh pada DataGrid, ComboBox, CheckBox, dan Slider",
-    "Polling WMI dan proses latar belakang secara asinkron agar antarmuka tetap responsif",
-    "Deteksi OEM lebih luas (Lenovo, ASUS, Dell, HP, MSI, Acer, Surface) serta mode aman Desktop/VM tanpa baterai",
-    "Pembaruan streaming SHA-256 dengan instalasi senyap Inno Setup dan pembersihan file sementara otomatis"
+    "Tampilan identik macOS: 4 preset tema (Obsidian Slate, Paper Light, Nordic Mist, Midnight Amber), pilihan warna aksen, dan radius kartu",
+    "BrandLogoView baru, LiquidBatteryCell animasi, HealthGaugeRing, serta profil rekomendasi di Overview",
+    "Tray Quick Popover di atas taskbar saat klik kiri ikon tray + Titlebar DWM Dark/Light Windows 10/11",
+    "Auto-updater silent in-place binary sejati tanpa membuka jendela installer saat pembaruan"
   ],
   "fixesID": [
-    "Perbaikan kebocoran handle GDI HICON pada ikon System Tray dengan DestroyIcon",
-    "Perbaikan overflow sentinel WMI 0xFFFFFFFF dan penjumlahan dual-baterai",
-    "Proteksi proses kritis OS di Energy Monitor dan sinkronisasi status Startup Windows 10/11"
+    "Verifikasi bebas kebocoran handle GDI pada 200 render ikon tray",
+    "Verifikasi instalasi/uninstalasi senyap dan integritas biner v1.2.0.3 di windows-latest"
   ]
 }
