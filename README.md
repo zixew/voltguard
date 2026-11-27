@@ -2,7 +2,7 @@
 
 [![macOS CI](https://github.com/zixew/voltguard/actions/workflows/macos-ci.yml/badge.svg)](https://github.com/zixew/voltguard/actions/workflows/macos-ci.yml)
 
-Native macOS 14+ menu bar battery and power management utility built with Swift 5.9, SwiftUI, AppKit, IOKit, and AppleSMC. Structured around Clean Architecture, VIPER presentation, and unidirectional state flow.
+**VoltGuard** adalah aplikasi menu bar macOS untuk menjaga kesehatan dan memperpanjang masa pakai baterai MacBook Anda. Atur batas maksimal pengisian daya, lindungi baterai dari suhu panas, pantau aliran daya secara langsung, dan jalankan kalibrasi baterai otomatis langsung dari menu bar maupun jendela aplikasi penuh.
 
 ![VoltGuard Hero Showcase -- Main Dashboard, Live Power Flow, and Menu Bar Popover](docs/assets/voltguard-hero-showcase.png)
 
@@ -10,132 +10,62 @@ Native macOS 14+ menu bar battery and power management utility built with Swift 
 
 ---
 
-## Core Capabilities
+## Fitur Utama
 
-### 1. Charge Control & Protection
-- **Charge Limiter**: Set a custom charge cap between `20%` and `100%`, with one-click presets (`60%`, `80%`, `90%`, `100%`) and direct drag-to-adjust on the battery cell gate line.
-- **Manual & Automatic Discharge**: Force battery discharge while plugged into AC power, or automatically discharge when charge exceeds `limit + 2%`.
-- **Clamshell Discharge**: Optional permission to discharge while the MacBook lid is closed.
-- **Heat Protection**: Pause charging when battery temperature crosses a configurable ceiling (`28 C` to `45 C`, default `35 C`) with a `2 C` hysteresis band to avoid rapid toggling.
-- **Sailing Mode**: Let battery charge drift down by a configurable delta (`2%` to `20%`, default `5%`) before resuming charge, reducing micro-cycle wear.
-- **Top Up 100%**: Charge to `100%` once before travel and automatically restore your saved charge limit once full.
-- **Sleep & Low Power Control**: Prevent system sleep during active discharge or calibration, inhibit charging while sleeping, and toggle macOS Low Power Mode on battery or always.
-- **MagSafe LED Control**: Switch LED behavior between `System`, `Off`, `Green`, `Amber`, or `Sync with Limit`.
+### 1. Pembatas Pengisian Baterai (Charge Limiter)
+- **Batas Pengisian Kustom (`20%` hingga `100%`)**: Mencegah baterai MacBook terus tertahan di `100%` saat sering terhubung ke charger.
+- **Tombol Cepat & Kontrol Geser**: Pilih batas cepat (`60%`, `80%`, `90%`, `100%`) lewat satu klik, geser slider, atau tarik langsung garis batas pada ilustrasi baterai.
+- **Top Up 100%**: Isi penuh baterai ke `100%` satu kali sebelum bepergian. Setelah mencapai `100%`, VoltGuard otomatis mengembalikan batas pengisian harian Anda.
 
-### 2. Persistent 5-Stage Battery Calibration
-- **Why Calibrate**: Keeping a battery capped at `60%` to `80%` slows chemical aging, but over time the fuel-gauge controller (`bq40z651`) drifts. Running a calibration cycle once every `1 to 3 months` re-anchors the upper (`100%`) and lower (`15%`) voltage reference points so macOS reports accurate state-of-charge (`%`) and Maximum Capacity (`mAh`).
-- **Estimated Total Duration**: **`~3.5 to 6 hours`** (persisted across app restarts, with active sleep prevention across all 5 stages).
-- **Stage Breakdown**:
+### 2. Perlindungan Baterai Cerdas
+- **Pelindung Panas (Heat Protection)**: Menjeda pengisian daya secara otomatis ketika suhu baterai melewati batas aman yang Anda tentukan, lalu melanjutkan pengisian setelah suhu baterai kembali dingin.
+- **Mode Sailing**: Membiarkan persentase baterai turun beberapa persen secara alami sebelum mulai mengisi ulang lagi, sehingga baterai tidak terus-menerus mengalami pengisian pendek di angka batas.
+- **Pengosongan Baterai (Discharge)**: Gunakan daya baterai meskipun kabel charger tetap terpasang, baik secara manual maupun otomatis ketika baterai melebihi batas yang ditentukan (termasuk opsi saat layar MacBook tertutup).
+- **Kontrol Lampu MagSafe & Mode Hemat Daya**: Atur warna lampu indikator MagSafe mengikuti status pengisian, cegah pengisian saat MacBook tidur (sleep), dan aktifkan Mode Hemat Daya otomatis saat menggunakan baterai.
 
-| Stage | Name | SMC Hardware Action | Estimated Duration | Technical Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| **1** | **Charging to 100%** | `BCLM=100`, `CH0B=0`, `CH0I=0` | `~30 - 90 min` | Charges cells to full capacity before upper voltage soak. |
-| **2** | **Holding at 100%** | `BCLM=100`, `CH0B=0`, `CH0I=0` | **`60 min` hold** (`60:00`) | Holds full charge so saturation current tapers and upper cell voltage stabilizes. |
-| **3** | **Discharging to 15%** | `CH0I=1`, `CH0B=2`, `CHTE=01000000` | `~1 - 3 hours` | Controlled discharge on AC power to reach the lower calibration reference point. |
-| **4** | **Holding at 15%** | `CH0I=0`, `CH0B=2` (Charge paused) | **`60 min` hold** (`60:00`) | Rests cells at low voltage with zero charge current so the fuel gauge locks its low-end baseline. |
-| **5** | **Restoring Limit** | `BCLM=<limit>`, `CH0B=0`, `CH0I=0` | `~30 - 60 min` | Recharges battery back to your saved daily limit (e.g., `80%`) and resumes normal protection. |
+### 3. Rekomendasi Profil Pemakaian
+- **4 Profil Siap Pakai**:
+  - **Travel**: Batas `100%` dengan penghemat daya saat menggunakan baterai untuk perjalanan jauh.
+  - **Balanced**: Batas `80%` dengan perlindungan panas harian untuk pemakaian campuran.
+  - **Desk Docked**: Batas `75%` untuk MacBook yang hampir selalu terhubung ke charger di meja kerja.
+  - **Max Lifespan**: Batas `60%` dengan perlindungan suhu ekstra ketat untuk usia baterai paling awet.
+- **Profil Kustom**: Simpan kombinasi batas pengisian, jarak Mode Sailing, dan batas suhu favorit Anda sendiri.
 
-### 3. Stabilized Time-Aware ETA & Live Power Flow
-- **Time-Aware EMA Estimator**: Calculates time until empty and time to target charge limit using a 60-second time-aware exponential moving average (`alpha = 1 - exp(-dt / 60)`), `AppleRawCurrentCapacity` coulomb readings, initial `AvgTimeToEmpty` seeding, and upward hysteresis rate limiting (`±1 min` per step).
-- **2-Segment Power Flow Conduit**: Live `Adapter Input (W)`, `System Load (W)`, `Battery Net (W)`, `Voltage (V)`, and `Current (A)` with an animated two-segment conduit (`Adapter -> System` and `System <-> Battery`) whose particle speed scales with wattage and pauses at `0.0%` CPU when the popover and dashboard window are closed.
+### 4. Aliran Daya Langsung & Estimasi Waktu
+- **Visualisasi Aliran Daya (Live Power Flow)**: Lihat berapa Watt daya yang masuk dari adaptor, berapa yang dipakai oleh MacBook, dan berapa yang masuk atau keluar dari baterai secara real-time.
+- **Estimasi Waktu Stabil**: Menampilkan sisa waktu pemakaian baterai sampai habis, atau estimasi waktu sampai baterai mencapai target batas pengisian Anda.
+- **Monitor Energi Aplikasi**: Menampilkan daftar aplikasi yang sedang memakan daya paling besar beserta tombol cepat untuk menutup aplikasi tersebut.
 
-### 4. Detailed Battery Diagnostics & Health History
-- Reads Apple Silicon nested `BatteryData` (`NominalChargeCapacity`, `AppleRawMaxCapacity`, `AppleRawCurrentCapacity`, `DesignCapacity`, `CycleCount`, `DesignCycleCount9C`, `DeviceName`) to report accurate macOS-matched Maximum Capacity (`%`), capacity wear (`mAh`), and condition (`Normal`, `Fair`, `Service Recommended`).
-- Records daily health snapshots (`health_history.json`), renders a 30-day health trend chart, and exports CSV to clipboard.
+### 5. Kesehatan Baterai & Riwayat Harian
+- **Ringkasan Kondisi Baterai**: Menampilkan persentase Kesehatan Baterai (Maximum Capacity), jumlah siklus pengisian (Cycle Count), kapasitas saat ini dibandingkan kapasitas bawaan pabrik, serta status kondisi baterai (`Normal`, `Menurun`, atau `Perlu Servis`).
+- **Grafik Tren Kesehatan**: Mencatat riwayat kesehatan dan suhu puncak baterai setiap hari secara otomatis serta mendukung salin data ke format CSV.
 
-### 5. Theme Engine, Custom Background & Localization
-- **4 WCAG AA Theme Presets**: `Obsidian`, `Paper Light`, `Nordic Mist`, and `Midnight` with mini-window preview swatch cards.
-- **Custom Image Background**: Switch between `Solid Theme` and `Custom Image` (`NSOpenPanel` with downsampled `1920px` `CGImageSource` caching), complete with live `Scrim Opacity` (`0%` to `90%`) and `Blur` (`0px` to `24px`) sliders applied across the main window and menu bar popover.
-- **Customizable Menu Bar & Popover**: 4 visual menu bar icon styles (`Shield Battery`, `Ring Gauge`, `Percentage Pill`, `Minimal Bolt`), optional `%`, `W`, `C`, and `ETA` badges, right-click quick action menu, module reordering/hiding, `Detailed` vs `Compact` density, and instant **English (`EN`) / Bahasa Indonesia (`ID`)** switching.
-- **Apple Shortcuts (`AppIntents`) & Global Hotkey**: `Cmd+Option+V` global popover toggle, plus Shortcuts intents (`Set Charge Limit`, `Toggle Discharge`, `Top Up 100%`, `Get Battery Telemetry`) with live `DistributedNotificationCenter` settings reload.
+### 6. Kalibrasi Baterai 5-Tahap & Jadwal Otomatis
+- **Tujuan Kalibrasi**: Saat baterai terus dibatasi pada `60%` hingga `80%`, pembacaan persentase baterai di macOS lama-kelamaan bisa kurang akurat. Kalibrasi penuh membantu menyelaraskan kembali pembacaan titik penuh dan titik rendah baterai. Cukup dijalankan **1 hingga 3 bulan sekali**.
+- **Estimasi Durasi**: Total sekitar **`3,5 hingga 6 jam`** (berjalan otomatis dari awal sampai selesai dan tetap tersimpan meskipun aplikasi ditutup sementara):
 
----
+| Tahap | Nama Tahap | Estimasi Waktu | Penjelasan |
+| :--- | :--- | :--- | :--- |
+| **1** | **Mengisi ke 100%** | `~30 - 90 menit` | Mengisi baterai sampai benar-benar penuh `100%`. |
+| **2** | **Menahan di 100%** | **`60 menit`** | Menahan baterai di posisi `100%` agar pembacaan kapasitas penuh stabil. |
+| **3** | **Mengosongkan ke 15%** | `~1 - 3 jam` | Menguras baterai secara terkontrol hingga `15%` tanpa perlu mencabut charger. |
+| **4** | **Menahan di 15%** | **`60 menit`** | Mengistirahatkan baterai di `15%` tanpa pengisian agar pembacaan batas bawah akurat. |
+| **5** | **Memulihkan Batas** | `~30 - 60 menit` | Mengisi kembali baterai ke batas harian Anda (misalnya `80%`) lalu kembali ke perlindungan normal. |
 
-## Architecture
+- **Jadwal Otomatis (Schedule)**: Buat jadwal harian atau mingguan untuk mengatur batas `80%`, menyalakan `Top Up 100%`, atau menjalankan pengosongan baterai pada jam yang Anda inginkan.
 
-```mermaid
-flowchart LR
-    subgraph App["VoltGuardApp (VIPER + SwiftUI/AppKit)"]
-        Views["PopoverView / FullDashboardView / MenuBarIconView"]
-        Presenter["VoltGuardPresenter (@MainActor)"]
-        Interactor["VoltGuardInteractor"]
-        Intents["ShortcutsIntents (AppIntents)"]
-    end
-
-    subgraph Domain["VoltGuardDomain (Pure Swift)"]
-        UseCases["EvaluateChargePolicyUseCase\nCalibrationMachineUseCase\nBatteryETACalculator\nPowerFlowCalculator\nRecommendProfileUseCase"]
-        Entities["BatteryTelemetry / ChargePolicy\nAppSettings / CalibrationSession"]
-    end
-
-    subgraph Data["VoltGuardData (IOKit & Repositories)"]
-        IOKitReader["IOKitBatteryReader (AppleSmartBattery)"]
-        SMCGateway["DualModeSMCGateway"]
-        PowerGateway["SystemPowerGateway (IOPMAssertion)"]
-        Repos["JSONSettingsRepository\nJSONHealthHistoryRepository"]
-    end
-
-    subgraph Helper["VoltGuardHelper (Privileged Root Daemon)"]
-        Daemon["voltguard-helper (/var/run/voltguard-helper.sock)"]
-        SMC["SMCClient (AppleSMC + pmset)"]
-    end
-
-    Views --> Presenter
-    Presenter --> Interactor
-    Intents --> Repos
-    Interactor --> UseCases
-    Interactor --> IOKitReader
-    Interactor --> SMCGateway
-    Interactor --> PowerGateway
-    Interactor --> Repos
-    SMCGateway -->|UNIX Domain Socket| Daemon
-    Daemon --> SMC
-```
-
-### Hardware AppleSMC Keys (`voltguard-helper`)
-
-| Key / Tool | Purpose | Values Written |
-| :--- | :--- | :--- |
-| `BCLM` | Charge limit percentage cap | `20` to `100` (`UInt8`) |
-| `CHTE` | Charge inhibit / termination control | `[0x01, 0x00, 0x00, 0x00]` (inhibit) / `[0x00, ...]` (allow) |
-| `CH0B` / `CH0C` | Charger inhibit bytes | `0x02` (inhibit) / `0x00` (allow) |
-| `CH0I` | Force discharge on AC power | `0x01` (discharge) / `0x00` (normal) |
-| `ACLC` | MagSafe LED override | `0x00` (system), `0x01` (off), `0x03` (green), `0x04` (amber) |
-| `/usr/bin/pmset` | macOS Low Power Mode | `pmset -a lowpowermode 1` or `0` |
-
-> [!NOTE]
-> Without the privileged helper installed, VoltGuard runs in **Read-Only** mode: all IOKit battery telemetry, power flow topology, ETA calculation, health history, and profile recommendations remain active without requiring administrator privileges.
+### 7. Kustomisasi Tampilan, Gambar Latar, & Bahasa
+- **4 Tema Warna**: Pilih tema `Obsidian`, `Paper Light`, `Nordic Mist`, atau `Midnight`, lengkap dengan pilihan warna aksen, kelengkungan sudut, dan transparansi kartu.
+- **Gambar Latar Kustom (Custom Background)**: Pasang gambar atau wallpaper favorit Anda sebagai latar jendela aplikasi dan popover menu bar, lengkap dengan pengatur tingkat gelap latar (**Scrim Opacity**) dan tingkat buram (**Blur**).
+- **Kustomisasi Menu Bar & Popover**: Pilih dari 4 gaya ikon menu bar (`Shield Battery`, `Ring Gauge`, `Percentage Pill`, `Minimal Bolt`), tampilkan persentase, daya Watt, suhu, atau sisa waktu di menu bar, serta atur urutan kartu di dalam popover.
+- **Dua Bahasa**: Beralih antara **Bahasa Indonesia (`ID`)** dan **English (`EN`)** kapan saja dengan satu klik.
 
 ---
 
-## Build, Test & Package
+## Cara Menggunakan
 
-### Prerequisites
-- macOS 14.0 (Sonoma) or newer
-- Swift 5.9+ / Xcode 15.3+
-
-### Commands
-
-```bash
-# Run all unit tests (26 tests)
-swift test
-
-# Build release binaries (VoltGuard + voltguard-helper)
-swift build -c release
-
-# Package VoltGuard.app and dist/VoltGuard.dmg (and install to /Applications locally)
-bash scripts/package_dmg.sh
-
-# Package DMG in CI mode (skips /Applications and iCloud Drive copy)
-CI=true bash scripts/package_dmg.sh
-```
-
----
-
-## Panduan Singkat (Bahasa Indonesia)
-
-1. Buka **VoltGuard** dari menu bar kanan atas atau tekan pintasan global `Cmd+Option+V`.
-2. Atur **Batas Pengisian** (misal `80%`) lewat slider, tombol preset (`60% / 80% / 90% / 100%`), atau geser langsung garis batas pada sel baterai.
-3. Pantau **Sisa Waktu** (`sampai habis` saat memakai baterai, atau `sampai penuh X%` sesuai batas pengisian saat di-charge) serta detail kapasitas `mAh` dan kondisi baterai di kartu **Kesehatan Baterai**.
-4. Aktifkan **Pelindung Panas** dan **Mode Sailing** di tab `Daya & Batas` untuk menjaga umur sel baterai saat laptop sering terhubung ke adaptor.
-5. Gunakan **Tampilan & Tema** untuk mengganti preset tema (`Obsidian`, `Terang`, `Nordic Mist`, `Midnight`), memasang **Gambar Kustom** beserta pengatur `Opasitas Scrim` dan `Blur`, atau memilih gaya ikon menu bar.
-6. Buka **Sistem & Panduan -> Pasang Helper SMC** satu kali (membutuhkan izin administrator macOS) untuk mengaktifkan kontrol tulis perangkat keras `AppleSMC`.
+1. Buka **VoltGuard** dari ikon di menu bar kanan atas atau tekan pintasan keyboard `Cmd+Option+V`.
+2. Pertama kali digunakan, buka menu **Sistem & Panduan** lalu klik **Pasang Helper SMC** satu kali agar VoltGuard dapat mengatur batas pengisian baterai MacBook Anda.
+3. Pilih **Batas Pengisian** harian (disarankan `80%` untuk pemakaian sehari-hari atau `60%--75%` jika selalu terhubung ke charger).
+4. Nyalakan **Pelindung Panas** dan **Mode Sailing** untuk perlindungan otomatis setiap hari.
+5. Gunakan tombol **Top Up 100%** kapan pun Anda membutuhkan baterai penuh sebelum bepergian.
