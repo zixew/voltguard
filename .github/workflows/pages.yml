@@ -1,4 +1,4 @@
-name: Deploy Website to GitHub Pages
+name: Web CI & Production Health
 
 on:
   push:
@@ -6,41 +6,58 @@ on:
     paths:
       - 'docs/**'
       - '.github/workflows/pages.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: web-ci
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  verify-web:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
-
-      - name: Validate Web Assets & Appcast
+      - name: Validate HTML Local Assets & Appcast Feed
         run: |
-          python3 -c "import json; d = json.load(open('docs/appcast.json')); assert d['version'] and d['build'] and d['dmgURL'], 'Invalid appcast.json'"
-          test -s docs/downloads/VoltGuard.dmg
-          test -f docs/index.html
+          python3 - <<'PY'
+          import json, os, re
 
-      - name: Upload docs artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: docs
+          # 1. Verify appcast.json schema
+          with open("docs/appcast.json", "r", encoding="utf-8") as f:
+              cast = json.load(f)
+          for key in ("version", "build", "publishedAt", "dmgURL", "changesEN", "fixesEN", "changesID", "fixesID"):
+              assert cast.get(key), f"Missing or empty key in appcast.json: {key}"
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+          # 2. Verify DMG payload exists and is non-trivial
+          dmg_size = os.path.getsize("docs/downloads/VoltGuard.dmg")
+          assert dmg_size > 1_000_000, f"DMG too small: {dmg_size}"
+
+          # 3. Verify every local asset reference in docs/index.html resolves on disk
+          with open("docs/index.html", "r", encoding="utf-8") as f:
+              html = f.read()
+          refs = re.findall(r'(?:src|href)="([^"]+)"', html)
+          for ref in refs:
+              if ref.startswith(("http://", "https://", "#", "data:")):
+                  continue
+              clean = ref.split("?", 1)[0]
+              path = os.path.join("docs", clean)
+              assert os.path.exists(path), f"Missing local asset referenced in index.html: {clean}"
+
+          print(f"Verified appcast v{cast['version']} (build {cast['build']}), DMG {dmg_size} bytes, and local assets cleanly.")
+          PY
+
+      - name: Verify Live Production Endpoints
+        if: github.ref == 'refs/heads/main'
+        run: |
+          curl -fsSI https://voltguard-mocha.vercel.app/
+          curl -fsSI https://voltguard-mocha.vercel.app/appcast.json
+          curl -fsSI https://voltguard-mocha.vercel.app/downloads/VoltGuard.dmg
