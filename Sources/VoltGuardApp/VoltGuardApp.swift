@@ -288,6 +288,7 @@ final class VoltGuardAppDelegate: NSObject, NSApplicationDelegate, AppRouterProt
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        presenter?.handleApplicationTermination()
         if let reopenObserver {
             DistributedNotificationCenter.default().removeObserver(reopenObserver)
         }

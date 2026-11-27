@@ -96,6 +96,8 @@ public struct FullDashboardView: View {
         .onChange(of: selectedSection) { _, newValue in
             if newValue == .energy {
                 presenter.dispatch(.refreshEnergyApps)
+            } else if newValue == .system {
+                presenter.dispatch(.runDiagnostics)
             }
         }
         .onChange(of: presenter.state.requestedDashboardTab) { _, tabIdx in
@@ -1703,63 +1705,147 @@ public struct FullDashboardView: View {
                             }
                         }
                     }
-                    Toggle(L10n.text(.showPercentage, locale: locale), isOn: Binding(
-                        get: { iconCfg.showPercentage },
-                        set: { var next = iconCfg; next.showPercentage = $0; presenter.dispatch(.updateMenuBarConfig(next)) }
-                    ))
-                    Toggle(L10n.text(.showWattage, locale: locale), isOn: Binding(
-                        get: { iconCfg.showWattage },
-                        set: { var next = iconCfg; next.showWattage = $0; presenter.dispatch(.updateMenuBarConfig(next)) }
-                    ))
-                    Toggle(L10n.text(.showTemperature, locale: locale), isOn: Binding(
-                        get: { iconCfg.showTemperature },
-                        set: { var next = iconCfg; next.showTemperature = $0; presenter.dispatch(.updateMenuBarConfig(next)) }
-                    ))
-                    Toggle(L10n.text(.showTimeRemaining, locale: locale), isOn: Binding(
-                        get: { iconCfg.showTimeRemaining },
-                        set: { var next = iconCfg; next.showTimeRemaining = $0; presenter.dispatch(.updateMenuBarConfig(next)) }
-                    ))
-                    Divider()
-                    Picker(L10n.text(.popoverDensity, locale: locale), selection: Binding(
-                        get: { layoutCfg.density },
-                        set: { var next = layoutCfg; next.density = $0; presenter.dispatch(.updatePopoverLayout(next)) }
-                    )) {
-                        ForEach(PopoverDensity.allCases, id: \.self) { density in
-                            Text(densityTitle(density, locale: locale)).tag(density)
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        menuBarBadgeToggleCard(
+                            title: L10n.text(.showPercentage, locale: locale),
+                            icon: "percent",
+                            isOn: iconCfg.showPercentage,
+                            palette: palette
+                        ) {
+                            var next = iconCfg
+                            next.showPercentage.toggle()
+                            presenter.dispatch(.updateMenuBarConfig(next))
+                        }
+
+                        menuBarBadgeToggleCard(
+                            title: L10n.text(.showWattage, locale: locale),
+                            icon: "bolt.fill",
+                            isOn: iconCfg.showWattage,
+                            palette: palette
+                        ) {
+                            var next = iconCfg
+                            next.showWattage.toggle()
+                            presenter.dispatch(.updateMenuBarConfig(next))
+                        }
+
+                        menuBarBadgeToggleCard(
+                            title: L10n.text(.showTemperature, locale: locale),
+                            icon: "thermometer.medium",
+                            isOn: iconCfg.showTemperature,
+                            palette: palette
+                        ) {
+                            var next = iconCfg
+                            next.showTemperature.toggle()
+                            presenter.dispatch(.updateMenuBarConfig(next))
+                        }
+
+                        menuBarBadgeToggleCard(
+                            title: L10n.text(.showTimeRemaining, locale: locale),
+                            icon: "clock",
+                            isOn: iconCfg.showTimeRemaining,
+                            palette: palette
+                        ) {
+                            var next = iconCfg
+                            next.showTimeRemaining.toggle()
+                            presenter.dispatch(.updateMenuBarConfig(next))
                         }
                     }
-                    .pickerStyle(.segmented)
 
                     Divider()
 
-                    ForEach(Array(layoutCfg.orderedModules.enumerated()), id: \.element) { idx, mod in
-                        HStack {
-                            Toggle(moduleTitle(mod, locale: locale), isOn: Binding(
-                                get: { !layoutCfg.hiddenModules.contains(mod) },
-                                set: { visible in
+                    HStack {
+                        Text(L10n.text(.popoverDensity, locale: locale))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(palette.secondaryText)
+                        Spacer()
+                        HStack(spacing: 6) {
+                            ForEach(PopoverDensity.allCases, id: \.self) { density in
+                                let isSelected = layoutCfg.density == density
+                                Button {
                                     var next = layoutCfg
-                                    if visible { next.hiddenModules.remove(mod) } else { next.hiddenModules.insert(mod) }
+                                    next.density = density
                                     presenter.dispatch(.updatePopoverLayout(next))
+                                } label: {
+                                    Text(densityTitle(density, locale: locale))
+                                        .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 5)
+                                        .foregroundStyle(isSelected ? (palette.isDark ? Color.black : Color.white) : palette.primaryText)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                .fill(isSelected ? palette.accent : palette.background.opacity(0.65))
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                .strokeBorder(isSelected ? Color.clear : palette.border, lineWidth: 1)
+                                        )
+                                        .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                                 }
-                            ))
-                            Spacer()
-                            Button {
-                                presenter.dispatch(.movePopoverModule(mod, -1))
-                            } label: {
-                                Image(systemName: "arrow.up")
+                                .buttonStyle(.plain)
+                                .focusEffectDisabled()
                             }
-                            .buttonStyle(.borderless)
-                            .disabled(idx == 0)
-                            .accessibilityLabel(Text(L10n.text(.moveUp, locale: locale)))
+                        }
+                    }
 
-                            Button {
-                                presenter.dispatch(.movePopoverModule(mod, 1))
-                            } label: {
-                                Image(systemName: "arrow.down")
+                    Divider()
+
+                    VStack(spacing: 6) {
+                        ForEach(Array(layoutCfg.orderedModules.enumerated()), id: \.element) { idx, mod in
+                            let isVisible = !layoutCfg.hiddenModules.contains(mod)
+                            HStack(spacing: 10) {
+                                Toggle("", isOn: Binding(
+                                    get: { isVisible },
+                                    set: { visible in
+                                        var next = layoutCfg
+                                        if visible { next.hiddenModules.remove(mod) } else { next.hiddenModules.insert(mod) }
+                                        presenter.dispatch(.updatePopoverLayout(next))
+                                    }
+                                ))
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .controlSize(.small)
+
+                                Text(moduleTitle(mod, locale: locale))
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(isVisible ? palette.primaryText : palette.secondaryText)
+
+                                Spacer()
+
+                                Button {
+                                    presenter.dispatch(.movePopoverModule(mod, -1))
+                                } label: {
+                                    Image(systemName: "arrow.up")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .frame(width: 22, height: 22)
+                                        .background(palette.surface)
+                                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                                .focusEffectDisabled()
+                                .disabled(idx == 0)
+                                .opacity(idx == 0 ? 0.35 : 1)
+                                .accessibilityLabel(Text(L10n.text(.moveUp, locale: locale)))
+
+                                Button {
+                                    presenter.dispatch(.movePopoverModule(mod, 1))
+                                } label: {
+                                    Image(systemName: "arrow.down")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .frame(width: 22, height: 22)
+                                        .background(palette.surface)
+                                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                }
+                                .buttonStyle(.plain)
+                                .focusEffectDisabled()
+                                .disabled(idx == layoutCfg.orderedModules.count - 1)
+                                .opacity(idx == layoutCfg.orderedModules.count - 1 ? 0.35 : 1)
+                                .accessibilityLabel(Text(L10n.text(.moveDown, locale: locale)))
                             }
-                            .buttonStyle(.borderless)
-                            .disabled(idx == layoutCfg.orderedModules.count - 1)
-                            .accessibilityLabel(Text(L10n.text(.moveDown, locale: locale)))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(palette.background.opacity(0.5))
+                            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(palette.border.opacity(0.6), lineWidth: 1))
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                         }
                     }
                 }
@@ -1774,17 +1860,33 @@ public struct FullDashboardView: View {
                 .font(.title2.bold())
                 .foregroundStyle(palette.primaryText)
 
-            themedCard(title: "SMC Helper", palette: palette) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle(L10n.text(.launchAtLogin, locale: locale), isOn: Binding(
-                        get: { presenter.state.settings.launchAtLogin },
-                        set: { _ in presenter.dispatch(.toggleLaunchAtLogin) }
-                    ))
-                    Toggle(L10n.text(.smartAlerts, locale: locale), isOn: Binding(
-                        get: { presenter.state.settings.alertsEnabled },
-                        set: { _ in presenter.dispatch(.toggleSmartAlerts) }
-                    ))
+            themedCard(title: "SMC Helper & System Startup", palette: palette) {
+                VStack(alignment: .leading, spacing: 10) {
+                    settingToggleRow(
+                        icon: "power.circle.fill",
+                        title: L10n.text(.launchAtLogin, locale: locale),
+                        subtitle: L10n.text(.launchAtLoginDesc, locale: locale),
+                        isOn: presenter.state.settings.launchAtLogin,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleLaunchAtLogin) }
+
+                    settingToggleRow(
+                        icon: "bell.badge.fill",
+                        title: L10n.text(.smartAlerts, locale: locale),
+                        subtitle: L10n.text(.smartAlertsDesc, locale: locale),
+                        isOn: presenter.state.settings.alertsEnabled,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleSmartAlerts) }
+
                     HStack {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(presenter.state.helperConnected ? palette.accent : palette.warning)
+                                .frame(width: 8, height: 8)
+                            Text(L10n.text(presenter.state.helperConnected ? .helperConnected : .helperDryRun, locale: locale))
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(palette.primaryText)
+                        }
                         Spacer()
                         Button {
                             presenter.dispatch(.testToolbarEvent)
@@ -1795,24 +1897,24 @@ public struct FullDashboardView: View {
                         .buttonStyle(.bordered)
                         .tint(palette.accent)
                         .controlSize(.small)
-                    }
-                    Divider()
-                    HStack {
-                        Text(L10n.text(presenter.state.helperConnected ? .helperConnected : .helperDryRun, locale: locale))
-                        Spacer()
+
                         if presenter.state.helperConnected {
                             Button(L10n.text(.uninstallHelper, locale: locale)) {
                                 presenter.dispatch(.uninstallHelper)
                             }
                             .buttonStyle(.bordered)
                             .tint(palette.danger)
+                            .controlSize(.small)
                         }
                         Button(L10n.text(.installHelper, locale: locale)) {
                             presenter.dispatch(.installHelper)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(palette.accent)
+                        .controlSize(.small)
                     }
+                    .padding(.top, 2)
+
                     if let err = presenter.state.helperErrorMessage {
                         Text(err).font(.caption).foregroundStyle(palette.danger)
                     }
@@ -1920,10 +2022,39 @@ public struct FullDashboardView: View {
                         .tint(palette.accent)
                     }
                     if let diag = presenter.state.diagnostics {
+                        if let summary = diag.sensorSummary {
+                            HStack(spacing: 6) {
+                                Image(systemName: "waveform.path.ecg")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(palette.accent)
+                                Text(summary)
+                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(palette.primaryText)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(palette.accent.opacity(0.10))
+                            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(palette.accent.opacity(0.35), lineWidth: 1))
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        }
                         diagRow(label: L10n.text(.diagIOKit, locale: locale), ok: diag.iokitReadable, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagAppleSMCDriver, locale: locale), ok: diag.appleSMCReadable, palette: palette, locale: locale)
                         diagRow(label: L10n.text(.diagHelper, locale: locale), ok: diag.smcHelperConnected, palette: palette, locale: locale)
+                        diagRow(
+                            label: L10n.text(.diagHelperVersion, locale: locale),
+                            ok: diag.smcHelperUpToDate,
+                            failBadgeKey: .diagUpdateNeeded,
+                            palette: palette,
+                            locale: locale
+                        )
                         diagRow(label: L10n.text(.diagLogin, locale: locale), ok: diag.launchAtLoginEnabled, palette: palette, locale: locale)
                         diagRow(label: L10n.text(.diagAlerts, locale: locale), ok: diag.alertsEnabled, palette: palette, locale: locale)
+                    }
+                }
+                .onAppear {
+                    if presenter.state.diagnostics == nil {
+                        presenter.dispatch(.runDiagnostics)
                     }
                 }
             }
@@ -1941,7 +2072,13 @@ public struct FullDashboardView: View {
     }
 
     @ViewBuilder
-    private func diagRow(label: String, ok: Bool, palette: ThemePalette, locale: AppLocale) -> some View {
+    private func diagRow(
+        label: String,
+        ok: Bool,
+        failBadgeKey: L10nKey = .diagInactive,
+        palette: ThemePalette,
+        locale: AppLocale
+    ) -> some View {
         HStack {
             Image(systemName: ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                 .font(.system(size: 12))
@@ -1950,7 +2087,7 @@ public struct FullDashboardView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(palette.primaryText)
             Spacer()
-            Text(L10n.text(ok ? .diagPass : .diagInactive, locale: locale))
+            Text(L10n.text(ok ? .diagPass : failBadgeKey, locale: locale))
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
@@ -1963,6 +2100,50 @@ public struct FullDashboardView: View {
         .background(palette.background.opacity(0.5))
         .overlay(RoundedRectangle(cornerRadius: 7).stroke(palette.border.opacity(0.6), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 7))
+    }
+
+    @ViewBuilder
+    private func menuBarBadgeToggleCard(
+        title: String,
+        icon: String,
+        isOn: Bool,
+        palette: ThemePalette,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(isOn ? palette.accent : palette.secondaryText)
+                    .frame(width: 22, height: 22)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(isOn ? palette.accent.opacity(0.16) : palette.surface)
+                    )
+                Text(title)
+                    .font(.system(size: 12, weight: isOn ? .semibold : .medium))
+                    .foregroundStyle(palette.primaryText)
+                    .lineLimit(1)
+                Spacer()
+                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(isOn ? palette.accent : palette.secondaryText.opacity(0.5))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isOn ? palette.accent.opacity(0.10) : palette.background.opacity(0.55))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(isOn ? palette.accent.opacity(0.55) : palette.border, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
     }
 
     @ViewBuilder

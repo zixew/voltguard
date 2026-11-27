@@ -242,6 +242,11 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case testToolbarAlert
     case etaToCalibrationTarget
     case etaCalibrationHold
+    case diagHelperVersion
+    case diagAppleSMCDriver
+    case diagUpdateNeeded
+    case launchAtLoginDesc
+    case smartAlertsDesc
 }
 
 public struct L10n {
@@ -492,7 +497,12 @@ public struct L10n {
         .toastActionEnableLowPower: "Low Power Mode",
         .testToolbarAlert: "Test Toolbar Alert",
         .etaToCalibrationTarget: "to %d%% calibration target",
-        .etaCalibrationHold: "hold remaining (%d%%)"
+        .etaCalibrationHold: "hold remaining (%d%%)",
+        .diagHelperVersion: "SMC Helper Binary Version (80-byte ABI)",
+        .diagAppleSMCDriver: "AppleSMC Kernel Service",
+        .diagUpdateNeeded: "Update Required",
+        .launchAtLoginDesc: "Start VoltGuard automatically in the menu bar when you log in to macOS.",
+        .smartAlertsDesc: "Show native macOS banner notifications and interactive toolbar alerts on power events."
     ]
 
     public static let id: [L10nKey: String] = [
@@ -735,7 +745,12 @@ public struct L10n {
         .toastActionEnableLowPower: "Hemat Daya",
         .testToolbarAlert: "Uji Notifikasi Toolbar",
         .etaToCalibrationTarget: "menuju target kalibrasi %d%%",
-        .etaCalibrationHold: "sisa waktu tahan (%d%%)"
+        .etaCalibrationHold: "sisa waktu tahan (%d%%)",
+        .diagHelperVersion: "Versi Binary Helper SMC (80-byte ABI)",
+        .diagAppleSMCDriver: "Layanan Kernel AppleSMC",
+        .diagUpdateNeeded: "Perlu Update",
+        .launchAtLoginDesc: "Jalankan VoltGuard otomatis di menu bar saat login ke macOS.",
+        .smartAlertsDesc: "Tampilkan banner notifikasi macOS dan alert interaktif di toolbar saat kondisi daya berubah."
     ]
 }
 

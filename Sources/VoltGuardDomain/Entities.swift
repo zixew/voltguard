@@ -349,21 +349,30 @@ public struct BatteryHealthSnapshot: Codable, Equatable, Identifiable, Sendable 
 public struct DiagnosticsReport: Equatable, Sendable {
     public let iokitReadable: Bool
     public let smcHelperConnected: Bool
+    public let smcHelperUpToDate: Bool
+    public let appleSMCReadable: Bool
     public let launchAtLoginEnabled: Bool
     public let alertsEnabled: Bool
+    public let sensorSummary: String?
     public let checkedAt: Date
 
     public init(
         iokitReadable: Bool,
         smcHelperConnected: Bool,
+        smcHelperUpToDate: Bool = true,
+        appleSMCReadable: Bool = true,
         launchAtLoginEnabled: Bool,
         alertsEnabled: Bool,
+        sensorSummary: String? = nil,
         checkedAt: Date = Date()
     ) {
         self.iokitReadable = iokitReadable
         self.smcHelperConnected = smcHelperConnected
+        self.smcHelperUpToDate = smcHelperUpToDate
+        self.appleSMCReadable = appleSMCReadable
         self.launchAtLoginEnabled = launchAtLoginEnabled
         self.alertsEnabled = alertsEnabled
+        self.sensorSummary = sensorSummary
         self.checkedAt = checkedAt
     }
 }

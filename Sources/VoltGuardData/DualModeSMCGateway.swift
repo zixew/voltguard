@@ -1,4 +1,5 @@
 import Foundation
+import IOKit
 import VoltGuardDomain
 
 public enum SMCHelperError: Error, LocalizedError {
@@ -31,7 +32,74 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
 
     public var isPrivilegedHelperConnected: Bool {
         guard FileManager.default.fileExists(atPath: socketPath) else { return false }
-        return lock.withLock { lastSocketReachable ?? true }
+        if let known = lock.withLock({ lastSocketReachable }) {
+            return known
+        }
+        return probeLiveConnection()
+    }
+
+    public var isInstalledHelperUpToDate: Bool {
+        guard FileManager.default.fileExists(atPath: helperInstallPath),
+              let bundledPath = locateBundledHelper(),
+              let installedData = try? Data(contentsOf: URL(fileURLWithPath: helperInstallPath)),
+              let bundledData = try? Data(contentsOf: URL(fileURLWithPath: bundledPath)) else {
+            return false
+        }
+        return installedData == bundledData
+    }
+
+    public var isAppleSMCDriverReadable: Bool {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSMC"))
+        guard service != 0 else { return false }
+        defer { IOObjectRelease(service) }
+        var conn: io_connect_t = 0
+        guard IOServiceOpen(service, mach_task_self_, 0, &conn) == kIOReturnSuccess else { return false }
+        defer { IOServiceClose(conn) }
+        return true
+    }
+
+    public func probeLiveConnection() -> Bool {
+        guard FileManager.default.fileExists(atPath: socketPath) else {
+            lock.withLock { lastSocketReachable = false }
+            return false
+        }
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }
+
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let pathBytes = socketPath.utf8CString
+        guard pathBytes.count <= MemoryLayout.size(ofValue: addr.sun_path) else { return false }
+        withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
+            ptr.withMemoryRebound(to: CChar.self, capacity: pathBytes.count) { dest in
+                _ = pathBytes.withUnsafeBufferPointer { src in
+                    memcpy(dest, src.baseAddress!, pathBytes.count)
+                }
+            }
+        }
+        let addrLen = socklen_t(MemoryLayout<sockaddr_un>.size)
+        let res = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                connect(fd, sockPtr, addrLen)
+            }
+        }
+        let ok = (res == 0)
+        lock.withLock { lastSocketReachable = ok }
+        return ok
+    }
+
+    public func restoreDefaultChargingSync() {
+        guard FileManager.default.fileExists(atPath: socketPath) else { return }
+        let payload = HelperPayload(
+            limitPercent: 100,
+            allowCharging: true,
+            forceDischarge: false,
+            magSafeLED: "system",
+            lowPowerModeEnabled: false
+        )
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        try? sendToSocket(data)
     }
 
     public func applyCommand(_ command: SMCCommandState) async throws {

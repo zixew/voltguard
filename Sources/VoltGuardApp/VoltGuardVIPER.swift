@@ -373,13 +373,29 @@ public final class VoltGuardInteractor {
     }
 
     public func runDiagnostics(alertsEnabled: Bool) -> DiagnosticsReport {
-        let iokitOK = (try? batteryReader.readTelemetry()) != nil
+        let telemetry = try? batteryReader.readTelemetry()
+        let iokitOK = telemetry != nil
+        let socketLive = smcGateway.probeLiveConnection()
+        let helperCurrent = smcGateway.isInstalledHelperUpToDate
+        let smcDriverOK = smcGateway.isAppleSMCDriverReadable
+        let summary: String? = telemetry.map {
+            String(format: "%d%%  |  %d / %d mAh  |  %.2f V  |  %+.2f A", $0.percentage, $0.maxCapacityMah, $0.designCapacityMah, $0.voltageVolts, $0.amperageAmps)
+        }
         return DiagnosticsReport(
             iokitReadable: iokitOK,
-            smcHelperConnected: smcGateway.isPrivilegedHelperConnected,
+            smcHelperConnected: socketLive,
+            smcHelperUpToDate: helperCurrent,
+            appleSMCReadable: smcDriverOK,
             launchAtLoginEnabled: launchAtLoginGateway.isEnabled(),
-            alertsEnabled: alertsEnabled
+            alertsEnabled: alertsEnabled,
+            sensorSummary: summary
         )
+    }
+
+    public func restoreHardwareOnQuit(calibration: CalibrationSession) {
+        powerGateway.setPreventSleep(false, reason: "VoltGuard terminated")
+        guard !calibration.isActive else { return }
+        smcGateway.restoreDefaultChargingSync()
     }
 
     private func emitTransitionAlerts(
@@ -964,8 +980,13 @@ public final class VoltGuardPresenter: ObservableObject {
                 bypassCooldown: true
             )
         case .quitApp:
+            interactor.restoreHardwareOnQuit(calibration: state.calibration)
             NSApp.terminate(nil)
         }
+    }
+
+    public func handleApplicationTermination() {
+        interactor.restoreHardwareOnQuit(calibration: state.calibration)
     }
 
     public func presentToolbarEvent(_ event: ToolbarNotificationEvent, bypassCooldown: Bool = false) {

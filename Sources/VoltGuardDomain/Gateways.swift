@@ -46,9 +46,20 @@ public protocol BatteryReadingGateway: Sendable {
 
 public protocol SMCControlGateway: Sendable {
     var isPrivilegedHelperConnected: Bool { get }
+    var isInstalledHelperUpToDate: Bool { get }
+    var isAppleSMCDriverReadable: Bool { get }
+    func probeLiveConnection() -> Bool
     func applyCommand(_ command: SMCCommandState) async throws
+    func restoreDefaultChargingSync()
     func installHelper() async throws
     func uninstallHelper() async throws
+}
+
+public extension SMCControlGateway {
+    var isInstalledHelperUpToDate: Bool { isPrivilegedHelperConnected }
+    var isAppleSMCDriverReadable: Bool { true }
+    func probeLiveConnection() -> Bool { isPrivilegedHelperConnected }
+    func restoreDefaultChargingSync() {}
 }
 
 public protocol PowerManagementGateway: Sendable {
