@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-15]
+        os: [macos-15, macos-15-intel, macos-26]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
@@ -36,7 +36,7 @@ jobs:
         run: swift test
 
       - name: Package Universal App and DMG
-        if: matrix.os == 'macos-15'
+        if: matrix.os == 'macos-26'
         env:
           CI: "true"
         run: |
@@ -44,7 +44,7 @@ jobs:
           lipo -info dist/VoltGuard.app/Contents/MacOS/VoltGuard dist/VoltGuard.app/Contents/Helpers/voltguard-helper
 
       - name: Upload VoltGuard DMG Artifact
-        if: matrix.os == 'macos-15'
+        if: matrix.os == 'macos-26'
         uses: actions/upload-artifact@v4
         with:
           name: VoltGuard-macOS-DMG
@@ -52,7 +52,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub Release on Tag
-        if: matrix.os == 'macos-15' && startsWith(github.ref, 'refs/tags/v')
+        if: matrix.os == 'macos-26' && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

@@ -533,7 +533,9 @@ final class VoltGuardTests: XCTestCase {
 
         presenter.dispatch(.runDiagnostics)
         XCTAssertTrue(presenter.state.isRunningDiagnostics)
-        try? await Task.sleep(nanoseconds: 850_000_000)
+        for _ in 0..<60 where presenter.state.diagnostics == nil {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
         XCTAssertNotNil(presenter.state.diagnostics)
     }
 
@@ -1312,7 +1314,9 @@ final class VoltGuardStabilityTests: XCTestCase {
         presenter.dispatch(.runDiagnostics)
         XCTAssertTrue(presenter.state.isRunningDiagnostics)
 
-        try? await Task.sleep(nanoseconds: 850_000_000)
+        for _ in 0..<60 where presenter.state.isRunningDiagnostics || presenter.state.diagnostics == nil {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
         XCTAssertFalse(presenter.state.isRunningDiagnostics)
         XCTAssertEqual(presenter.state.diagnosticsScanStep, 7)
         XCTAssertNotNil(presenter.state.diagnostics)
