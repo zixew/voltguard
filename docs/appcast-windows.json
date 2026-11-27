@@ -1,29 +1,29 @@
 {
-  "version": "1.3.0",
-  "build": "4",
+  "version": "1.4.0",
+  "build": "5",
   "publishedAt": "2026-11-28",
   "installerURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard-Windows-Setup.exe",
-  "sha256": "2a24f89136698f6643c53cd8f267a241d714199a89d4d4a8c3b3ffd969c23032",
+  "sha256": "2aaa33c7104e219aadecad385e4921d6a2746df596521cbb2b315c23b9242d15",
   "binaryURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard.exe",
-  "binarySha256": "7f3c80ffcce2e3f227edb1f09da62b27230d466671c353a2a2f52f162c376c86",
+  "binarySha256": "81d0993d08dac94a14428cf4c9ebf9b5687f9f5ed9bbf8ad238dba7f800d8766",
   "changesEN": [
-    "Animated 30fps sinusoidal liquid wave, rising charging bubbles, and vertical drag-to-set limit on LiquidBatteryCell",
-    "Interactive PowerTopologyCard with animated energy flow particles plus rolling 30-sample Wattage & Thermal sparklines",
-    "5-stage animated CalibrationProgressView pipeline and smooth tab fade+slide transitions",
-    "Mini-UI Theme Swatch preview cards and 1-click Sidebar Theme Switcher (Obsidian Slate, Paper Light, Nordic Mist, Midnight Amber)"
+    "Multi-OEM hardware control expansion for Acer Aspire 14 (Care Center / Acer WMI), Lenovo, ASUS, Dell, HP, and MSI",
+    "Active Thermal Guard & Force Discharge enforcement via powrprof.dll + Windows Power Mode Overlay",
+    "Automatic background update check (startup + every 4 hours) with silent in-place binary auto-update",
+    "1-click Administrator elevation option in System & Guide for OEM BIOS/WMI access"
   ],
   "fixesEN": [
-    "Verified zero GDI handle leaks across 200 tray icon renders and 300-tick rolling sparkline stability",
-    "Verified silent in-place binary swap updater and v1.3.0.4 installer integrity on windows-latest"
+    "Verified all 7 dashboard pages and Tray Quick Popover in Dark & Light themes via automated WPF render tests",
+    "Verified silent install/uninstall and v1.4.0.5 binary integrity on windows-latest"
   ],
   "changesID": [
-    "Gelombang cair sinus 30fps, gelembung pengisian, dan drag vertikal langsung di LiquidBatteryCell untuk atur batas pengisian",
-    "PowerTopologyCard interaktif dengan partikel aliran daya animasi serta grafik tren Wattage & Suhu 30 sampel",
-    "Pipeline animasi kalibrasi 5 tahap CalibrationProgressView dan transisi perpindahan tab yang halus",
-    "Kartu mini-preview Theme Swatch dan tombol ganti tema 1-klik di sidebar (Obsidian Slate, Paper Light, Nordic Mist, Midnight Amber)"
+    "Ekspansi kontrol hardware Multi-OEM untuk Acer Aspire 14 (Care Center / Acer WMI), Lenovo, ASUS, Dell, HP, dan MSI",
+    "Enforcement aktif Thermal Guard & Force Discharge via powrprof.dll + Windows Power Mode Overlay",
+    "Cek pembaruan otomatis di latar belakang (startup + tiap 4 jam) dengan auto-update biner senyap",
+    "Opsi Restart as Administrator 1-klik di System & Guide untuk akses BIOS/WMI OEM"
   ],
   "fixesID": [
-    "Verifikasi bebas kebocoran handle GDI dan stabilitas riwayat grafik 300 tick",
-    "Verifikasi silent in-place binary updater dan integritas installer v1.3.0.4 di windows-latest"
+    "Verifikasi render UI semua 7 halaman dashboard dan Tray Quick Popover di tema Dark & Light",
+    "Verifikasi instalasi/uninstalasi senyap dan integritas biner v1.4.0.5 di windows-latest"
   ]
 }
