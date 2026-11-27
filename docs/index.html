@@ -550,14 +550,71 @@
 
       syncHeroSim();
 
-      // Interactive nav underline feedback on click
+      // Synchronize sticky topbar active indicator on click and scroll
       const navLinks = Array.from(document.querySelectorAll(".nav-links a"));
+      const navSections = ["overview", "features", "download"]
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+      let scrollLockUntil = 0;
+
+      function setActiveNav(sectionId) {
+        navLinks.forEach((link) => {
+          const isMatch = link.getAttribute("href") === "#" + sectionId;
+          if (isMatch) {
+            link.setAttribute("aria-current", "true");
+          } else {
+            link.removeAttribute("aria-current");
+          }
+        });
+      }
+
+      function syncNavOnScroll() {
+        if (Date.now() < scrollLockUntil) {
+          return;
+        }
+        const docEl = document.documentElement;
+        if (window.innerHeight + window.scrollY >= docEl.scrollHeight - 24) {
+          setActiveNav("download");
+          return;
+        }
+        const triggerOffset = Math.max(140, window.innerHeight * 0.30);
+        let currentId = "overview";
+        for (const section of navSections) {
+          if (section.getBoundingClientRect().top <= triggerOffset) {
+            currentId = section.id;
+          }
+        }
+        setActiveNav(currentId);
+      }
+
+      let navRafPending = false;
+      window.addEventListener(
+        "scroll",
+        () => {
+          if (navRafPending) {
+            return;
+          }
+          navRafPending = true;
+          window.requestAnimationFrame(() => {
+            navRafPending = false;
+            syncNavOnScroll();
+          });
+        },
+        { passive: true }
+      );
+      window.addEventListener("resize", syncNavOnScroll, { passive: true });
+
       navLinks.forEach((link) => {
         link.addEventListener("click", () => {
-          navLinks.forEach((a) => a.removeAttribute("aria-current"));
-          link.setAttribute("aria-current", "true");
+          const targetId = (link.getAttribute("href") || "").replace("#", "");
+          if (targetId) {
+            scrollLockUntil = Date.now() + 650;
+            setActiveNav(targetId);
+          }
         });
       });
+
+      syncNavOnScroll();
 
       // Feature Tab Switcher + Keyboard Navigation
       const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));

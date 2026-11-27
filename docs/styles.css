@@ -1,3 +1,7 @@
+html {
+  scroll-behavior: smooth;
+}
+
 /* Top navigation bar */
 .site-nav {
   position: sticky;
