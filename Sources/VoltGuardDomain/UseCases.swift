@@ -46,12 +46,26 @@ public struct EvaluateChargePolicyUseCase: Sendable {
         policy: ChargePolicy,
         calibration: CalibrationSession,
         context: PolicyEvaluationContext,
-        adapterCutMode: Bool = false
+        adapterCutMode: Bool = false,
+        compatibility: CachedCompatibilityReport? = nil
     ) -> PolicyEvaluationResult {
         var nextPolicy = policy
+        if let compatibility {
+            if !compatibility.discharge.supported {
+                nextPolicy.manualDischarge = false
+                nextPolicy.automaticDischarge = false
+            }
+            if !compatibility.lowPowerMode.supported {
+                nextPolicy.lowPowerModeOnBattery = false
+                nextPolicy.lowPowerModeAlways = false
+            }
+            if !compatibility.magSafeLED.supported {
+                nextPolicy.magSafeLEDMode = .system
+            }
+        }
         var nextContext = context
 
-        let lowPowerEnabled = policy.lowPowerModeAlways || (policy.lowPowerModeOnBattery && !telemetry.isPluggedIn)
+        let lowPowerEnabled = nextPolicy.lowPowerModeAlways || (nextPolicy.lowPowerModeOnBattery && !telemetry.isPluggedIn)
 
         if context.isSystemSleeping && policy.stopChargingWhenSleeping {
             let cmd = SMCCommandState(
@@ -59,7 +73,7 @@ public struct EvaluateChargePolicyUseCase: Sendable {
                 allowCharging: false,
                 forceDischarge: false,
                 preventSleepAssertion: false,
-                magSafeLED: resolvedLED(policy.magSafeLEDMode, allowCharging: false, forceDischarge: false),
+                magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: false, telemetry: telemetry, policy: nextPolicy),
                 lowPowerModeEnabled: lowPowerEnabled,
                 statusReason: .sleepingInhibited
             )
@@ -81,7 +95,7 @@ public struct EvaluateChargePolicyUseCase: Sendable {
                 allowCharging: allowCharge,
                 forceDischarge: forceDischarge,
                 preventSleepAssertion: preventSleep,
-                magSafeLED: resolvedLED(policy.magSafeLEDMode, allowCharging: allowCharge, forceDischarge: forceDischarge),
+                magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: allowCharge, forceDischarge: forceDischarge, telemetry: telemetry, policy: nextPolicy),
                 lowPowerModeEnabled: lowPowerEnabled,
                 statusReason: .calibrationActive
             )
@@ -112,14 +126,15 @@ public struct EvaluateChargePolicyUseCase: Sendable {
                 allowCharging: false,
                 forceDischarge: false,
                 preventSleepAssertion: false,
-                magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: false),
+                magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: false, telemetry: telemetry, policy: nextPolicy),
                 lowPowerModeEnabled: lowPowerEnabled,
                 statusReason: .heatProtectionPaused
             )
             return PolicyEvaluationResult(command: cmd, updatedPolicy: nextPolicy, updatedContext: nextContext)
         }
 
-        let canDischargeInCurrentLidState = !telemetry.isClamshellClosed || nextPolicy.dischargeInClamshell
+        let allowDischarge = compatibility?.discharge.supported ?? true
+        let canDischargeInCurrentLidState = allowDischarge && (!telemetry.isClamshellClosed || nextPolicy.dischargeInClamshell)
 
         if nextPolicy.manualDischarge && telemetry.isPluggedIn && canDischargeInCurrentLidState && telemetry.percentage > VoltGuardLimits.minSafeDischargePercent {
             nextContext.isAutoDischarging = false
@@ -128,7 +143,7 @@ public struct EvaluateChargePolicyUseCase: Sendable {
                 allowCharging: false,
                 forceDischarge: true,
                 preventSleepAssertion: nextPolicy.sleepControlEnabled,
-                magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: true),
+                magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: true, telemetry: telemetry, policy: nextPolicy),
                 lowPowerModeEnabled: lowPowerEnabled,
                 statusReason: .manualDischarge
             )
@@ -147,7 +162,7 @@ public struct EvaluateChargePolicyUseCase: Sendable {
                     allowCharging: false,
                     forceDischarge: true,
                     preventSleepAssertion: nextPolicy.sleepControlEnabled,
-                    magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: true),
+                    magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: true, telemetry: telemetry, policy: nextPolicy),
                     lowPowerModeEnabled: lowPowerEnabled,
                     statusReason: .automaticDischarge
                 )
@@ -166,12 +181,14 @@ public struct EvaluateChargePolicyUseCase: Sendable {
             }
             if nextContext.isSailingPaused {
                 nextContext.isAdapterLimitPaused = false
+                // Step down battery into the sailing band when currently above the configured limit.
+                let needsStepDown = telemetry.percentage > effectiveLimit && telemetry.isPluggedIn && canDischargeInCurrentLidState
                 let cmd = SMCCommandState(
                     targetLimitPercent: effectiveLimit,
                     allowCharging: false,
-                    forceDischarge: false,
-                    preventSleepAssertion: false,
-                    magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: false),
+                    forceDischarge: needsStepDown,
+                    preventSleepAssertion: needsStepDown && nextPolicy.sleepControlEnabled,
+                    magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: needsStepDown, telemetry: telemetry, policy: nextPolicy),
                     lowPowerModeEnabled: lowPowerEnabled,
                     statusReason: .sailingPaused
                 )
@@ -194,7 +211,7 @@ public struct EvaluateChargePolicyUseCase: Sendable {
                     allowCharging: false,
                     forceDischarge: false,
                     preventSleepAssertion: false,
-                    magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: false),
+                    magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: false, telemetry: telemetry, policy: nextPolicy),
                     lowPowerModeEnabled: lowPowerEnabled,
                     statusReason: .limitReached
                 )
@@ -211,17 +228,34 @@ public struct EvaluateChargePolicyUseCase: Sendable {
             allowCharging: allowCharge,
             forceDischarge: false,
             preventSleepAssertion: false,
-            magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: allowCharge, forceDischarge: false),
+            magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: allowCharge, forceDischarge: false, telemetry: telemetry, policy: nextPolicy),
             lowPowerModeEnabled: lowPowerEnabled,
             statusReason: reason
         )
         return PolicyEvaluationResult(command: cmd, updatedPolicy: nextPolicy, updatedContext: nextContext)
     }
 
-    private func resolvedLED(_ mode: MagSafeLEDMode, allowCharging: Bool, forceDischarge: Bool) -> MagSafeLEDMode {
-        guard mode == .syncWithLimit else { return mode }
-        if forceDischarge { return .off }
-        return allowCharging ? .amber : .green
+    private func resolvedLED(
+        _ mode: MagSafeLEDMode,
+        allowCharging: Bool,
+        forceDischarge: Bool,
+        telemetry: BatteryTelemetry? = nil,
+        policy: ChargePolicy? = nil
+    ) -> MagSafeLEDMode {
+        switch mode {
+        case .syncWithLimit:
+            if forceDischarge { return .off }
+            return allowCharging ? .amber : .green
+        case .matchBattery:
+            if let t = telemetry, let p = policy,
+               t.temperatureCelsius >= p.maxTemperatureCelsius || t.percentage <= VoltGuardLimits.lowBatteryAlertThresholdPercent {
+                return .amber
+            }
+            if forceDischarge || allowCharging { return .amber }
+            return .green
+        default:
+            return mode
+        }
     }
 }
 
@@ -423,13 +457,17 @@ public struct BatteryETACalculator: Sendable {
                 let clamped = min(max(scaled, 1), VoltGuardLimits.maxETAMinutes)
                 rawETA = BatteryETA(kind: .toTargetLimit, minutes: clamped, targetPercent: effectiveTarget)
             } else {
-                rawETA = BatteryETA(kind: .toTargetLimit, minutes: nil, targetPercent: effectiveTarget)
+                // Initial plug-in transition before current sensor ramps up: estimate from conservative 1.2A charge baseline.
+                let targetMah = Double(telemetry.maxCapacityMah) * (Double(effectiveTarget) / 100.0)
+                let neededMah = max(targetMah - currentMah, 0)
+                let fallbackMinutes = min(max(Int(((neededMah / 1000.0) / 1.2) * 60.0), 1), VoltGuardLimits.maxETAMinutes)
+                rawETA = BatteryETA(kind: .toTargetLimit, minutes: fallbackMinutes, targetPercent: effectiveTarget)
             }
         } else if !telemetry.isPluggedIn || ema < -VoltGuardLimits.minETACurrentAmps {
             let floorPercent = min(max(dischargeTargetPercent, 0), 95)
             let kind: ETAKind = floorPercent > 0 ? .toCalibrationTarget : .toEmpty
             if telemetry.percentage <= floorPercent && floorPercent > 0 {
-                rawETA = BatteryETA(kind: .calibrationHold, minutes: 60, targetPercent: floorPercent)
+                rawETA = BatteryETA(kind: .steady, minutes: nil, targetPercent: floorPercent)
             } else {
                 let floorMah = Double(telemetry.maxCapacityMah) * (Double(floorPercent) / 100.0)
                 let drainableMah = max(currentMah - floorMah, 0)
@@ -442,9 +480,10 @@ public struct BatteryETACalculator: Sendable {
                     let clamped = min(max(Int(rawMinutes.rounded()), 1), VoltGuardLimits.maxETAMinutes)
                     rawETA = BatteryETA(kind: kind, minutes: clamped, targetPercent: floorPercent)
                 } else if floorPercent == 0 {
-                    rawETA = BatteryETA(kind: .toEmpty, minutes: telemetry.timeRemainingMinutes, targetPercent: 0)
+                    let estimatedMins = telemetry.timeRemainingMinutes ?? min(max(Int(((drainableMah / 1000.0) / 0.65) * 60.0), 1), VoltGuardLimits.maxETAMinutes)
+                    rawETA = BatteryETA(kind: .toEmpty, minutes: estimatedMins, targetPercent: 0)
                 } else {
-                    rawETA = BatteryETA(kind: .toCalibrationTarget, minutes: nil, targetPercent: floorPercent)
+                    rawETA = BatteryETA(kind: .steady, minutes: nil, targetPercent: floorPercent)
                 }
             }
         } else {

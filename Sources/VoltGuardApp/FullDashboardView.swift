@@ -93,14 +93,14 @@ public struct FullDashboardView: View {
         )
         .preferredColorScheme(palette.isDark ? .dark : .light)
         .tint(palette.accent)
-        .onChange(of: selectedSection) { _, newValue in
+        .onChange(of: selectedSection) { newValue in
             if newValue == .energy {
                 presenter.dispatch(.refreshEnergyApps)
             } else if newValue == .system {
                 presenter.dispatch(.runDiagnostics)
             }
         }
-        .onChange(of: presenter.state.requestedDashboardTab) { _, tabIdx in
+        .onChange(of: presenter.state.requestedDashboardTab) { tabIdx in
             guard let tabIdx, DashboardSection.allCases.indices.contains(tabIdx) else { return }
             selectedSection = DashboardSection.allCases[tabIdx]
         }
@@ -166,19 +166,21 @@ public struct FullDashboardView: View {
                         .contentTransition(.numericText())
                         .foregroundStyle(palette.secondaryText)
 
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(activeLEDColor)
-                            .frame(width: 7, height: 7)
-                            .shadow(color: activeLEDColor.opacity(0.75), radius: 3)
-                        Text("LED")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundStyle(palette.secondaryText)
+                    if presenter.state.effectiveCompatibility.magSafeLED.supported {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(activeLEDColor)
+                                .frame(width: 7, height: 7)
+                                .shadow(color: activeLEDColor.opacity(0.75), radius: 3)
+                            Text("LED")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(palette.surface)
+                        .clipShape(Capsule())
                     }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(palette.surface)
-                    .clipShape(Capsule())
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
@@ -231,7 +233,7 @@ public struct FullDashboardView: View {
                         .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .focusEffectDisabled()
+                    .compatFocusEffectDisabled()
                     .onHover { hovering in
                         hoveredSidebarSection = hovering ? section : (hoveredSidebarSection == section ? nil : hoveredSidebarSection)
                     }
@@ -264,7 +266,7 @@ public struct FullDashboardView: View {
                                 .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         }
                         .buttonStyle(.plain)
-                        .focusEffectDisabled()
+                        .compatFocusEffectDisabled()
                     }
                 }
                 .padding(3)
@@ -287,7 +289,7 @@ public struct FullDashboardView: View {
                             .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .focusEffectDisabled()
+                    .compatFocusEffectDisabled()
 
                     Button {
                         presenter.dispatch(.quitApp)
@@ -303,7 +305,7 @@ public struct FullDashboardView: View {
                             .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .focusEffectDisabled()
+                    .compatFocusEffectDisabled()
                 }
             }
             .padding(12)
@@ -360,14 +362,30 @@ public struct FullDashboardView: View {
             case .loading:
                 ProgressView(L10n.text(.telemetryLoading, locale: locale))
             case .error(let msg):
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(L10n.text(.telemetryErrorTitle, locale: locale)).font(.headline)
-                    Text(msg).foregroundStyle(palette.secondaryText)
-                    Button(L10n.text(.telemetryRetry, locale: locale)) {
-                        presenter.dispatch(.refreshTelemetry)
+                if presenter.state.hardwareProfile.isDesktopMac {
+                    themedCard(palette: palette) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label(L10n.text(.desktopMacTitle, locale: locale), systemImage: "desktopcomputer")
+                                .font(.headline)
+                                .foregroundStyle(palette.accent)
+                            Text(L10n.text(.desktopMacBody, locale: locale))
+                                .font(.callout)
+                                .foregroundStyle(palette.secondaryText)
+                            Text("\(presenter.state.hardwareProfile.modelIdentifier) · \(presenter.state.hardwareProfile.architecture) · macOS \(presenter.state.hardwareProfile.macOSVersionString)")
+                                .font(.caption.monospaced())
+                                .foregroundStyle(palette.secondaryText)
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(palette.accent)
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L10n.text(.telemetryErrorTitle, locale: locale)).font(.headline)
+                        Text(msg).foregroundStyle(palette.secondaryText)
+                        Button(L10n.text(.telemetryRetry, locale: locale)) {
+                            presenter.dispatch(.refreshTelemetry)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(palette.accent)
+                    }
                 }
             case .loaded(let telemetry, let flow):
                 HStack(spacing: 18) {
@@ -375,6 +393,8 @@ public struct FullDashboardView: View {
                         percentage: telemetry.percentage,
                         limitPercent: presenter.state.settings.policy.limitPercent,
                         sailingDeltaPercent: presenter.state.settings.policy.sailingModeEnabled ? presenter.state.settings.policy.sailingDeltaPercent : nil,
+                        temperatureCelsius: telemetry.temperatureCelsius,
+                        colorStyle: presenter.state.settings.theme.batteryColorStyle,
                         mode: dashboardVisualMode(presenter.state.lastReason, telemetry: telemetry),
                         palette: palette,
                         isVisible: presenter.state.isUIVisible,
@@ -430,7 +450,7 @@ public struct FullDashboardView: View {
                                         .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
-                                .focusEffectDisabled()
+                                .compatFocusEffectDisabled()
                             }
                         }
 
@@ -455,11 +475,26 @@ public struct FullDashboardView: View {
 
                 HStack(spacing: 14) {
                     healthGaugeCard(telemetry: telemetry, locale: locale, palette: palette)
-                    thermalZoneCard(telemetry: telemetry, maxAllowedTemp: presenter.state.settings.policy.maxTemperatureCelsius, locale: locale, palette: palette)
-                    timeAndModeCard(telemetry: telemetry, locale: locale, palette: palette)
+                    InteractiveThermalZoneCard(
+                        telemetry: telemetry,
+                        maxAllowedTemp: presenter.state.settings.policy.maxTemperatureCelsius,
+                        heatProtectionEnabled: presenter.state.settings.policy.heatProtectionEnabled,
+                        locale: locale,
+                        palette: palette,
+                        isVisible: presenter.state.isUIVisible,
+                        onAdjustMaxTemp: { nextTemp in
+                            presenter.dispatch(.setMaxTemperature(nextTemp))
+                        },
+                        onToggleHeatProtection: {
+                            presenter.dispatch(.toggleHeatProtection)
+                        }
+                    )
+                    timeAndModeCard(telemetry: telemetry, flow: flow, locale: locale, palette: palette)
                 }
 
                 batteryConditionDetailCard(telemetry: telemetry, flow: flow, locale: locale, palette: palette)
+
+                chargerPDVerifierCard(telemetry: telemetry, flow: flow, locale: locale, palette: palette)
 
                 recommendedProfilesSection(locale: locale, palette: palette)
             }
@@ -847,12 +882,87 @@ public struct FullDashboardView: View {
     }
 
     @ViewBuilder
-    private func timeAndModeCard(telemetry: BatteryTelemetry, locale: AppLocale, palette: ThemePalette) -> some View {
+    private func chargerPDVerifierCard(
+        telemetry: BatteryTelemetry,
+        flow: PowerFlowMetrics,
+        locale: AppLocale,
+        palette: ThemePalette
+    ) -> some View {
+        let adapterName = telemetry.adapterName ?? (telemetry.isPluggedIn ? "USB-C PD Adapter" : L10n.text(.pdUnpluggedBadge, locale: locale))
+        let watts = Int(telemetry.adapterWatts.rounded())
+        let pdBadge: (String, Color) = {
+            guard telemetry.isPluggedIn else {
+                return (L10n.text(.pdUnpluggedBadge, locale: locale), palette.secondaryText)
+            }
+            if telemetry.adapterWatts >= 60 {
+                return (L10n.text(.pdFastBadge, locale: locale), Color(hex: "#10B981"))
+            }
+            if telemetry.adapterWatts > 0 && flow.systemLoadWatts > telemetry.adapterWatts {
+                return (L10n.text(.pdLowPowerBadge, locale: locale), palette.danger)
+            }
+            return (L10n.text(.pdStandardBadge, locale: locale), palette.accent)
+        }()
+
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: "cable.connector.horizontal")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(palette.accent)
+                    Text(L10n.text(.pdVerifierTitle, locale: locale))
+                        .font(.headline)
+                        .foregroundStyle(palette.primaryText)
+                }
+                Spacer()
+                Text(pdBadge.0)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(pdBadge.1.opacity(0.16))
+                    .foregroundStyle(pdBadge.1)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+
+            HStack(spacing: 12) {
+                detailMetricCell(
+                    label: L10n.text(.adapterDetails, locale: locale),
+                    value: watts > 0 ? "\(adapterName) (\(watts) W)" : adapterName,
+                    palette: palette
+                )
+                detailMetricCell(
+                    label: L10n.text(.pdVoltageLabel, locale: locale),
+                    value: telemetry.adapterVoltageVolts.map { String(format: "%.1f V", $0) } ?? "--",
+                    palette: palette
+                )
+                detailMetricCell(
+                    label: L10n.text(.pdCurrentLabel, locale: locale),
+                    value: telemetry.adapterCurrentAmps.map { String(format: "%.2f A", $0) } ?? "--",
+                    palette: palette
+                )
+                detailMetricCell(
+                    label: L10n.text(.pdProtocolLabel, locale: locale),
+                    value: telemetry.adapterProtocol ?? (telemetry.isPluggedIn ? "USB PD" : "--"),
+                    palette: palette
+                )
+            }
+        }
+        .padding(14)
+        .background(palette.surface)
+        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous).strokeBorder(palette.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func timeAndModeCard(telemetry: BatteryTelemetry, flow: PowerFlowMetrics, locale: AppLocale, palette: ThemePalette) -> some View {
         let etaText = BatteryETAFormatter.text(for: presenter.state.batteryETA, locale: locale) ?? L10n.text(.etaCalculating, locale: locale)
         let reason = presenter.state.lastReason
+        let isSteppingDown = telemetry.isPluggedIn && !telemetry.isCharging && flow.batteryNetWatts <= -MotionConstants.activeFlowWattThreshold
         let modeBadge: (String, Color) = {
             switch reason {
             case .limitReached, .sailingPaused:
+                if isSteppingDown {
+                    return (L10n.text(.adapterStepDownBadge, locale: locale), palette.warning)
+                }
                 return (L10n.text(.bypassActiveBadge, locale: locale), palette.accent)
             case .heatProtectionPaused:
                 return (L10n.text(.statusHeatPaused, locale: locale), palette.danger)
@@ -913,6 +1023,12 @@ public struct FullDashboardView: View {
             }
             return false
         }()
+        let isSteppingDown: Bool = {
+            if case .loaded(let t, let flow) = presenter.state.telemetryState {
+                return t.isPluggedIn && !t.isCharging && flow.batteryNetWatts <= -MotionConstants.activeFlowWattThreshold
+            }
+            return false
+        }()
 
         VStack(alignment: .leading, spacing: 16) {
             Text(L10n.text(.tabCharging, locale: locale))
@@ -926,12 +1042,14 @@ public struct FullDashboardView: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(palette.primaryText)
                         Spacer()
-                        Text(L10n.text(isBypassActive ? .bypassActiveBadge : .appliedProfile, locale: locale))
+                        let badgeKey: L10nKey = isBypassActive ? .bypassActiveBadge : (isSteppingDown ? .adapterStepDownBadge : .appliedProfile)
+                        let badgeColor = isSteppingDown ? palette.warning : palette.accent
+                        Text(L10n.text(badgeKey, locale: locale))
                             .font(.caption2.weight(.semibold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
-                            .background(palette.accent.opacity(0.18))
-                            .foregroundStyle(palette.accent)
+                            .background(badgeColor.opacity(0.18))
+                            .foregroundStyle(badgeColor)
                             .clipShape(RoundedRectangle(cornerRadius: 5))
                     }
                     Text(L10n.text(.bypassCardDesc, locale: locale))
@@ -940,29 +1058,33 @@ public struct FullDashboardView: View {
                 }
             }
 
+            let compat = presenter.state.effectiveCompatibility
             themedCard(palette: palette) {
                 VStack(alignment: .leading, spacing: 8) {
                     settingToggleRow(
                         icon: "arrow.down.circle.fill",
                         title: L10n.text(.discharge, locale: locale),
-                        subtitle: L10n.text(.dischargeDesc, locale: locale),
+                        subtitle: compat.discharge.supported ? L10n.text(.dischargeDesc, locale: locale) : compatReasonText(compat.discharge, locale: locale),
                         isOn: policy.manualDischarge,
+                        isDisabled: !compat.discharge.supported,
                         palette: palette
                     ) { presenter.dispatch(.toggleManualDischarge) }
 
                     settingToggleRow(
                         icon: "arrow.triangle.2.circlepath.circle.fill",
                         title: L10n.text(.autoDischarge, locale: locale),
-                        subtitle: L10n.text(.autoDischargeDesc, locale: locale),
+                        subtitle: compat.discharge.supported ? L10n.text(.autoDischargeDesc, locale: locale) : compatReasonText(compat.discharge, locale: locale),
                         isOn: policy.automaticDischarge,
+                        isDisabled: !compat.discharge.supported,
                         palette: palette
                     ) { presenter.dispatch(.toggleAutomaticDischarge) }
 
                     settingToggleRow(
                         icon: "laptopcomputer.slash",
                         title: L10n.text(.clamshellDischarge, locale: locale),
-                        subtitle: L10n.text(.clamshellDischargeDesc, locale: locale),
+                        subtitle: compat.discharge.supported ? L10n.text(.clamshellDischargeDesc, locale: locale) : compatReasonText(compat.discharge, locale: locale),
                         isOn: policy.dischargeInClamshell,
+                        isDisabled: !compat.discharge.supported,
                         palette: palette
                     ) { presenter.dispatch(.toggleClamshellDischarge) }
 
@@ -1064,18 +1186,28 @@ public struct FullDashboardView: View {
                     settingToggleRow(
                         icon: "leaf.fill",
                         title: L10n.text(.lowPowerOnBattery, locale: locale),
-                        subtitle: L10n.text(.lowPowerOnBatteryDesc, locale: locale),
+                        subtitle: compat.lowPowerMode.supported ? L10n.text(.lowPowerOnBatteryDesc, locale: locale) : compatReasonText(compat.lowPowerMode, locale: locale),
                         isOn: policy.lowPowerModeOnBattery,
+                        isDisabled: !compat.lowPowerMode.supported,
                         palette: palette
                     ) { presenter.dispatch(.toggleLowPowerOnBattery) }
 
                     settingToggleRow(
                         icon: "leaf.circle.fill",
                         title: L10n.text(.lowPowerAlways, locale: locale),
-                        subtitle: L10n.text(.lowPowerAlwaysDesc, locale: locale),
+                        subtitle: compat.lowPowerMode.supported ? L10n.text(.lowPowerAlwaysDesc, locale: locale) : compatReasonText(compat.lowPowerMode, locale: locale),
                         isOn: policy.lowPowerModeAlways,
+                        isDisabled: !compat.lowPowerMode.supported,
                         palette: palette
                     ) { presenter.dispatch(.toggleLowPowerAlways) }
+
+                    settingToggleRow(
+                        icon: "arrow.uturn.backward.circle.fill",
+                        title: L10n.text(.restoreDefaultOnQuit, locale: locale),
+                        subtitle: L10n.text(.restoreDefaultOnQuitDesc, locale: locale),
+                        isOn: policy.restoreDefaultOnQuit,
+                        palette: palette
+                    ) { presenter.dispatch(.toggleRestoreDefaultOnQuit) }
 
                     Divider()
 
@@ -1085,14 +1217,18 @@ public struct FullDashboardView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(palette.secondaryText)
                             Spacer()
-                            Text(ledModeTitle(policy.magSafeLEDMode, locale: locale))
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(palette.primaryText)
+                            Text(
+                                compat.magSafeLED.supported
+                                    ? ledModeTitle(policy.magSafeLEDMode, locale: locale)
+                                    : L10n.text(.compatStatusUnavailable, locale: locale)
+                            )
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(compat.magSafeLED.supported ? palette.primaryText : palette.warning)
                         }
 
                         HStack(spacing: 8) {
                             ForEach(MagSafeLEDMode.allCases, id: \.self) { mode in
-                                let isSelected = policy.magSafeLEDMode == mode
+                                let isSelected = policy.magSafeLEDMode == mode && compat.magSafeLED.supported
                                 Button {
                                     presenter.dispatch(.setMagSafeLED(mode))
                                 } label: {
@@ -1121,13 +1257,31 @@ public struct FullDashboardView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
-                                .focusEffectDisabled()
+                                .compatFocusEffectDisabled()
+                                .disabled(!compat.magSafeLED.supported)
                             }
                         }
+                        .opacity(compat.magSafeLED.supported ? 1.0 : 0.42)
 
-                        Text(L10n.text(.magSafeSyncLegend, locale: locale))
-                            .font(.system(size: 11))
-                            .foregroundStyle(palette.secondaryText)
+                        if compat.magSafeLED.supported {
+                            Text(L10n.text(policy.magSafeLEDMode == .matchBattery ? .magSafeHardwareNote : .magSafeSyncLegend, locale: locale))
+                                .font(.system(size: 11))
+                                .foregroundStyle(palette.secondaryText)
+                        } else {
+                            HStack(spacing: 6) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(palette.warning)
+                                Text(compatReasonText(compat.magSafeLED, locale: locale))
+                                    .font(.caption)
+                                    .foregroundStyle(palette.warning)
+                            }
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(palette.background.opacity(0.5))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.warning.opacity(0.45), lineWidth: 1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
                     }
                 }
             }
@@ -1284,6 +1438,109 @@ public struct FullDashboardView: View {
                         compact: false,
                         isVisible: presenter.state.isUIVisible
                     )
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(L10n.text(.calExpectedOutcomeTitle, locale: locale), systemImage: "scope")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(palette.accent)
+                        Text(L10n.text(.calExpectedOutcomeBody, locale: locale))
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(palette.accent.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(palette.accent.opacity(0.28), lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label(L10n.text(.calResultTitle, locale: locale), systemImage: "arrow.left.arrow.right.circle.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(palette.primaryText)
+                            Spacer()
+                            if let result = presenter.state.settings.lastCalibrationResult {
+                                Text(result.completedAt.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(palette.secondaryText)
+                            }
+                        }
+
+                        if let result = presenter.state.settings.lastCalibrationResult {
+                            let signMah = result.deltaMah >= 0 ? "+\(result.deltaMah)" : "\(result.deltaMah)"
+                            let signHealth = result.deltaHealthPercent >= 0 ? "+\(result.deltaHealthPercent)" : "\(result.deltaHealthPercent)"
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(L10n.text(.calResultBeforeLabel, locale: locale))
+                                        .font(.caption2)
+                                        .foregroundStyle(palette.secondaryText)
+                                    Text("\(result.beforeMaxCapacityMah) mAh (\(result.beforeHealthPercent)%)")
+                                        .font(.caption.bold().monospacedDigit())
+                                        .foregroundStyle(palette.primaryText)
+                                    Text("\(result.beforeCycleCount) cyc")
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(palette.secondaryText)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(8)
+                                .background(palette.background.opacity(0.55))
+                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+                                Image(systemName: "arrow.right")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(palette.accent)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(L10n.text(.calResultAfterLabel, locale: locale))
+                                        .font(.caption2)
+                                        .foregroundStyle(palette.secondaryText)
+                                    Text("\(result.afterMaxCapacityMah) mAh (\(result.afterHealthPercent)%)")
+                                        .font(.caption.bold().monospacedDigit())
+                                        .foregroundStyle(palette.accent)
+                                    Text("\(result.afterCycleCount) cyc")
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(palette.secondaryText)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(8)
+                                .background(palette.background.opacity(0.55))
+                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(L10n.text(.calResultDeltaLabel, locale: locale))
+                                        .font(.caption2)
+                                        .foregroundStyle(palette.secondaryText)
+                                    Text("\(signMah) mAh")
+                                        .font(.caption.bold().monospacedDigit())
+                                        .foregroundStyle(result.deltaMah >= 0 ? palette.accent : palette.warning)
+                                    Text("\(signHealth)%")
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(palette.secondaryText)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(8)
+                                .background(palette.background.opacity(0.55))
+                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            }
+                        } else {
+                            Text(L10n.text(.calResultEmptyHint, locale: locale))
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                        }
+                    }
+                    .padding(10)
+                    .background(palette.background.opacity(0.45))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(palette.border, lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
 
@@ -1360,7 +1617,7 @@ public struct FullDashboardView: View {
                                     .foregroundStyle(selected ? palette.accent : palette.secondaryText)
                             }
                             .buttonStyle(.plain)
-                            .focusEffectDisabled()
+                            .compatFocusEffectDisabled()
                         }
                     }
 
@@ -1411,7 +1668,7 @@ public struct FullDashboardView: View {
                                             .foregroundStyle(palette.danger)
                                     }
                                     .buttonStyle(.plain)
-                                    .focusEffectDisabled()
+                                    .compatFocusEffectDisabled()
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
@@ -1602,7 +1859,7 @@ public struct FullDashboardView: View {
                                     )
                             }
                             .buttonStyle(.plain)
-                            .focusEffectDisabled()
+                            .compatFocusEffectDisabled()
                         }
                         TextField("#10B981", text: $customHexInput)
                             .frame(width: 90)
@@ -1612,6 +1869,38 @@ public struct FullDashboardView: View {
                                 next.customAccentHex = customHexInput
                                 presenter.dispatch(.updateTheme(next))
                             }
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(L10n.text(.batteryColorStyleTitle, locale: locale))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(palette.secondaryText)
+                        HStack(spacing: 8) {
+                            ForEach(BatteryColorStyle.allCases, id: \.self) { style in
+                                let isSelected = theme.batteryColorStyle == style
+                                Button {
+                                    var next = theme
+                                    next.batteryColorStyle = style
+                                    presenter.dispatch(.updateTheme(next))
+                                } label: {
+                                    Text(batteryColorStyleTitle(style, locale: locale))
+                                        .font(.caption.weight(isSelected ? .semibold : .medium))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 6)
+                                        .foregroundStyle(isSelected ? palette.primaryText : palette.secondaryText)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 7)
+                                                .fill(isSelected ? palette.accent.opacity(0.18) : palette.background.opacity(0.55))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 7)
+                                                        .stroke(isSelected ? palette.accent : palette.border, lineWidth: 1)
+                                                )
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .compatFocusEffectDisabled()
+                            }
+                        }
                     }
 
                     VStack(alignment: .leading, spacing: 3) {
@@ -1701,7 +1990,7 @@ public struct FullDashboardView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
-                                .focusEffectDisabled()
+                                .compatFocusEffectDisabled()
                             }
                         }
                     }
@@ -1782,7 +2071,7 @@ public struct FullDashboardView: View {
                                         .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
-                                .focusEffectDisabled()
+                                .compatFocusEffectDisabled()
                             }
                         }
                     }
@@ -1821,7 +2110,7 @@ public struct FullDashboardView: View {
                                         .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
-                                .focusEffectDisabled()
+                                .compatFocusEffectDisabled()
                                 .disabled(idx == 0)
                                 .opacity(idx == 0 ? 0.35 : 1)
                                 .accessibilityLabel(Text(L10n.text(.moveUp, locale: locale)))
@@ -1836,7 +2125,7 @@ public struct FullDashboardView: View {
                                         .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
-                                .focusEffectDisabled()
+                                .compatFocusEffectDisabled()
                                 .disabled(idx == layoutCfg.orderedModules.count - 1)
                                 .opacity(idx == layoutCfg.orderedModules.count - 1 ? 0.35 : 1)
                                 .accessibilityLabel(Text(L10n.text(.moveDown, locale: locale)))
@@ -1957,6 +2246,68 @@ public struct FullDashboardView: View {
                 }
             }
 
+            let compat = presenter.state.effectiveCompatibility
+            let hw = compat.hardwareProfile
+            let keysList = compat.writableKeys
+            themedCard(title: L10n.text(.compatCardTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Text(L10n.text(.compatCachedBadge, locale: locale))
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(palette.accent.opacity(0.16))
+                            .foregroundStyle(palette.accent)
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                        Text(compat.checkedAt.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(palette.secondaryText)
+                        Spacer()
+                        Button(L10n.text(.compatRecheckButton, locale: locale)) {
+                            presenter.dispatch(.recheckCompatibility)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        detailMetricCell(label: L10n.text(.compatModelLabel, locale: locale), value: hw.modelIdentifier, palette: palette)
+                        detailMetricCell(label: L10n.text(.compatChipOSLabel, locale: locale), value: "\(hw.architecture) · macOS \(hw.macOSVersionString)", palette: palette)
+                    }
+                    detailMetricCell(
+                        label: L10n.text(.compatControlModeLabel, locale: locale),
+                        value: keysList.isEmpty ? compat.backendMode.rawValue : "\(compat.backendMode.rawValue) (\(keysList.joined(separator: ", ")))",
+                        palette: palette
+                    )
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        compatCapabilityBadge(
+                            title: L10n.text(.compatFeatureChargeLimit, locale: locale),
+                            status: compat.chargeLimit,
+                            locale: locale,
+                            palette: palette
+                        )
+                        compatCapabilityBadge(
+                            title: L10n.text(.compatFeatureDischarge, locale: locale),
+                            status: compat.discharge,
+                            locale: locale,
+                            palette: palette
+                        )
+                        compatCapabilityBadge(
+                            title: L10n.text(.compatFeatureMagSafe, locale: locale),
+                            status: compat.magSafeLED,
+                            locale: locale,
+                            palette: palette
+                        )
+                        compatCapabilityBadge(
+                            title: L10n.text(.compatFeatureLowPower, locale: locale),
+                            status: compat.lowPowerMode,
+                            locale: locale,
+                            palette: palette
+                        )
+                    }
+                }
+            }
+
             themedCard(title: L10n.text(.diagnosticsTitle, locale: locale), palette: palette) {
                 let isScanning = presenter.state.isRunningDiagnostics
                 let scanStep = presenter.state.diagnosticsScanStep
@@ -1988,9 +2339,9 @@ public struct FullDashboardView: View {
 
                     if isScanning {
                         VStack(alignment: .leading, spacing: 4) {
-                            ProgressView(value: Double(scanStep), total: 7.0)
+                            ProgressView(value: Double(scanStep), total: 8.0)
                                 .tint(palette.accent)
-                            Text("\(L10n.text(.diagScanning, locale: locale)) (\(min(scanStep + 1, 7))/7)")
+                            Text("\(L10n.text(.diagScanning, locale: locale)) (\(min(scanStep + 1, 8))/8)")
                                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                                 .foregroundStyle(palette.accent)
                         }
@@ -1999,6 +2350,7 @@ public struct FullDashboardView: View {
                         let checks = [
                             diag.iokitReadable,
                             diag.appleSMCReadable,
+                            diag.temperatureSensorLive,
                             diag.smcHelperConnected,
                             diag.smcHelperUpToDate,
                             diag.launchAtLoginEnabled,
@@ -2044,26 +2396,43 @@ public struct FullDashboardView: View {
                             .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(palette.accent.opacity(0.35), lineWidth: 1))
                             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                         }
+                        if let tempSummary = diag.temperatureSummary {
+                            HStack(spacing: 6) {
+                                Image(systemName: "thermometer.medium")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(diag.temperatureSensorLive ? palette.accent : palette.warning)
+                                Text(tempSummary)
+                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(palette.primaryText)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background((diag.temperatureSensorLive ? palette.accent : palette.warning).opacity(0.10))
+                            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder((diag.temperatureSensorLive ? palette.accent : palette.warning).opacity(0.35), lineWidth: 1))
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        }
                         diagRow(label: L10n.text(.diagIOKit, locale: locale), ok: diag.iokitReadable, stepIndex: 0, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
                         diagRow(label: L10n.text(.diagAppleSMCDriver, locale: locale), ok: diag.appleSMCReadable, stepIndex: 1, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
-                        diagRow(label: L10n.text(.diagHelper, locale: locale), ok: diag.smcHelperConnected, stepIndex: 2, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagTempSensor, locale: locale), ok: diag.temperatureSensorLive, stepIndex: 2, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagHelper, locale: locale), ok: diag.smcHelperConnected, stepIndex: 3, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
                         diagRow(
                             label: L10n.text(.diagHelperVersion, locale: locale),
                             ok: diag.smcHelperUpToDate,
                             failBadgeKey: .diagUpdateNeeded,
-                            stepIndex: 3,
+                            stepIndex: 4,
                             isScanning: isScanning,
                             currentStep: scanStep,
                             palette: palette,
                             locale: locale
                         )
-                        diagRow(label: L10n.text(.diagLogin, locale: locale), ok: diag.launchAtLoginEnabled, stepIndex: 4, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
-                        diagRow(label: L10n.text(.diagAlerts, locale: locale), ok: diag.alertsEnabled, stepIndex: 5, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagLogin, locale: locale), ok: diag.launchAtLoginEnabled, stepIndex: 5, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagAlerts, locale: locale), ok: diag.alertsEnabled, stepIndex: 6, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
                         diagRow(
                             label: L10n.text(.diagCrashReporter, locale: locale),
                             ok: diag.crashReportCount == 0,
                             failBadgeKey: .diagCrashDetected,
-                            stepIndex: 6,
+                            stepIndex: 7,
                             isScanning: isScanning,
                             currentStep: scanStep,
                             palette: palette,
@@ -2093,6 +2462,7 @@ public struct FullDashboardView: View {
                         let placeholderLabels = [
                             L10n.text(.diagIOKit, locale: locale),
                             L10n.text(.diagAppleSMCDriver, locale: locale),
+                            L10n.text(.diagTempSensor, locale: locale),
                             L10n.text(.diagHelper, locale: locale),
                             L10n.text(.diagHelperVersion, locale: locale),
                             L10n.text(.diagLogin, locale: locale),
@@ -2195,6 +2565,135 @@ public struct FullDashboardView: View {
                                     .font(.caption2.monospaced())
                                     .foregroundStyle(palette.secondaryText)
                             }
+                        }
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.appUpdatesTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "shippingbox.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(palette.accent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("VoltGuard v\(AppReleaseInfo.currentVersion) (Build \(AppReleaseInfo.buildNumber))")
+                                    .font(.headline.monospacedDigit())
+                                    .foregroundStyle(palette.primaryText)
+                                Text(AppReleaseInfo.githubRepo)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(palette.secondaryText)
+                            }
+                        }
+
+                        Spacer()
+
+                        Button {
+                            presenter.dispatch(.checkForUpdates)
+                        } label: {
+                            HStack(spacing: 6) {
+                                if presenter.state.isCheckingUpdates {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                }
+                                Text(L10n.text(presenter.state.isCheckingUpdates ? .checkingUpdates : .checkUpdatesButton, locale: locale))
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(palette.accent)
+                        .disabled(presenter.state.isCheckingUpdates || presenter.state.isInstallingUpdate)
+
+                        Button(L10n.text(.openReleasesPage, locale: locale)) {
+                            if let url = URL(string: presenter.state.updateResult?.releaseURL ?? AppReleaseInfo.releasesWebURL) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    if let update = presenter.state.updateResult {
+                        HStack(spacing: 10) {
+                            Image(systemName: update.isUpdateAvailable ? "arrow.down.circle.fill" : "checkmark.circle.fill")
+                                .foregroundStyle(update.isUpdateAvailable ? palette.warning : palette.accent)
+                            Text(
+                                String(
+                                    format: L10n.text(update.isUpdateAvailable ? .updateAvailableBanner : .upToDateBanner, locale: locale),
+                                    update.latestVersion
+                                )
+                            )
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(palette.primaryText)
+                            Spacer()
+                            if update.isUpdateAvailable, update.dmgDownloadURL != nil {
+                                Button {
+                                    presenter.dispatch(.installUpdate)
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        if presenter.state.isInstallingUpdate {
+                                            ProgressView().controlSize(.small)
+                                        }
+                                        Text(L10n.text(presenter.state.isInstallingUpdate ? .installingUpdate : .installUpdateButton, locale: locale))
+                                    }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(palette.warning)
+                                .disabled(presenter.state.isInstallingUpdate)
+                            }
+                        }
+                        .padding(10)
+                        .background((update.isUpdateAvailable ? palette.warning : palette.accent).opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .strokeBorder((update.isUpdateAvailable ? palette.warning : palette.accent).opacity(0.35), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+
+                    if let updateFeedback = presenter.state.updateFeedbackMessage {
+                        Text(updateFeedback)
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
+                    }
+
+                    Divider()
+
+                    Text(L10n.text(.changelogLogTitle, locale: locale))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(palette.secondaryText)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(AppReleaseInfo.changelog) { entry in
+                            let isCurrent = entry.version == AppReleaseInfo.currentVersion
+                            let title = locale == .id ? entry.titleID : entry.titleEN
+                            let highlights = locale == .id ? entry.highlightsID : entry.highlightsEN
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text("v\(entry.version)")
+                                        .font(.caption.bold().monospacedDigit())
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 2)
+                                        .background((isCurrent ? palette.accent : palette.secondaryText).opacity(0.16))
+                                        .foregroundStyle(isCurrent ? palette.accent : palette.secondaryText)
+                                        .clipShape(Capsule())
+                                    Text(title)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(palette.primaryText)
+                                    Spacer()
+                                    Text(entry.date)
+                                        .font(.caption2.monospaced())
+                                        .foregroundStyle(palette.secondaryText)
+                                }
+                                ForEach(Array(highlights.enumerated()), id: \.offset) { _, line in
+                                    Text("* \(line)")
+                                        .font(.caption)
+                                        .foregroundStyle(palette.secondaryText)
+                                }
+                            }
+                            .padding(8)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(palette.background.opacity(0.45))
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                         }
                     }
                 }
@@ -2308,7 +2807,7 @@ public struct FullDashboardView: View {
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .focusEffectDisabled()
+        .compatFocusEffectDisabled()
     }
 
     @ViewBuilder
@@ -2317,17 +2816,18 @@ public struct FullDashboardView: View {
         title: String,
         subtitle: String,
         isOn: Bool,
+        isDisabled: Bool = false,
         palette: ThemePalette,
         onToggle: @escaping () -> Void
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(isOn ? palette.accent : palette.secondaryText)
+                .foregroundStyle(isOn && !isDisabled ? palette.accent : palette.secondaryText)
                 .frame(width: 26, height: 26)
                 .background(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(isOn ? palette.accent.opacity(0.16) : palette.surface)
+                        .fill(isOn && !isDisabled ? palette.accent.opacity(0.16) : palette.surface)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -2336,25 +2836,27 @@ public struct FullDashboardView: View {
                     .foregroundStyle(palette.primaryText)
                 Text(subtitle)
                     .font(.system(size: 11))
-                    .foregroundStyle(palette.secondaryText)
+                    .foregroundStyle(isDisabled ? palette.warning : palette.secondaryText)
                     .lineLimit(2)
             }
 
             Spacer()
 
             Toggle("", isOn: Binding(
-                get: { isOn },
-                set: { _ in onToggle() }
+                get: { isOn && !isDisabled },
+                set: { _ in if !isDisabled { onToggle() } }
             ))
             .labelsHidden()
             .toggleStyle(.switch)
+            .disabled(isDisabled)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(isOn ? palette.accent.opacity(0.08) : palette.background.opacity(0.5))
+                .fill(isOn && !isDisabled ? palette.accent.opacity(0.08) : palette.background.opacity(0.5))
         )
+        .opacity(isDisabled ? 0.55 : 1.0)
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(isOn ? palette.accent.opacity(0.45) : palette.border.opacity(0.65), lineWidth: 1)
@@ -2373,6 +2875,17 @@ public struct FullDashboardView: View {
         case .green: return Color(hex: "#22C55E")
         case .amber: return Color(hex: "#F59E0B")
         case .syncWithLimit: return palette.accent
+        case .matchBattery:
+            if case .loaded(let t, _) = presenter.state.telemetryState {
+                if t.temperatureCelsius >= presenter.state.settings.policy.maxTemperatureCelsius || t.percentage <= VoltGuardLimits.lowBatteryAlertThresholdPercent {
+                    return Color(hex: "#EF4444")
+                }
+                if t.percentage < 50 || t.isCharging {
+                    return Color(hex: "#F59E0B")
+                }
+                return Color(hex: "#22C55E")
+            }
+            return Color(hex: "#10B981")
         }
     }
 
@@ -2422,7 +2935,66 @@ public struct FullDashboardView: View {
         case .green: return L10n.text(.ledGreen, locale: locale)
         case .amber: return L10n.text(.ledAmber, locale: locale)
         case .syncWithLimit: return L10n.text(.ledSyncWithLimit, locale: locale)
+        case .matchBattery: return L10n.text(.ledMatchBattery, locale: locale)
         }
+    }
+
+    private func batteryColorStyleTitle(_ style: BatteryColorStyle, locale: AppLocale) -> String {
+        switch style {
+        case .adaptiveSpectrum: return L10n.text(.batteryColorSpectrum, locale: locale)
+        case .thermalReactive: return L10n.text(.batteryColorThermal, locale: locale)
+        case .themeAccent: return L10n.text(.batteryColorAccent, locale: locale)
+        }
+    }
+
+    private func compatReasonText(_ status: FeatureCapabilityStatus, locale: AppLocale) -> String {
+        if status.supported {
+            return L10n.text(.compatStatusSupported, locale: locale)
+        }
+        switch status.reasonCode {
+        case "adapter_mode_cuts_magsafe":
+            return L10n.text(.compatReasonAdapterMagSafe, locale: locale)
+        case "no_magsafe3_hardware":
+            return L10n.text(.compatReasonNoMagSafe3, locale: locale)
+        case "adapter_mode_hysteresis":
+            return L10n.text(.compatReasonAdapterHysteresis, locale: locale)
+        case "smc_keys_locked":
+            return L10n.text(.compatReasonSMCLocked, locale: locale)
+        case "discharge_keys_unavailable":
+            return L10n.text(.compatReasonDischargeNA, locale: locale)
+        case "low_power_unsupported":
+            return L10n.text(.compatReasonLowPowerNA, locale: locale)
+        case "no_battery_desktop":
+            return L10n.text(.compatReasonDesktop, locale: locale)
+        default:
+            return L10n.text(.compatStatusUnavailable, locale: locale)
+        }
+    }
+
+    @ViewBuilder
+    private func compatCapabilityBadge(title: String, status: FeatureCapabilityStatus, locale: AppLocale, palette: ThemePalette) -> some View {
+        let supported = status.supported
+        HStack(spacing: 6) {
+            Image(systemName: supported ? "checkmark.circle.fill" : "minus.circle.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(supported ? palette.accent : palette.warning)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(palette.primaryText)
+                    .lineLimit(1)
+                Text(compatReasonText(status, locale: locale))
+                    .font(.system(size: 10))
+                    .foregroundStyle(supported ? palette.accent : palette.warning)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .background(palette.background.opacity(0.6))
+        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder((supported ? palette.accent : palette.warning).opacity(0.45), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 
     private func scheduleActionTitle(_ action: ScheduleAction, locale: AppLocale) -> String {
@@ -2519,7 +3091,7 @@ public struct FullDashboardView: View {
             )
         }
         .buttonStyle(.plain)
-        .focusEffectDisabled()
+        .compatFocusEffectDisabled()
     }
 
     @ViewBuilder
@@ -2625,7 +3197,7 @@ public struct FullDashboardView: View {
             )
         }
         .buttonStyle(.plain)
-        .focusEffectDisabled()
+        .compatFocusEffectDisabled()
     }
 
     private func iconStyleSymbol(_ style: MenuBarIconStyle) -> String {

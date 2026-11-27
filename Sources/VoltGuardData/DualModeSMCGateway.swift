@@ -27,6 +27,7 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
     private var lastAppliedCommand: SMCCommandState?
     private var lastSocketReachable: Bool?
     private var lastBackendMode: SMCBackendMode = .unknown
+    private var lastWritableKeys: [String] = []
     private var skippedIdenticalCount: Int = 0
 
     public init(socketPath: String = DataConstants.Helper.socketPath) {
@@ -47,6 +48,21 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
             return .outdatedHelper
         }
         return lock.withLock { lastBackendMode }
+    }
+
+    public var writableKeys: [String] {
+        guard isPrivilegedHelperConnected else { return [] }
+        return lock.withLock { lastWritableKeys }
+    }
+
+    public var helperVersionSignature: String {
+        guard FileManager.default.fileExists(atPath: helperInstallPath),
+              let attrs = try? FileManager.default.attributesOfItem(atPath: helperInstallPath) else {
+            return "not-installed"
+        }
+        let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+        let mtime = Int64((attrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0)
+        return "\(size)-\(mtime)-\(isInstalledHelperUpToDate)"
     }
 
     public var isInstalledHelperUpToDate: Bool {
@@ -90,12 +106,14 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
             lock.withLock {
                 lastSocketReachable = false
                 lastBackendMode = .unknown
+                lastWritableKeys = []
             }
             return false
         }
         lock.withLock {
             lastSocketReachable = true
-            lastBackendMode = ack
+            lastBackendMode = ack.mode
+            lastWritableKeys = ack.keys
         }
         return true
     }
@@ -147,10 +165,11 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
         )
         let data = try JSONEncoder().encode(payload)
         do {
-            let detectedMode = try sendToSocket(data)
+            let ack = try sendToSocket(data)
             lock.withLock {
                 lastSocketReachable = true
-                lastBackendMode = detectedMode
+                lastBackendMode = ack.mode
+                if !ack.keys.isEmpty { lastWritableKeys = ack.keys }
                 lastAppliedCommand = command
             }
         } catch {
@@ -311,7 +330,7 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
     }
 
     @discardableResult
-    private func sendToSocket(_ data: Data) throws -> SMCBackendMode {
+    private func sendToSocket(_ data: Data) throws -> (mode: SMCBackendMode, keys: [String]) {
         var lineData = data
         lineData.append(0x0A)
 
@@ -330,10 +349,10 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
                 if readCount > 0 {
                     let ackData = Data(ackBuffer.prefix(readCount))
                     if let ack = try? JSONDecoder().decode(HelperAckPayload.self, from: ackData) {
-                        return SMCBackendMode(rawValue: ack.backendMode) ?? .unknown
+                        return (SMCBackendMode(rawValue: ack.backendMode) ?? .unknown, ack.writableKeys ?? [])
                     }
                 }
-                return .outdatedHelper
+                return (.outdatedHelper, [])
             }
 
             close(fd)
@@ -359,4 +378,5 @@ private struct HelperPayload: Encodable {
 private struct HelperAckPayload: Decodable {
     let ok: Bool
     let backendMode: String
+    let writableKeys: [String]?
 }

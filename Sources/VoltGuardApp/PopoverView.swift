@@ -38,22 +38,24 @@ public struct PopoverView: View {
 
             case .error(let msg):
                 VStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(palette.warning)
+                    Image(systemName: state.hardwareProfile.isDesktopMac ? "desktopcomputer" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(state.hardwareProfile.isDesktopMac ? palette.accent : palette.warning)
                         .font(.title2)
                         .accessibilityHidden(true)
-                    Text(L10n.text(.telemetryErrorTitle, locale: locale))
+                    Text(L10n.text(state.hardwareProfile.isDesktopMac ? .desktopMacTitle : .telemetryErrorTitle, locale: locale))
                         .font(.headline)
                         .foregroundStyle(palette.primaryText)
-                    Text(msg)
+                    Text(state.hardwareProfile.isDesktopMac ? L10n.text(.desktopMacBody, locale: locale) : msg)
                         .font(.caption)
                         .foregroundStyle(palette.secondaryText)
                         .multilineTextAlignment(.center)
-                    Button(L10n.text(.telemetryRetry, locale: locale)) {
-                        presenter.dispatch(.refreshTelemetry)
+                    if !state.hardwareProfile.isDesktopMac {
+                        Button(L10n.text(.telemetryRetry, locale: locale)) {
+                            presenter.dispatch(.refreshTelemetry)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(palette.accent)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(palette.accent)
                 }
                 .padding()
                 .frame(maxWidth: .infinity)
@@ -119,7 +121,7 @@ public struct PopoverView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             }
             .buttonStyle(.plain)
-            .focusEffectDisabled()
+            .compatFocusEffectDisabled()
             .accessibilityLabel(Text(L10n.text(.language, locale: locale)))
 
             Button {
@@ -139,7 +141,7 @@ public struct PopoverView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
             }
             .buttonStyle(.plain)
-            .focusEffectDisabled()
+            .compatFocusEffectDisabled()
             .accessibilityLabel(Text(L10n.text(.openFullApp, locale: locale)))
         }
     }
@@ -183,6 +185,8 @@ public struct PopoverView: View {
                     percentage: telemetry.percentage,
                     limitPercent: state.settings.policy.limitPercent,
                     sailingDeltaPercent: state.settings.policy.sailingModeEnabled ? state.settings.policy.sailingDeltaPercent : nil,
+                    temperatureCelsius: telemetry.temperatureCelsius,
+                    colorStyle: state.settings.theme.batteryColorStyle,
                     mode: visualMode(state.lastReason, telemetry: telemetry),
                     palette: palette,
                     isVisible: state.isUIVisible,
@@ -240,7 +244,7 @@ public struct PopoverView: View {
                                     .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                             }
                             .buttonStyle(.plain)
-                            .focusEffectDisabled()
+                            .compatFocusEffectDisabled()
                         }
                     }
                 }
@@ -327,6 +331,7 @@ public struct PopoverView: View {
     @ViewBuilder
     private func quickActionsCard(state: VoltGuardViewState, palette: ThemePalette, locale: AppLocale) -> some View {
         let policy = state.settings.policy
+        let compat = state.effectiveCompatibility
         VStack(alignment: .leading, spacing: 8) {
             Text(L10n.text(.quickActions, locale: locale))
                 .font(.system(size: 12, weight: .semibold))
@@ -337,6 +342,7 @@ public struct PopoverView: View {
                     title: L10n.text(.discharge, locale: locale),
                     icon: "arrow.down.circle",
                     active: policy.manualDischarge,
+                    disabled: !compat.discharge.supported,
                     palette: palette
                 ) { presenter.dispatch(.toggleManualDischarge) }
 
@@ -344,6 +350,7 @@ public struct PopoverView: View {
                     title: L10n.text(.topUp, locale: locale),
                     icon: "bolt.fill",
                     active: policy.topUpActive,
+                    disabled: !compat.chargeLimit.supported,
                     palette: palette
                 ) { presenter.dispatch(.toggleTopUp) }
 
@@ -351,6 +358,7 @@ public struct PopoverView: View {
                     title: L10n.text(.sailingMode, locale: locale),
                     icon: "wind",
                     active: policy.sailingModeEnabled,
+                    disabled: !compat.chargeLimit.supported,
                     palette: palette
                 ) { presenter.dispatch(.toggleSailingMode) }
 
@@ -358,6 +366,7 @@ public struct PopoverView: View {
                     title: L10n.text(.heatProtection, locale: locale),
                     icon: "thermometer.medium",
                     active: policy.heatProtectionEnabled,
+                    disabled: !compat.chargeLimit.supported,
                     palette: palette
                 ) { presenter.dispatch(.toggleHeatProtection) }
             }
@@ -373,6 +382,7 @@ public struct PopoverView: View {
         title: String,
         icon: String,
         active: Bool,
+        disabled: Bool = false,
         palette: ThemePalette,
         action: @escaping () -> Void
     ) -> some View {
@@ -389,20 +399,22 @@ public struct PopoverView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .foregroundStyle(active ? palette.accent : palette.primaryText)
+            .foregroundStyle(active && !disabled ? palette.accent : palette.primaryText)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(active ? palette.accent.opacity(0.18) : palette.background)
+                    .fill(active && !disabled ? palette.accent.opacity(0.18) : palette.background)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(active ? palette.accent : palette.border, lineWidth: 1)
+                    .strokeBorder(active && !disabled ? palette.accent : palette.border, lineWidth: 1)
             )
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .focusEffectDisabled()
+        .compatFocusEffectDisabled()
+        .disabled(disabled)
+        .opacity(disabled ? 0.45 : 1.0)
     }
 
     @ViewBuilder

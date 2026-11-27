@@ -262,6 +262,70 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case diagUpdateNeeded
     case launchAtLoginDesc
     case smartAlertsDesc
+    case ledMatchBattery
+    case magSafeHardwareNote
+    case batteryColorStyleTitle
+    case batteryColorSpectrum
+    case batteryColorThermal
+    case batteryColorAccent
+    case adapterStepDownBadge
+    case adapterStepDownSubtitle
+    case bypassShieldHoldHint
+    case pdVerifierTitle
+    case pdFastBadge
+    case pdStandardBadge
+    case pdLowPowerBadge
+    case pdUnpluggedBadge
+    case pdVoltageLabel
+    case pdCurrentLabel
+    case pdProtocolLabel
+    case compatCardTitle
+    case compatModelLabel
+    case compatChipOSLabel
+    case compatControlModeLabel
+    case compatFeatureChargeLimit
+    case compatFeatureDischarge
+    case compatFeatureMagSafe
+    case compatFeatureLowPower
+    case compatStatusSupported
+    case compatStatusUnavailable
+    case desktopMacTitle
+    case desktopMacBody
+    case magSafeNotEquippedHint
+    case compatCachedBadge
+    case compatRecheckButton
+    case compatReasonAdapterMagSafe
+    case compatReasonNoMagSafe3
+    case compatReasonAdapterHysteresis
+    case compatReasonSMCLocked
+    case compatReasonDischargeNA
+    case compatReasonLowPowerNA
+    case compatReasonDesktop
+    case thermalMultiSensorTitle
+    case thermalThresholdInline
+    case thermalCoolStatus
+    case thermalWarmStatus
+    case thermalHotStatus
+    case thermalPalmRest
+    case diagTempSensor
+    case calExpectedOutcomeTitle
+    case calExpectedOutcomeBody
+    case calResultTitle
+    case calResultBeforeLabel
+    case calResultAfterLabel
+    case calResultDeltaLabel
+    case calResultEmptyHint
+    case restoreDefaultOnQuit
+    case restoreDefaultOnQuitDesc
+    case appUpdatesTitle
+    case checkUpdatesButton
+    case checkingUpdates
+    case updateAvailableBanner
+    case upToDateBanner
+    case installUpdateButton
+    case installingUpdate
+    case changelogLogTitle
+    case openReleasesPage
 }
 
 public struct L10n {
@@ -437,6 +501,7 @@ public struct L10n {
         .ledGreen: "Green",
         .ledAmber: "Amber",
         .ledSyncWithLimit: "Sync",
+        .ledMatchBattery: "Battery Color",
         .alertLowBatteryTitle: "Low Battery",
         .alertLowBatteryBody: "Battery dropped below 20%. Connect your charger soon.",
         .alertLimitReachedTitle: "Charge Limit Reached",
@@ -532,7 +597,70 @@ public struct L10n {
         .diagAppleSMCDriver: "AppleSMC Kernel Service",
         .diagUpdateNeeded: "Update Required",
         .launchAtLoginDesc: "Start VoltGuard automatically in the menu bar when you log in to macOS.",
-        .smartAlertsDesc: "Show native macOS banner notifications and interactive toolbar alerts on power events."
+        .smartAlertsDesc: "Show native macOS banner notifications and interactive toolbar alerts on power events.",
+        .magSafeHardwareNote: "Apple MagSafe 3 LED hardware only supports Green, Amber, or Off diodes. 'Battery Color' maps Amber when warm/low/charging and Green when resting.",
+        .batteryColorStyleTitle: "Battery Cell Color Style",
+        .batteryColorSpectrum: "Adaptive Spectrum",
+        .batteryColorThermal: "Thermal Reactive",
+        .batteryColorAccent: "Theme Accent",
+        .adapterStepDownBadge: "Stepping Down",
+        .adapterStepDownSubtitle: "Adapter Hold active -> draining excess charge to target limit",
+        .bypassShieldHoldHint: "Direct Adapter -> Mac rail locked · Battery isolated at 0.0 W",
+        .pdVerifierTitle: "Charger & USB-C PD Verifier",
+        .pdFastBadge: "Fast PD",
+        .pdStandardBadge: "Standard PD",
+        .pdLowPowerBadge: "Underpowered",
+        .pdUnpluggedBadge: "On Battery",
+        .pdVoltageLabel: "Voltage",
+        .pdCurrentLabel: "Current",
+        .pdProtocolLabel: "Protocol",
+        .compatCardTitle: "Mac Compatibility Profile",
+        .compatModelLabel: "Mac Model",
+        .compatChipOSLabel: "Arch & macOS",
+        .compatControlModeLabel: "SMC Backend",
+        .compatFeatureChargeLimit: "Charge Limit (20%-100%)",
+        .compatFeatureDischarge: "Battery Discharge",
+        .compatFeatureMagSafe: "MagSafe 3 LED (ACLC)",
+        .compatFeatureLowPower: "macOS Low Power Mode",
+        .compatStatusSupported: "Supported",
+        .compatStatusUnavailable: "Not on this Mac",
+        .desktopMacTitle: "Desktop Mac Detected (No Battery)",
+        .desktopMacBody: "Desktop Macs (iMac, Mac mini, Mac Studio, Mac Pro) do not contain an internal battery. System Diagnostics and Energy Monitor remain available.",
+        .magSafeNotEquippedHint: "This Mac charges over USB-C or MagSafe 2 without a programmable MagSafe 3 LED.",
+        .compatCachedBadge: "Cached (Checked 1x)",
+        .compatRecheckButton: "Re-check Compatibility",
+        .compatReasonAdapterMagSafe: "Disabled in Adapter Mode (CHIE cuts external rail)",
+        .compatReasonNoMagSafe3: "No MagSafe 3 LED hardware on this Mac",
+        .compatReasonAdapterHysteresis: "Adapter Mode CHIE (3% band)",
+        .compatReasonSMCLocked: "SMC write keys locked by macOS",
+        .compatReasonDischargeNA: "Controlled discharge unsupported on this Mac",
+        .compatReasonLowPowerNA: "Low Power Mode unsupported on this Mac",
+        .compatReasonDesktop: "Desktop Mac (No internal battery)",
+        .thermalMultiSensorTitle: "Live Thermal Sensors",
+        .thermalThresholdInline: "Heat Guard Limit",
+        .thermalCoolStatus: "Cool",
+        .thermalWarmStatus: "Warm",
+        .thermalHotStatus: "Throttling",
+        .thermalPalmRest: "Palm Rest (Ts0P)",
+        .diagTempSensor: "Live Battery Temperature Sensor",
+        .calExpectedOutcomeTitle: "Expected Outcome After Completion",
+        .calExpectedOutcomeBody: "After all 5 stages finish, the battery controller (bq40z651) resets upper/lower voltage anchors: macOS percentage becomes accurate, Maximum Capacity (mAh) reflects true cell capacity, unexpected shutdowns around 15%-20% are prevented, and your daily charge limit is restored.",
+        .calResultTitle: "Last Calibration Result (Before -> After)",
+        .calResultBeforeLabel: "Before",
+        .calResultAfterLabel: "After",
+        .calResultDeltaLabel: "Calibrated Delta",
+        .calResultEmptyHint: "Run a calibration cycle once every 1-3 months to record Before vs After capacity changes.",
+        .restoreDefaultOnQuit: "Restore System Charging on Quit",
+        .restoreDefaultOnQuitDesc: "Reset charge limit to 100% cleanly when quitting VoltGuard so your Mac charges normally while the app is closed.",
+        .appUpdatesTitle: "Version, Auto-Update & Changelog",
+        .checkUpdatesButton: "Check Updates",
+        .checkingUpdates: "Checking GitHub...",
+        .updateAvailableBanner: "New version available: v%@",
+        .upToDateBanner: "Up to date (v%@)",
+        .installUpdateButton: "Download & Install Update",
+        .installingUpdate: "Installing DMG...",
+        .changelogLogTitle: "Release Changelog",
+        .openReleasesPage: "GitHub Releases"
     ]
 
     public static let id: [L10nKey: String] = [
@@ -700,6 +828,7 @@ public struct L10n {
         .ledGreen: "Hijau",
         .ledAmber: "Amber",
         .ledSyncWithLimit: "Sinkron",
+        .ledMatchBattery: "Warna Baterai",
         .alertLowBatteryTitle: "Baterai Lemah",
         .alertLowBatteryBody: "Baterai di bawah 20%. Segera hubungkan pengisi daya.",
         .alertLimitReachedTitle: "Batas Pengisian Tercapai",
@@ -795,7 +924,70 @@ public struct L10n {
         .diagAppleSMCDriver: "Layanan Kernel AppleSMC",
         .diagUpdateNeeded: "Perlu Update",
         .launchAtLoginDesc: "Jalankan VoltGuard otomatis di menu bar saat login ke macOS.",
-        .smartAlertsDesc: "Tampilkan banner notifikasi macOS dan alert interaktif di toolbar saat kondisi daya berubah."
+        .smartAlertsDesc: "Tampilkan banner notifikasi macOS dan alert interaktif di toolbar saat kondisi daya berubah.",
+        .magSafeHardwareNote: "Hardware LED MagSafe 3 Apple hanya memiliki dioda Hijau/Amber/Mati. Mode 'Warna Baterai' otomatis memakai Amber saat panas/lemah/isi daya dan Hijau saat istirahat.",
+        .batteryColorStyleTitle: "Gaya Warna Sel Baterai",
+        .batteryColorSpectrum: "Spektrum Adaptif",
+        .batteryColorThermal: "Reaktif Suhu",
+        .batteryColorAccent: "Aksen Tema",
+        .adapterStepDownBadge: "Menurunkan Daya",
+        .adapterStepDownSubtitle: "Adapter Hold aktif -> menurunkan sisa baterai menuju target batas",
+        .bypassShieldHoldHint: "Jalur Adaptor -> Mac terkunci · Baterai diisolasi di 0.0 W",
+        .pdVerifierTitle: "Verifikator Charger & USB-C PD",
+        .pdFastBadge: "PD Cepat",
+        .pdStandardBadge: "PD Standar",
+        .pdLowPowerBadge: "Daya Rendah",
+        .pdUnpluggedBadge: "Pakai Baterai",
+        .pdVoltageLabel: "Tegangan",
+        .pdCurrentLabel: "Arus",
+        .pdProtocolLabel: "Protokol",
+        .compatCardTitle: "Profil Kompatibilitas Mac Ini",
+        .compatModelLabel: "Model Mac",
+        .compatChipOSLabel: "Arsitektur & macOS",
+        .compatControlModeLabel: "Mode Kontrol SMC",
+        .compatFeatureChargeLimit: "Batas Pengisian (20%-100%)",
+        .compatFeatureDischarge: "Discharge Baterai",
+        .compatFeatureMagSafe: "Lampu LED MagSafe 3",
+        .compatFeatureLowPower: "Mode Hemat Daya macOS",
+        .compatStatusSupported: "Didukung",
+        .compatStatusUnavailable: "Tidak Ada di Mac Ini",
+        .desktopMacTitle: "Desktop Mac Terdeteksi (Tanpa Baterai)",
+        .desktopMacBody: "Desktop Mac (iMac, Mac mini, Mac Studio, Mac Pro) tidak memiliki baterai internal untuk dibatasi atau dikuras. Diagnostik & Monitor Energi tetap dapat dipakai.",
+        .magSafeNotEquippedHint: "Mac seri ini memakai pengisian USB-C atau MagSafe 2 tanpa LED MagSafe 3 terprogram.",
+        .compatCachedBadge: "Tersimpan (Cek 1x)",
+        .compatRecheckButton: "Cek Ulang Kompatibilitas",
+        .compatReasonAdapterMagSafe: "Nonaktif di Adapter Mode (CHIE memutus daya ke kabel MagSafe)",
+        .compatReasonNoMagSafe3: "Mac ini tidak memiliki hardware LED MagSafe 3",
+        .compatReasonAdapterHysteresis: "Adapter Mode CHIE (band 3%)",
+        .compatReasonSMCLocked: "Kunci SMC diblokir oleh sistem macOS",
+        .compatReasonDischargeNA: "Discharge terkontrol tidak didukung di Mac ini",
+        .compatReasonLowPowerNA: "Mode Hemat Daya tidak didukung di Mac ini",
+        .compatReasonDesktop: "Desktop Mac (Tanpa baterai internal)",
+        .thermalMultiSensorTitle: "Sensor Suhu Langsung",
+        .thermalThresholdInline: "Batas Pelindung Panas",
+        .thermalCoolStatus: "Dingin",
+        .thermalWarmStatus: "Hangat",
+        .thermalHotStatus: "Panas / Dijeda",
+        .thermalPalmRest: "Palm Rest (Ts0P)",
+        .diagTempSensor: "Sensor Suhu Baterai Nyata",
+        .calExpectedOutcomeTitle: "Hasil Akhir Yang Didapat Setelah Selesai",
+        .calExpectedOutcomeBody: "Setelah 5 tahap tuntas, chip sensor baterai (bq40z651) mereset titik acuan atas & bawah: pembacaan persentase macOS kembali akurat, Kapasitas Maksimum (mAh) menunjukkan kondisi asli sel baterai, mencegah Mac tiba-tiba mati di 15%-20%, dan batas limit harian otomatis pulih.",
+        .calResultTitle: "Hasil Kalibrasi Terakhir (Sebelum -> Sesudah)",
+        .calResultBeforeLabel: "Sebelum",
+        .calResultAfterLabel: "Sesudah",
+        .calResultDeltaLabel: "Perubahan",
+        .calResultEmptyHint: "Jalankan kalibrasi 1-3 bulan sekali untuk melihat perbandingan kapasitas mAh & Health % sebelum vs sesudah.",
+        .restoreDefaultOnQuit: "Pulihkan Pengisian Standar Saat Keluar",
+        .restoreDefaultOnQuitDesc: "Kembalikan batas pengisian ke 100% saat VoltGuard ditutup agar Mac tetap bisa mengisi normal.",
+        .appUpdatesTitle: "Versi, Auto-Update & Log Perubahan",
+        .checkUpdatesButton: "Cek Update",
+        .checkingUpdates: "Mengecek GitHub...",
+        .updateAvailableBanner: "Versi baru tersedia: v%@",
+        .upToDateBanner: "Versi terbaru terpasang (v%@)",
+        .installUpdateButton: "Unduh & Pasang Update",
+        .installingUpdate: "Memasang DMG...",
+        .changelogLogTitle: "Catatan Log Pembaruan",
+        .openReleasesPage: "Buka GitHub Releases"
     ]
 }
 

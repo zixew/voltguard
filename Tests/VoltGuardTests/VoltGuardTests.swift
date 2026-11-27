@@ -554,12 +554,12 @@ final class VoltGuardTests: XCTestCase {
         XCTAssertEqual(etaLimit.kind, .toTargetLimit)
         XCTAssertEqual(etaLimit.minutes, 58)
 
-        // Charging below limit with near-zero initial current -> calculating state
+        // Charging below limit with near-zero initial current -> baseline 1.2A charge fallback (1440 mAh -> 72 min)
         var lowCurrentCalc = BatteryETACalculator()
         let lowCurrent = sampleTelemetry(pct: 50, isCharging: true, isPluggedIn: true, amperage: 0.01)
         let etaCalculating = lowCurrentCalc.update(telemetry: lowCurrent, targetLimit: 80)
         XCTAssertEqual(etaCalculating.kind, .toTargetLimit)
-        XCTAssertNil(etaCalculating.minutes)
+        XCTAssertEqual(etaCalculating.minutes, 72)
         XCTAssertEqual(etaCalculating.targetPercent, 80)
 
         // At target limit while plugged in -> steady
@@ -575,8 +575,11 @@ final class VoltGuardTests: XCTestCase {
         XCTAssertEqual(BatteryETAFormatter.text(for: etaLimit, locale: .en), "58m to 80% full")
         XCTAssertEqual(BatteryETAFormatter.text(for: etaSteady, locale: .id), "Batas 80% (Bypass Aktif)")
         XCTAssertEqual(BatteryETAFormatter.text(for: etaSteady, locale: .en), "80% limit (Bypass Active)")
-        XCTAssertEqual(BatteryETAFormatter.text(for: etaCalculating, locale: .id), "Menghitung sisa waktu...")
-        XCTAssertEqual(BatteryETAFormatter.text(for: etaCalculating, locale: .en), "Calculating time...")
+        XCTAssertEqual(BatteryETAFormatter.text(for: etaCalculating, locale: .id), "1j 12m sampai penuh 80%")
+        XCTAssertEqual(BatteryETAFormatter.text(for: etaCalculating, locale: .en), "1h 12m to 80% full")
+        let nilETA = BatteryETA(kind: .toTargetLimit, minutes: nil, targetPercent: 80)
+        XCTAssertEqual(BatteryETAFormatter.text(for: nilETA, locale: .id), "Menghitung sisa waktu...")
+        XCTAssertEqual(BatteryETAFormatter.text(for: nilETA, locale: .en), "Calculating time...")
     }
 
     func testBatteryETACalculatorTimeAwareSmoothingAndHysteresis() {
@@ -1479,7 +1482,7 @@ final class VoltGuardStabilityTests: XCTestCase {
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
         XCTAssertFalse(presenter.state.isRunningDiagnostics)
-        XCTAssertEqual(presenter.state.diagnosticsScanStep, 7)
+        XCTAssertEqual(presenter.state.diagnosticsScanStep, 8)
         XCTAssertNotNil(presenter.state.diagnostics)
     }
 
@@ -1583,5 +1586,304 @@ final class VoltGuardStabilityTests: XCTestCase {
         presenter.dispatch(.toggleManualDischarge)
         XCTAssertTrue(presenter.state.settings.policy.manualDischarge)
         XCTAssertFalse(presenter.state.settings.policy.topUpActive)
+    }
+
+    func testSailingModeStepsDownWhenAboveLimit() {
+        let useCase = EvaluateChargePolicyUseCase()
+        var policy = ChargePolicy(limitPercent: 80)
+        policy.sailingModeEnabled = true
+        policy.sailingDeltaPercent = 5
+        policy.automaticDischarge = false
+
+        func telemetry(_ pct: Int) -> BatteryTelemetry {
+            BatteryTelemetry(
+                percentage: pct,
+                isCharging: false,
+                isPluggedIn: true,
+                temperatureCelsius: 28,
+                voltageVolts: 12.8,
+                amperageAmps: 0.0,
+                adapterWatts: 65,
+                cycleCount: 120,
+                currentCapacityMah: pct * 42,
+                maxCapacityMah: 4200,
+                designCapacityMah: 4629
+            )
+        }
+
+        // At 100% with Sailing enabled and limit 80%, should actively step down (forceDischarge = true).
+        let at100 = useCase.execute(telemetry: telemetry(100), policy: policy, calibration: CalibrationSession(), context: PolicyEvaluationContext(), adapterCutMode: true)
+        XCTAssertFalse(at100.command.allowCharging)
+        XCTAssertTrue(at100.command.forceDischarge)
+        XCTAssertEqual(at100.command.statusReason, .sailingPaused)
+
+        // At 81%, still stepping down toward 80% / sailing band.
+        let at81 = useCase.execute(telemetry: telemetry(81), policy: policy, calibration: CalibrationSession(), context: at100.updatedContext, adapterCutMode: true)
+        XCTAssertTrue(at81.command.forceDischarge)
+        XCTAssertEqual(at81.command.statusReason, .sailingPaused)
+
+        // Once inside [75%...80%], stop force-discharging and hold cleanly in sailing band.
+        let at80 = useCase.execute(telemetry: telemetry(80), policy: policy, calibration: CalibrationSession(), context: at81.updatedContext, adapterCutMode: true)
+        XCTAssertFalse(at80.command.forceDischarge)
+        XCTAssertFalse(at80.command.allowCharging)
+        XCTAssertEqual(at80.command.statusReason, .sailingPaused)
+
+        let at76 = useCase.execute(telemetry: telemetry(76), policy: policy, calibration: CalibrationSession(), context: at80.updatedContext, adapterCutMode: true)
+        XCTAssertFalse(at76.command.forceDischarge)
+        XCTAssertFalse(at76.command.allowCharging)
+        XCTAssertEqual(at76.command.statusReason, .sailingPaused)
+    }
+
+    func testTargetAwareETADuringSailingAndLimitHold() {
+        var calc = BatteryETACalculator()
+        let t = BatteryTelemetry(
+            percentage: 100,
+            isCharging: false,
+            isPluggedIn: true,
+            temperatureCelsius: 25,
+            voltageVolts: 13.0,
+            amperageAmps: -0.61,
+            adapterWatts: 65,
+            cycleCount: 211,
+            currentCapacityMah: 4297,
+            maxCapacityMah: 4297,
+            designCapacityMah: 4629,
+            timeRemainingMinutes: 428
+        )
+
+        // Plugged in & stepping down toward 80% should target 80%, never "to empty".
+        let eta = calc.update(telemetry: t, targetLimit: 80, dischargeTargetPercent: 80)
+        XCTAssertEqual(eta.kind, .toCalibrationTarget)
+        XCTAssertEqual(eta.targetPercent, 80)
+        XCTAssertNotNil(eta.minutes)
+
+        // Zero current plugged-in transition should settle to .steady rather than nil/"Calculating time...".
+        var zeroCalc = BatteryETACalculator()
+        let zeroT = BatteryTelemetry(
+            percentage: 80,
+            isCharging: false,
+            isPluggedIn: true,
+            temperatureCelsius: 25,
+            voltageVolts: 13.0,
+            amperageAmps: 0.0,
+            adapterWatts: 65,
+            cycleCount: 211,
+            currentCapacityMah: 3437,
+            maxCapacityMah: 4297,
+            designCapacityMah: 4629
+        )
+        let steadyEta = zeroCalc.update(telemetry: zeroT, targetLimit: 80, dischargeTargetPercent: 80)
+        XCTAssertEqual(steadyEta.kind, .steady)
+        XCTAssertEqual(steadyEta.targetPercent, 80)
+    }
+
+    func testBatteryColorStyleAndMatchBatteryLEDPersistence() throws {
+        var settings = AppSettings()
+        settings.policy.magSafeLEDMode = .matchBattery
+        settings.theme.batteryColorStyle = .thermalReactive
+
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
+        XCTAssertEqual(decoded.policy.magSafeLEDMode, .matchBattery)
+        XCTAssertEqual(decoded.theme.batteryColorStyle, .thermalReactive)
+
+        let useCase = EvaluateChargePolicyUseCase()
+        var hotPolicy = ChargePolicy(limitPercent: 80)
+        hotPolicy.magSafeLEDMode = .matchBattery
+        let hotTelemetry = BatteryTelemetry(
+            percentage: 78,
+            isCharging: false,
+            isPluggedIn: true,
+            temperatureCelsius: 42,
+            voltageVolts: 12.6,
+            amperageAmps: 0.0,
+            adapterWatts: 65,
+            cycleCount: 50,
+            currentCapacityMah: 3300,
+            maxCapacityMah: 4200,
+            designCapacityMah: 4500
+        )
+        let hotResult = useCase.execute(telemetry: hotTelemetry, policy: hotPolicy, calibration: CalibrationSession(), context: PolicyEvaluationContext())
+        XCTAssertEqual(hotResult.command.magSafeLED, .amber)
+    }
+
+    func testIOKitBatteryReaderParsesAdapterPDDetails() {
+        let props: [String: Any] = [
+            "CurrentCapacity": 85,
+            "MaxCapacity": 100,
+            "IsCharging": false,
+            "ExternalConnected": true,
+            "Temperature": 2980,
+            "Voltage": 12800,
+            "Amperage": 0,
+            "AdapterDetails": [
+                "Watts": 67,
+                "Name": "Apple 67W USB-C Power Adapter",
+                "Description": "usb pd",
+                "AdapterVoltage": 20000,
+                "Current": 3350
+            ]
+        ]
+
+        let telemetry = IOKitBatteryReader.parseRegistryProperties(props)
+        XCTAssertEqual(telemetry.adapterWatts, 67)
+        XCTAssertEqual(telemetry.adapterName, "Apple 67W USB-C Power Adapter")
+        XCTAssertEqual(telemetry.adapterVoltageVolts ?? 0, 20.0, accuracy: 0.01)
+        XCTAssertEqual(telemetry.adapterCurrentAmps ?? 0, 3.35, accuracy: 0.01)
+        XCTAssertEqual(telemetry.adapterProtocol, "usb pd")
+    }
+
+    func testMacHardwareProfileCapabilitiesAndWritableKeys() {
+        let profileWithMagSafe = MacHardwareProfile.detectCurrent(writableKeys: ["CHIE", "ACLC"], hasBatteryService: true)
+        XCTAssertFalse(profileWithMagSafe.isDesktopMac)
+        XCTAssertTrue(profileWithMagSafe.supportsMagSafeLED)
+
+        let profileWithoutMagSafe = MacHardwareProfile.detectCurrent(writableKeys: ["CH0B", "CH0C", "CH0I"], hasBatteryService: true)
+        XCTAssertFalse(profileWithoutMagSafe.isDesktopMac)
+        XCTAssertFalse(profileWithoutMagSafe.supportsMagSafeLED)
+
+        let desktopProfile = MacHardwareProfile.detectCurrent(writableKeys: [], hasBatteryService: false)
+        XCTAssertTrue(desktopProfile.isDesktopMac)
+        XCTAssertFalse(desktopProfile.supportsMagSafeLED)
+        XCTAssertFalse(desktopProfile.supportsLowPowerMode)
+    }
+
+    func testCompatibilityAuditRunsOnceAndCachesByFingerprint() throws {
+        let laptopProfile = MacHardwareProfile(
+            modelIdentifier: "Mac16,12",
+            architecture: "arm64",
+            macOSVersionString: "27.2.1",
+            macOSMajorVersion: 27,
+            isDesktopMac: false,
+            isAppleSilicon: true,
+            supportsMagSafeLED: true,
+            supportsLowPowerMode: true
+        )
+
+        let report1 = CachedCompatibilityReport.evaluateOnce(
+            profile: laptopProfile,
+            backendMode: .adapterMode,
+            writableKeys: ["CHIE", "ACLC"],
+            helperConnected: true,
+            helperSignature: "v1"
+        )
+        XCTAssertTrue(report1.chargeLimit.supported)
+        XCTAssertTrue(report1.discharge.supported)
+        XCTAssertFalse(report1.magSafeLED.supported)
+        XCTAssertEqual(report1.magSafeLED.reasonCode, "adapter_mode_cuts_magsafe")
+
+        // Persistence round-trip inside AppSettings
+        var settings = AppSettings()
+        settings.cachedCompatibility = report1
+        let data = try JSONEncoder().encode(settings)
+        let decoded = try JSONDecoder().decode(AppSettings.self, from: data)
+        XCTAssertEqual(decoded.cachedCompatibility?.fingerprint, report1.fingerprint)
+
+        // Matching fingerprint skips re-evaluation unless helper/OS/mode changes
+        let sameFp = CachedCompatibilityReport.makeFingerprint(
+            profile: laptopProfile,
+            backendMode: .adapterMode,
+            writableKeys: ["ACLC", "CHIE"],
+            helperConnected: true,
+            helperSignature: "v1"
+        )
+        XCTAssertEqual(sameFp, report1.fingerprint)
+
+        let changedFp = CachedCompatibilityReport.makeFingerprint(
+            profile: laptopProfile,
+            backendMode: .legacy,
+            writableKeys: ["CHTE", "ACLC"],
+            helperConnected: true,
+            helperSignature: "v2"
+        )
+        XCTAssertNotEqual(changedFp, report1.fingerprint)
+    }
+
+    func testMagSafeLEDDisabledInAdapterModeAndUnsupportedTogglesBlocked() {
+        let laptopProfile = MacHardwareProfile(
+            modelIdentifier: "Mac16,12",
+            architecture: "arm64",
+            macOSVersionString: "27.2.1",
+            macOSMajorVersion: 27,
+            isDesktopMac: false,
+            isAppleSilicon: true,
+            supportsMagSafeLED: true,
+            supportsLowPowerMode: true
+        )
+        let compat = CachedCompatibilityReport.evaluateOnce(
+            profile: laptopProfile,
+            backendMode: .adapterMode,
+            writableKeys: ["CHIE", "ACLC"],
+            helperConnected: true,
+            helperSignature: "v1"
+        )
+        let useCase = EvaluateChargePolicyUseCase()
+        var policy = ChargePolicy(limitPercent: 80)
+        policy.magSafeLEDMode = .amber
+        let telemetry = BatteryTelemetry(
+            percentage: 75,
+            isCharging: true,
+            isPluggedIn: true,
+            temperatureCelsius: 30,
+            voltageVolts: 12.2,
+            amperageAmps: 1.5,
+            adapterWatts: 30,
+            cycleCount: 100,
+            currentCapacityMah: 3000,
+            maxCapacityMah: 4000,
+            designCapacityMah: 4500
+        )
+        let eval = useCase.execute(
+            telemetry: telemetry,
+            policy: policy,
+            calibration: CalibrationSession(),
+            context: PolicyEvaluationContext(),
+            adapterCutMode: true,
+            compatibility: compat
+        )
+        XCTAssertEqual(eval.command.magSafeLED, .system)
+    }
+
+    func testAppleSMCThermistorDecodingAndCalibrationResultRecord() {
+        // IEEE-754 float 30.3 C ("flt ") -> 0x41F26666
+        let float30_3 = IOKitBatteryReader.decodeSMCTemperature(bytes: [0x66, 0x66, 0xF2, 0x41], dataType: "flt ")
+        XCTAssertNotNil(float30_3)
+        XCTAssertEqual(float30_3 ?? 0, 30.3, accuracy: 0.05)
+
+        // Signed 7.8 fixed-point 34.5 C ("sp78") -> 34 * 256 + 128 = 0x2280
+        let sp78_34_5 = IOKitBatteryReader.decodeSMCTemperature(bytes: [0x22, 0x80], dataType: "sp78")
+        XCTAssertNotNil(sp78_34_5)
+        XCTAssertEqual(sp78_34_5 ?? 0, 34.5, accuracy: 0.05)
+
+        // Out-of-bounds value is rejected cleanly
+        XCTAssertNil(IOKitBatteryReader.decodeSMCTemperature(bytes: [0x00, 0x00, 0xC8, 0x42], dataType: "flt "))
+
+        let record = CalibrationResultRecord(
+            startedAt: Date(timeIntervalSince1970: 1000),
+            completedAt: Date(timeIntervalSince1970: 5000),
+            beforeMaxCapacityMah: 4100,
+            afterMaxCapacityMah: 4220,
+            beforeHealthPercent: 89,
+            afterHealthPercent: 92,
+            beforeCycleCount: 120,
+            afterCycleCount: 121
+        )
+        XCTAssertEqual(record.deltaMah, 120)
+        XCTAssertEqual(record.deltaHealthPercent, 3)
+    }
+
+    func testAppReleaseSemverComparisonAndRestoreOnQuitPolicy() throws {
+        XCTAssertTrue(AppReleaseInfo.isNewerVersion("1.3.0", than: "1.2.0"))
+        XCTAssertTrue(AppReleaseInfo.isNewerVersion("v1.2.1", than: "1.2.0"))
+        XCTAssertFalse(AppReleaseInfo.isNewerVersion("1.2.0", than: "1.2.0"))
+        XCTAssertFalse(AppReleaseInfo.isNewerVersion("1.1.9", than: "1.2.0"))
+        XCTAssertFalse(AppReleaseInfo.changelog.isEmpty)
+
+        // Ensure legacy ChargePolicy JSON without restoreDefaultOnQuit decodes safely with default true.
+        let legacyJSON = """
+        {"limitPercent":80,"manualDischarge":false,"automaticDischarge":false,"dischargeInClamshell":false,"heatProtectionEnabled":true,"maxTemperatureCelsius":35,"sailingModeEnabled":false,"sailingDeltaPercent":5,"magSafeLEDMode":"syncWithLimit","topUpActive":false,"sleepControlEnabled":true,"stopChargingWhenSleeping":false,"lowPowerModeOnBattery":false,"lowPowerModeAlways":false}
+        """.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(ChargePolicy.self, from: legacyJSON)
+        XCTAssertTrue(decoded.restoreDefaultOnQuit)
     }
 }

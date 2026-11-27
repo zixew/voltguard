@@ -27,6 +27,13 @@ public enum MagSafeLEDMode: String, Codable, CaseIterable, Sendable {
     case green
     case amber
     case syncWithLimit
+    case matchBattery
+}
+
+public enum BatteryColorStyle: String, Codable, CaseIterable, Sendable {
+    case adaptiveSpectrum
+    case thermalReactive
+    case themeAccent
 }
 
 public enum MenuBarIconStyle: String, Codable, CaseIterable, Sendable {
@@ -69,6 +76,7 @@ public struct ThemeConfig: Codable, Equatable, Sendable {
     public var customBackgroundPath: String?
     public var backgroundScrimOpacity: Double
     public var backgroundBlurRadius: Double
+    public var batteryColorStyle: BatteryColorStyle
 
     public init(
         preset: ThemePresetID = .obsidianSlate,
@@ -78,7 +86,8 @@ public struct ThemeConfig: Codable, Equatable, Sendable {
         useCustomBackground: Bool = false,
         customBackgroundPath: String? = nil,
         backgroundScrimOpacity: Double = 0.70,
-        backgroundBlurRadius: Double = 0.0
+        backgroundBlurRadius: Double = 0.0,
+        batteryColorStyle: BatteryColorStyle = .adaptiveSpectrum
     ) {
         self.preset = preset
         self.customAccentHex = customAccentHex
@@ -88,6 +97,7 @@ public struct ThemeConfig: Codable, Equatable, Sendable {
         self.customBackgroundPath = customBackgroundPath
         self.backgroundScrimOpacity = min(max(backgroundScrimOpacity, 0.0), 0.92)
         self.backgroundBlurRadius = min(max(backgroundBlurRadius, 0.0), 24.0)
+        self.batteryColorStyle = batteryColorStyle
     }
 
     public init(from decoder: Decoder) throws {
@@ -104,6 +114,7 @@ public struct ThemeConfig: Codable, Equatable, Sendable {
         self.backgroundScrimOpacity = min(max(scrim, 0.0), 0.92)
         let blur = try container.decodeIfPresent(Double.self, forKey: .backgroundBlurRadius) ?? 0.0
         self.backgroundBlurRadius = min(max(blur, 0.0), 24.0)
+        self.batteryColorStyle = try container.decodeIfPresent(BatteryColorStyle.self, forKey: .batteryColorStyle) ?? .adaptiveSpectrum
     }
 }
 
@@ -171,8 +182,15 @@ public struct BatteryTelemetry: Equatable, Sendable {
     public let isClamshellClosed: Bool
     public let timeRemainingMinutes: Int?
     public let adapterName: String?
+    public let adapterVoltageVolts: Double?
+    public let adapterCurrentAmps: Double?
+    public let adapterProtocol: String?
     public let deviceName: String?
     public let permanentFailure: Bool
+    public let temperatureSensorSource: String
+    public let batteryThermalSensors: [Double]
+    public let palmRestTemperatureCelsius: Double?
+    public let isTemperatureSensorLive: Bool
     public let timestamp: Date
 
     public init(
@@ -191,8 +209,15 @@ public struct BatteryTelemetry: Equatable, Sendable {
         isClamshellClosed: Bool = false,
         timeRemainingMinutes: Int? = nil,
         adapterName: String? = nil,
+        adapterVoltageVolts: Double? = nil,
+        adapterCurrentAmps: Double? = nil,
+        adapterProtocol: String? = nil,
         deviceName: String? = nil,
         permanentFailure: Bool = false,
+        temperatureSensorSource: String = "IOKit",
+        batteryThermalSensors: [Double] = [],
+        palmRestTemperatureCelsius: Double? = nil,
+        isTemperatureSensorLive: Bool = true,
         timestamp: Date = Date()
     ) {
         self.percentage = min(max(percentage, 0), 100)
@@ -210,8 +235,15 @@ public struct BatteryTelemetry: Equatable, Sendable {
         self.isClamshellClosed = isClamshellClosed
         self.timeRemainingMinutes = timeRemainingMinutes
         self.adapterName = adapterName
+        self.adapterVoltageVolts = adapterVoltageVolts
+        self.adapterCurrentAmps = adapterCurrentAmps
+        self.adapterProtocol = adapterProtocol
         self.deviceName = deviceName
         self.permanentFailure = permanentFailure
+        self.temperatureSensorSource = temperatureSensorSource
+        self.batteryThermalSensors = batteryThermalSensors
+        self.palmRestTemperatureCelsius = palmRestTemperatureCelsius
+        self.isTemperatureSensorLive = isTemperatureSensorLive
         self.timestamp = timestamp
     }
 
@@ -259,6 +291,7 @@ public struct ChargePolicy: Codable, Equatable, Sendable {
     public var stopChargingWhenSleeping: Bool
     public var lowPowerModeOnBattery: Bool
     public var lowPowerModeAlways: Bool
+    public var restoreDefaultOnQuit: Bool
 
     public init(
         limitPercent: Int = VoltGuardLimits.defaultLimitPercent,
@@ -274,7 +307,8 @@ public struct ChargePolicy: Codable, Equatable, Sendable {
         sleepControlEnabled: Bool = true,
         stopChargingWhenSleeping: Bool = false,
         lowPowerModeOnBattery: Bool = false,
-        lowPowerModeAlways: Bool = false
+        lowPowerModeAlways: Bool = false,
+        restoreDefaultOnQuit: Bool = true
     ) {
         self.limitPercent = min(max(limitPercent, VoltGuardLimits.minLimitPercent), VoltGuardLimits.maxLimitPercent)
         self.manualDischarge = manualDischarge
@@ -290,6 +324,29 @@ public struct ChargePolicy: Codable, Equatable, Sendable {
         self.stopChargingWhenSleeping = stopChargingWhenSleeping
         self.lowPowerModeOnBattery = lowPowerModeOnBattery
         self.lowPowerModeAlways = lowPowerModeAlways
+        self.restoreDefaultOnQuit = restoreDefaultOnQuit
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = ChargePolicy()
+        self.init(
+            limitPercent: try c.decodeIfPresent(Int.self, forKey: .limitPercent) ?? d.limitPercent,
+            manualDischarge: try c.decodeIfPresent(Bool.self, forKey: .manualDischarge) ?? d.manualDischarge,
+            automaticDischarge: try c.decodeIfPresent(Bool.self, forKey: .automaticDischarge) ?? d.automaticDischarge,
+            dischargeInClamshell: try c.decodeIfPresent(Bool.self, forKey: .dischargeInClamshell) ?? d.dischargeInClamshell,
+            heatProtectionEnabled: try c.decodeIfPresent(Bool.self, forKey: .heatProtectionEnabled) ?? d.heatProtectionEnabled,
+            maxTemperatureCelsius: try c.decodeIfPresent(Double.self, forKey: .maxTemperatureCelsius) ?? d.maxTemperatureCelsius,
+            sailingModeEnabled: try c.decodeIfPresent(Bool.self, forKey: .sailingModeEnabled) ?? d.sailingModeEnabled,
+            sailingDeltaPercent: try c.decodeIfPresent(Int.self, forKey: .sailingDeltaPercent) ?? d.sailingDeltaPercent,
+            magSafeLEDMode: try c.decodeIfPresent(MagSafeLEDMode.self, forKey: .magSafeLEDMode) ?? d.magSafeLEDMode,
+            topUpActive: try c.decodeIfPresent(Bool.self, forKey: .topUpActive) ?? d.topUpActive,
+            sleepControlEnabled: try c.decodeIfPresent(Bool.self, forKey: .sleepControlEnabled) ?? d.sleepControlEnabled,
+            stopChargingWhenSleeping: try c.decodeIfPresent(Bool.self, forKey: .stopChargingWhenSleeping) ?? d.stopChargingWhenSleeping,
+            lowPowerModeOnBattery: try c.decodeIfPresent(Bool.self, forKey: .lowPowerModeOnBattery) ?? d.lowPowerModeOnBattery,
+            lowPowerModeAlways: try c.decodeIfPresent(Bool.self, forKey: .lowPowerModeAlways) ?? d.lowPowerModeAlways,
+            restoreDefaultOnQuit: try c.decodeIfPresent(Bool.self, forKey: .restoreDefaultOnQuit) ?? d.restoreDefaultOnQuit
+        )
     }
 }
 
@@ -306,19 +363,31 @@ public enum CalibrationStage: String, Codable, Equatable, Sendable {
 public struct CalibrationSession: Codable, Equatable, Sendable {
     public var stage: CalibrationStage
     public var stageStartedAt: Date?
+    public var startedAt: Date?
     public var targetLowPercent: Int
     public var holdDurationSeconds: TimeInterval
+    public var beforeMaxCapacityMah: Int?
+    public var beforeHealthPercent: Int?
+    public var beforeCycleCount: Int?
 
     public init(
         stage: CalibrationStage = .idle,
         stageStartedAt: Date? = nil,
+        startedAt: Date? = nil,
         targetLowPercent: Int = 15,
-        holdDurationSeconds: TimeInterval = 3600
+        holdDurationSeconds: TimeInterval = 3600,
+        beforeMaxCapacityMah: Int? = nil,
+        beforeHealthPercent: Int? = nil,
+        beforeCycleCount: Int? = nil
     ) {
         self.stage = stage
         self.stageStartedAt = stageStartedAt
+        self.startedAt = startedAt
         self.targetLowPercent = targetLowPercent
         self.holdDurationSeconds = holdDurationSeconds
+        self.beforeMaxCapacityMah = beforeMaxCapacityMah
+        self.beforeHealthPercent = beforeHealthPercent
+        self.beforeCycleCount = beforeCycleCount
     }
 
     public var isActive: Bool {
@@ -330,6 +399,168 @@ public struct CalibrationSession: Codable, Equatable, Sendable {
             return nil
         }
         return max(holdDurationSeconds - now.timeIntervalSince(started), 0)
+    }
+}
+
+public struct CalibrationResultRecord: Codable, Equatable, Sendable {
+    public let startedAt: Date
+    public let completedAt: Date
+    public let beforeMaxCapacityMah: Int
+    public let afterMaxCapacityMah: Int
+    public let beforeHealthPercent: Int
+    public let afterHealthPercent: Int
+    public let beforeCycleCount: Int
+    public let afterCycleCount: Int
+
+    public init(
+        startedAt: Date,
+        completedAt: Date = Date(),
+        beforeMaxCapacityMah: Int,
+        afterMaxCapacityMah: Int,
+        beforeHealthPercent: Int,
+        afterHealthPercent: Int,
+        beforeCycleCount: Int,
+        afterCycleCount: Int
+    ) {
+        self.startedAt = startedAt
+        self.completedAt = completedAt
+        self.beforeMaxCapacityMah = beforeMaxCapacityMah
+        self.afterMaxCapacityMah = afterMaxCapacityMah
+        self.beforeHealthPercent = beforeHealthPercent
+        self.afterHealthPercent = afterHealthPercent
+        self.beforeCycleCount = beforeCycleCount
+        self.afterCycleCount = afterCycleCount
+    }
+
+    public var deltaMah: Int { afterMaxCapacityMah - beforeMaxCapacityMah }
+    public var deltaHealthPercent: Int { afterHealthPercent - beforeHealthPercent }
+}
+
+public struct AppReleaseChangelogEntry: Codable, Equatable, Identifiable, Sendable {
+    public let id: String
+    public let version: String
+    public let date: String
+    public let titleEN: String
+    public let titleID: String
+    public let highlightsEN: [String]
+    public let highlightsID: [String]
+
+    public init(
+        version: String,
+        date: String,
+        titleEN: String,
+        titleID: String,
+        highlightsEN: [String],
+        highlightsID: [String]
+    ) {
+        self.id = version
+        self.version = version
+        self.date = date
+        self.titleEN = titleEN
+        self.titleID = titleID
+        self.highlightsEN = highlightsEN
+        self.highlightsID = highlightsID
+    }
+}
+
+public struct AppUpdateCheckResult: Equatable, Sendable {
+    public let currentVersion: String
+    public let latestVersion: String
+    public let isUpdateAvailable: Bool
+    public let releaseURL: String
+    public let dmgDownloadURL: String?
+    public let releaseNotes: String
+    public let checkedAt: Date
+
+    public init(
+        currentVersion: String,
+        latestVersion: String,
+        isUpdateAvailable: Bool,
+        releaseURL: String,
+        dmgDownloadURL: String?,
+        releaseNotes: String,
+        checkedAt: Date = Date()
+    ) {
+        self.currentVersion = currentVersion
+        self.latestVersion = latestVersion
+        self.isUpdateAvailable = isUpdateAvailable
+        self.releaseURL = releaseURL
+        self.dmgDownloadURL = dmgDownloadURL
+        self.releaseNotes = releaseNotes
+        self.checkedAt = checkedAt
+    }
+}
+
+public enum AppReleaseInfo {
+    public static let currentVersion = "1.2.0"
+    public static let buildNumber = "3"
+    public static let githubRepo = "zixew/voltguard"
+    public static let latestReleaseAPI = "https://api.github.com/repos/zixew/voltguard/releases/latest"
+    public static let releasesWebURL = "https://github.com/zixew/voltguard/releases"
+    public static let websiteURL = "https://zixew.github.io/voltguard/"
+
+    public static let changelog: [AppReleaseChangelogEntry] = [
+        AppReleaseChangelogEntry(
+            version: "1.2.0",
+            date: "2026-11-27",
+            titleEN: "Live SMC Thermals, Calibration Outcome & Auto-Updater",
+            titleID: "Sensor Suhu SMC Nyata, Hasil Kalibrasi & Auto-Updater",
+            highlightsEN: [
+                "Fixed stuck 21.9 C battery temp on macOS 27 / M4 using AppleSMC TB0T/TB1T/TB2T live probes",
+                "Added interactive animated Thermal Zone card with inline limit controls and multi-sensor breakdown",
+                "Added Before/After Calibration Result card, Restore-on-Quit toggle, Auto-Updater & Update Log UI"
+            ],
+            highlightsID: [
+                "Perbaikan suhu macet 21.9 C di macOS 27 / M4 lewat pembacaan AppleSMC TB0T/TB1T/TB2T nyata",
+                "Kartu Thermal Zone interaktif beranimasi dengan atur batas suhu langsung & rincian multi-sensor",
+                "Kartu Hasil Kalibrasi Before -> After, opsi Restore on Quit, Auto-Updater & UI Log Update"
+            ]
+        ),
+        AppReleaseChangelogEntry(
+            version: "1.1.0",
+            date: "2026-11-27",
+            titleEN: "Universal Mac (macOS 13 - 27), Sailing Step-Down & PD Verifier",
+            titleID: "Kompatibilitas Mac Universal (macOS 13 - 27), Sailing & PD Verifier",
+            highlightsEN: [
+                "Lowered minimum target to macOS 13.0 Ventura and Intel Pre-T2 / T2 + Apple Silicon M1-M5",
+                "Added one-time cached Auto Compatibility Check with automatic unsupported control disabling",
+                "Added USB-C PD Verifier, Sailing auto step-down, and interactive Bypass Shield flow"
+            ],
+            highlightsID: [
+                "Dukungan resmi macOS 13.0 Ventura hingga 27.x untuk Intel & Apple Silicon M1-M5",
+                "Fitur Auto-Cek Kompatibilitas 1-kali tersimpan dengan auto-disable kontrol non-support",
+                "USB-C PD Verifier, Sailing step-down otomatis, dan animasi Bypass Shield interaktif"
+            ]
+        ),
+        AppReleaseChangelogEntry(
+            version: "1.0.0",
+            date: "2026-11-26",
+            titleEN: "Initial Release",
+            titleID: "Rilis Perdana",
+            highlightsEN: [
+                "Charge limiter (20%-100%), Bypass Charging / Adapter Mode CHIE, 5-stage Calibration, and 4 Themes"
+            ],
+            highlightsID: [
+                "Charge Limit (20%-100%), Bypass Charging / Adapter Mode CHIE, Kalibrasi 5-tahap, dan 4 Tema"
+            ]
+        )
+    ]
+
+    public static func isNewerVersion(_ candidate: String, than current: String) -> Bool {
+        let parse: (String) -> [Int] = { raw in
+            raw.trimmingCharacters(in: CharacterSet(charactersIn: "vV "))
+                .split(separator: ".")
+                .compactMap { Int($0.filter(\.isNumber)) }
+        }
+        let a = parse(candidate)
+        let b = parse(current)
+        let count = max(a.count, b.count)
+        for idx in 0..<count {
+            let av = idx < a.count ? a[idx] : 0
+            let bv = idx < b.count ? b[idx] : 0
+            if av != bv { return av > bv }
+        }
+        return false
     }
 }
 
@@ -355,6 +586,239 @@ public struct BatteryHealthSnapshot: Codable, Equatable, Identifiable, Sendable 
     }
 }
 
+public struct MacHardwareProfile: Codable, Equatable, Sendable {
+    public let modelIdentifier: String
+    public let architecture: String
+    public let macOSVersionString: String
+    public let macOSMajorVersion: Int
+    public let isDesktopMac: Bool
+    public let isAppleSilicon: Bool
+    public let supportsMagSafeLED: Bool
+    public let supportsLowPowerMode: Bool
+
+    public init(
+        modelIdentifier: String,
+        architecture: String,
+        macOSVersionString: String,
+        macOSMajorVersion: Int,
+        isDesktopMac: Bool,
+        isAppleSilicon: Bool,
+        supportsMagSafeLED: Bool,
+        supportsLowPowerMode: Bool
+    ) {
+        self.modelIdentifier = modelIdentifier
+        self.architecture = architecture
+        self.macOSVersionString = macOSVersionString
+        self.macOSMajorVersion = macOSMajorVersion
+        self.isDesktopMac = isDesktopMac
+        self.isAppleSilicon = isAppleSilicon
+        self.supportsMagSafeLED = supportsMagSafeLED
+        self.supportsLowPowerMode = supportsLowPowerMode
+    }
+
+    public static func detectCurrent(writableKeys: [String] = [], hasBatteryService: Bool = true) -> MacHardwareProfile {
+        let model = readSysctlString("hw.model") ?? "Mac"
+        #if arch(arm64)
+        let arch = "arm64"
+        let appleSilicon = true
+        #else
+        let arch = "x86_64"
+        let appleSilicon = false
+        #endif
+        let ver = ProcessInfo.processInfo.operatingSystemVersion
+        let verString = "\(ver.majorVersion).\(ver.minorVersion).\(ver.patchVersion)"
+        let lowerModel = model.lowercased()
+        let modelIsDesktop = lowerModel.hasPrefix("imac")
+            || lowerModel.hasPrefix("macmini")
+            || lowerModel.hasPrefix("macstudio")
+            || lowerModel.hasPrefix("macpro")
+            || (lowerModel.hasPrefix("mac") && !hasBatteryService)
+        let desktop = modelIsDesktop || !hasBatteryService
+
+        let magSafeSupported: Bool
+        if !writableKeys.isEmpty {
+            magSafeSupported = writableKeys.contains("ACLC")
+        } else if desktop || !appleSilicon {
+            magSafeSupported = false
+        } else {
+            // Known USB-C-only Apple Silicon models without MagSafe 3 LED port
+            let usbCOnlyModels: Set<String> = ["macbookair10,1", "macbookpro17,1", "mac14,7"]
+            magSafeSupported = !usbCOnlyModels.contains(lowerModel)
+        }
+
+        let lowPowerSupported = !desktop && (appleSilicon || ver.majorVersion >= 13)
+        return MacHardwareProfile(
+            modelIdentifier: model,
+            architecture: arch,
+            macOSVersionString: verString,
+            macOSMajorVersion: ver.majorVersion,
+            isDesktopMac: desktop,
+            isAppleSilicon: appleSilicon,
+            supportsMagSafeLED: magSafeSupported,
+            supportsLowPowerMode: lowPowerSupported
+        )
+    }
+
+    private static func readSysctlString(_ name: String) -> String? {
+        var size: Int = 0
+        guard sysctlbyname(name, nil, &size, nil, 0) == 0, size > 0 else { return nil }
+        var buf = [CChar](repeating: 0, count: size)
+        guard sysctlbyname(name, &buf, &size, nil, 0) == 0 else { return nil }
+        return String(cString: buf)
+    }
+}
+
+public struct FeatureCapabilityStatus: Codable, Equatable, Sendable {
+    public let supported: Bool
+    public let reasonCode: String
+
+    public init(supported: Bool, reasonCode: String = "ok") {
+        self.supported = supported
+        self.reasonCode = reasonCode
+    }
+}
+
+public struct CachedCompatibilityReport: Codable, Equatable, Sendable {
+    public let fingerprint: String
+    public let hardwareProfile: MacHardwareProfile
+    public let backendMode: SMCBackendMode
+    public let writableKeys: [String]
+    public let helperConnected: Bool
+    public let chargeLimit: FeatureCapabilityStatus
+    public let discharge: FeatureCapabilityStatus
+    public let bypassCharging: FeatureCapabilityStatus
+    public let magSafeLED: FeatureCapabilityStatus
+    public let lowPowerMode: FeatureCapabilityStatus
+    public let checkedAt: Date
+
+    public init(
+        fingerprint: String,
+        hardwareProfile: MacHardwareProfile,
+        backendMode: SMCBackendMode,
+        writableKeys: [String],
+        helperConnected: Bool,
+        chargeLimit: FeatureCapabilityStatus,
+        discharge: FeatureCapabilityStatus,
+        bypassCharging: FeatureCapabilityStatus,
+        magSafeLED: FeatureCapabilityStatus,
+        lowPowerMode: FeatureCapabilityStatus,
+        checkedAt: Date = Date()
+    ) {
+        self.fingerprint = fingerprint
+        self.hardwareProfile = hardwareProfile
+        self.backendMode = backendMode
+        self.writableKeys = writableKeys
+        self.helperConnected = helperConnected
+        self.chargeLimit = chargeLimit
+        self.discharge = discharge
+        self.bypassCharging = bypassCharging
+        self.magSafeLED = magSafeLED
+        self.lowPowerMode = lowPowerMode
+        self.checkedAt = checkedAt
+    }
+
+    public static func makeFingerprint(
+        profile: MacHardwareProfile,
+        backendMode: SMCBackendMode,
+        writableKeys: [String],
+        helperConnected: Bool,
+        helperSignature: String
+    ) -> String {
+        let sortedKeys = writableKeys.sorted().joined(separator: ",")
+        return "\(profile.modelIdentifier)|\(profile.architecture)|\(profile.macOSVersionString)|\(profile.isDesktopMac)|\(helperConnected)|\(backendMode.rawValue)|\(sortedKeys)|\(helperSignature)"
+    }
+
+    public static func evaluateOnce(
+        profile: MacHardwareProfile,
+        backendMode: SMCBackendMode,
+        writableKeys: [String],
+        helperConnected: Bool,
+        helperSignature: String,
+        now: Date = Date()
+    ) -> CachedCompatibilityReport {
+        let fp = makeFingerprint(
+            profile: profile,
+            backendMode: backendMode,
+            writableKeys: writableKeys,
+            helperConnected: helperConnected,
+            helperSignature: helperSignature
+        )
+
+        if profile.isDesktopMac {
+            let desktopStatus = FeatureCapabilityStatus(supported: false, reasonCode: "no_battery_desktop")
+            return CachedCompatibilityReport(
+                fingerprint: fp,
+                hardwareProfile: profile,
+                backendMode: backendMode,
+                writableKeys: writableKeys,
+                helperConnected: helperConnected,
+                chargeLimit: desktopStatus,
+                discharge: desktopStatus,
+                bypassCharging: desktopStatus,
+                magSafeLED: desktopStatus,
+                lowPowerMode: FeatureCapabilityStatus(supported: false, reasonCode: "no_battery_desktop"),
+                checkedAt: now
+            )
+        }
+
+        let unsupportedBySMC = helperConnected && backendMode == .unsupported
+        let chargeLimitStatus = unsupportedBySMC
+            ? FeatureCapabilityStatus(supported: false, reasonCode: "smc_keys_locked")
+            : FeatureCapabilityStatus(supported: true)
+
+        let dischargeSupported: Bool = {
+            if unsupportedBySMC { return false }
+            if !writableKeys.isEmpty {
+                let dischargeKeys: Set<String> = ["CHIE", "CH0I", "CH0J", "CH0K", "BCLM"]
+                return writableKeys.contains { dischargeKeys.contains($0) }
+            }
+            return true
+        }()
+        let dischargeStatus = dischargeSupported
+            ? FeatureCapabilityStatus(supported: true)
+            : FeatureCapabilityStatus(supported: false, reasonCode: "discharge_keys_unavailable")
+
+        let bypassStatus: FeatureCapabilityStatus
+        if unsupportedBySMC {
+            bypassStatus = FeatureCapabilityStatus(supported: false, reasonCode: "smc_keys_locked")
+        } else if backendMode == .adapterMode {
+            bypassStatus = FeatureCapabilityStatus(supported: false, reasonCode: "adapter_mode_hysteresis")
+        } else {
+            bypassStatus = FeatureCapabilityStatus(supported: true)
+        }
+
+        let magSafeStatus: FeatureCapabilityStatus
+        if !profile.supportsMagSafeLED {
+            magSafeStatus = FeatureCapabilityStatus(supported: false, reasonCode: "no_magsafe3_hardware")
+        } else if backendMode == .adapterMode {
+            // CHIE=0x08 cuts external adapter power rail, preventing MagSafe 3 LED plug updates.
+            magSafeStatus = FeatureCapabilityStatus(supported: false, reasonCode: "adapter_mode_cuts_magsafe")
+        } else if !writableKeys.isEmpty && !writableKeys.contains("ACLC") {
+            magSafeStatus = FeatureCapabilityStatus(supported: false, reasonCode: "no_magsafe3_hardware")
+        } else {
+            magSafeStatus = FeatureCapabilityStatus(supported: true)
+        }
+
+        let lowPowerStatus = profile.supportsLowPowerMode
+            ? FeatureCapabilityStatus(supported: true)
+            : FeatureCapabilityStatus(supported: false, reasonCode: "low_power_unsupported")
+
+        return CachedCompatibilityReport(
+            fingerprint: fp,
+            hardwareProfile: profile,
+            backendMode: backendMode,
+            writableKeys: writableKeys,
+            helperConnected: helperConnected,
+            chargeLimit: chargeLimitStatus,
+            discharge: dischargeStatus,
+            bypassCharging: bypassStatus,
+            magSafeLED: magSafeStatus,
+            lowPowerMode: lowPowerStatus,
+            checkedAt: now
+        )
+    }
+}
+
 public struct DiagnosticsReport: Equatable, Sendable {
     public let iokitReadable: Bool
     public let smcHelperConnected: Bool
@@ -366,6 +830,10 @@ public struct DiagnosticsReport: Equatable, Sendable {
     public let crashReportCount: Int
     public let latestCrashSummary: String?
     public let smcBackendMode: SMCBackendMode
+    public let writableKeys: [String]
+    public let hardwareProfile: MacHardwareProfile
+    public let temperatureSensorLive: Bool
+    public let temperatureSummary: String?
     public let checkedAt: Date
 
     public init(
@@ -379,6 +847,10 @@ public struct DiagnosticsReport: Equatable, Sendable {
         crashReportCount: Int = 0,
         latestCrashSummary: String? = nil,
         smcBackendMode: SMCBackendMode = .unknown,
+        writableKeys: [String] = [],
+        hardwareProfile: MacHardwareProfile = .detectCurrent(),
+        temperatureSensorLive: Bool = true,
+        temperatureSummary: String? = nil,
         checkedAt: Date = Date()
     ) {
         self.iokitReadable = iokitReadable
@@ -391,6 +863,10 @@ public struct DiagnosticsReport: Equatable, Sendable {
         self.crashReportCount = crashReportCount
         self.latestCrashSummary = latestCrashSummary
         self.smcBackendMode = smcBackendMode
+        self.writableKeys = writableKeys
+        self.hardwareProfile = hardwareProfile
+        self.temperatureSensorLive = temperatureSensorLive
+        self.temperatureSummary = temperatureSummary
         self.checkedAt = checkedAt
     }
 }
@@ -460,6 +936,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var alertsEnabled: Bool
     public var customProfile: CustomBatteryProfile?
     public var calibrationSession: CalibrationSession
+    public var lastCalibrationResult: CalibrationResultRecord?
+    public var cachedCompatibility: CachedCompatibilityReport?
 
     public init(
         policy: ChargePolicy = ChargePolicy(),
@@ -471,7 +949,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         launchAtLogin: Bool = false,
         alertsEnabled: Bool = true,
         customProfile: CustomBatteryProfile? = nil,
-        calibrationSession: CalibrationSession = CalibrationSession()
+        calibrationSession: CalibrationSession = CalibrationSession(),
+        lastCalibrationResult: CalibrationResultRecord? = nil,
+        cachedCompatibility: CachedCompatibilityReport? = nil
     ) {
         self.policy = policy
         self.schedules = schedules
@@ -483,6 +963,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.alertsEnabled = alertsEnabled
         self.customProfile = customProfile
         self.calibrationSession = calibrationSession
+        self.lastCalibrationResult = lastCalibrationResult
+        self.cachedCompatibility = cachedCompatibility
     }
 
     public init(from decoder: Decoder) throws {
@@ -497,5 +979,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.alertsEnabled = try container.decodeIfPresent(Bool.self, forKey: .alertsEnabled) ?? true
         self.customProfile = try container.decodeIfPresent(CustomBatteryProfile.self, forKey: .customProfile)
         self.calibrationSession = try container.decodeIfPresent(CalibrationSession.self, forKey: .calibrationSession) ?? CalibrationSession()
+        self.lastCalibrationResult = try container.decodeIfPresent(CalibrationResultRecord.self, forKey: .lastCalibrationResult)
+        self.cachedCompatibility = try container.decodeIfPresent(CachedCompatibilityReport.self, forKey: .cachedCompatibility)
     }
 }

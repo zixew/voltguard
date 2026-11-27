@@ -107,8 +107,27 @@ public struct VoltGuardViewState: Equatable {
     public var helperConnected: Bool = false
     public var helperNeedsUpdate: Bool = false
     public var smcBackendMode: SMCBackendMode = .unknown
+    public var writableKeys: [String] = []
+    public var hardwareProfile: MacHardwareProfile = .detectCurrent()
     public var helperErrorMessage: String?
+    public var updateResult: AppUpdateCheckResult?
+    public var isCheckingUpdates: Bool = false
+    public var isInstallingUpdate: Bool = false
+    public var updateFeedbackMessage: String?
     public var palette: ThemePalette = ThemePalette.resolve(ThemeConfig())
+
+    public var effectiveCompatibility: CachedCompatibilityReport {
+        if let cached = settings.cachedCompatibility {
+            return cached
+        }
+        return CachedCompatibilityReport.evaluateOnce(
+            profile: hardwareProfile,
+            backendMode: smcBackendMode,
+            writableKeys: writableKeys,
+            helperConnected: helperConnected,
+            helperSignature: "initial"
+        )
+    }
 }
 
 public enum VoltGuardAction {
@@ -132,6 +151,9 @@ public enum VoltGuardAction {
     case toggleStopChargingOnSleep
     case toggleLowPowerOnBattery
     case toggleLowPowerAlways
+    case toggleRestoreDefaultOnQuit
+    case checkForUpdates
+    case installUpdate
     case addScheduleRule(ScheduleRule)
     case toggleScheduleRule(UUID)
     case removeScheduleRule(UUID)
@@ -142,6 +164,7 @@ public enum VoltGuardAction {
     case movePopoverModule(PopoverModuleID, Int)
     case exportHealthCSV
     case runDiagnostics
+    case recheckCompatibility
     case openCrashLogs
     case clearCrashLogs
     case toggleLaunchAtLogin
@@ -172,6 +195,7 @@ public final class VoltGuardInteractor {
     private let healthHistoryRepo: HealthHistoryRepository
     private let launchAtLoginGateway: LaunchAtLoginGateway
     private let alertGateway: AlertNotificationGateway
+    private let updateService = AppUpdateService()
 
     private let policyUseCase = EvaluateChargePolicyUseCase()
     private let calibrationUseCase = CalibrationMachineUseCase()
@@ -195,6 +219,7 @@ public final class VoltGuardInteractor {
 
     public var onStateUpdate: ((BatteryTelemetry?, PowerFlowMetrics, AppSettings, CalibrationSession, PolicyReason, Bool, [BatteryHealthSnapshot]?, String?, UInt64) -> Void)?
     public var onHardwareStatusUpdate: ((Bool, Bool, SMCBackendMode) -> Void)?
+    public var onWritableKeysUpdate: (([String]) -> Void)?
 
     public init(
         batteryReader: BatteryReadingGateway = IOKitBatteryReader(),
@@ -225,6 +250,35 @@ public final class VoltGuardInteractor {
 
     public func loadInitialSettings() -> AppSettings {
         settingsRepo.load()
+    }
+
+    public func evaluateCompatibilityOnce(
+        existing: CachedCompatibilityReport?,
+        hasBatteryService: Bool,
+        force: Bool
+    ) -> CachedCompatibilityReport? {
+        let connected = smcGateway.isPrivilegedHelperConnected
+        let mode = smcGateway.backendMode
+        let keys = smcGateway.writableKeys
+        let sig = smcGateway.helperVersionSignature
+        let profile = MacHardwareProfile.detectCurrent(writableKeys: keys, hasBatteryService: hasBatteryService)
+        let fp = CachedCompatibilityReport.makeFingerprint(
+            profile: profile,
+            backendMode: mode,
+            writableKeys: keys,
+            helperConnected: connected,
+            helperSignature: sig
+        )
+        if !force, let existing, existing.fingerprint == fp {
+            return nil
+        }
+        return CachedCompatibilityReport.evaluateOnce(
+            profile: profile,
+            backendMode: mode,
+            writableKeys: keys,
+            helperConnected: connected,
+            helperSignature: sig
+        )
     }
 
     public func saveSettings(_ settings: AppSettings) {
@@ -293,6 +347,19 @@ public final class VoltGuardInteractor {
                     targetLimit: mutableSettings.policy.limitPercent,
                     now: now
                 )
+                if mutableCalibration.stage == .completed {
+                    let record = CalibrationResultRecord(
+                        startedAt: mutableCalibration.startedAt ?? now,
+                        completedAt: now,
+                        beforeMaxCapacityMah: mutableCalibration.beforeMaxCapacityMah ?? telemetry.maxCapacityMah,
+                        afterMaxCapacityMah: telemetry.maxCapacityMah,
+                        beforeHealthPercent: mutableCalibration.beforeHealthPercent ?? telemetry.healthPercent,
+                        afterHealthPercent: telemetry.healthPercent,
+                        beforeCycleCount: mutableCalibration.beforeCycleCount ?? telemetry.cycleCount,
+                        afterCycleCount: telemetry.cycleCount
+                    )
+                    mutableSettings.lastCalibrationResult = record
+                }
                 mutableSettings.calibrationSession = mutableCalibration
             }
 
@@ -307,7 +374,8 @@ public final class VoltGuardInteractor {
                 policy: mutableSettings.policy,
                 calibration: mutableCalibration,
                 context: currentContext,
-                adapterCutMode: isAdapterCutMode
+                adapterCutMode: isAdapterCutMode,
+                compatibility: mutableSettings.cachedCompatibility
             )
             mutableSettings.policy = eval.updatedPolicy
             policyLock.withLock {
@@ -324,6 +392,7 @@ public final class VoltGuardInteractor {
             let needsUpdate = connected && !smcGateway.isInstalledHelperUpToDate
             let mode = smcGateway.backendMode
             onHardwareStatusUpdate?(connected, needsUpdate, mode)
+            onWritableKeysUpdate?(smcGateway.writableKeys)
             powerGateway.setPreventSleep(eval.command.preventSleepAssertion, reason: "VoltGuard active discharge or calibration")
             await powerGateway.setLowPowerMode(eval.command.lowPowerModeEnabled)
 
@@ -404,8 +473,13 @@ public final class VoltGuardInteractor {
         let socketLive = smcGateway.probeLiveConnection()
         let helperCurrent = smcGateway.isInstalledHelperUpToDate
         let smcDriverOK = smcGateway.isAppleSMCDriverReadable
+        let keys = smcGateway.writableKeys
+        let profile = MacHardwareProfile.detectCurrent(writableKeys: keys, hasBatteryService: iokitOK)
         let summary: String? = telemetry.map {
             String(format: "%d%%  |  %d / %d mAh  |  %.2f V  |  %+.2f A", $0.percentage, $0.maxCapacityMah, $0.designCapacityMah, $0.voltageVolts, $0.amperageAmps)
+        }
+        let tempSummary: String? = telemetry.map {
+            String(format: "%.1f C (%@)", $0.temperatureCelsius, $0.temperatureSensorSource)
         }
         let crashReports = CrashReporter.shared.loadReports()
         let latestCrash = crashReports.first.map {
@@ -421,13 +495,27 @@ public final class VoltGuardInteractor {
             sensorSummary: summary,
             crashReportCount: crashReports.count,
             latestCrashSummary: latestCrash,
-            smcBackendMode: smcGateway.backendMode
+            smcBackendMode: smcGateway.backendMode,
+            writableKeys: keys,
+            hardwareProfile: profile,
+            temperatureSensorLive: telemetry?.isTemperatureSensorLive ?? false,
+            temperatureSummary: tempSummary
         )
     }
 
-    public func restoreHardwareOnQuit(calibration: CalibrationSession) {
+    public func checkLatestUpdate() async throws -> AppUpdateCheckResult {
+        try await updateService.checkLatestRelease()
+    }
+
+    public func installUpdate(dmgURL: String) async throws {
+        try await updateService.downloadAndInstall(dmgURLString: dmgURL)
+    }
+
+    public func restoreHardwareOnQuit(calibration: CalibrationSession, policy: ChargePolicy = ChargePolicy()) {
         powerGateway.setPreventSleep(false, reason: "VoltGuard terminated")
         guard !calibration.isActive else { return }
+        // In Adapter Mode (CHIE), always release adapter cut on quit so Mac can still charge while app is closed.
+        guard policy.restoreDefaultOnQuit || smcGateway.backendMode == .adapterMode else { return }
         smcGateway.restoreDefaultChargingSync()
     }
 
@@ -576,6 +664,17 @@ public final class VoltGuardPresenter: ObservableObject {
                 self.state.helperConnected = connected
                 self.state.helperNeedsUpdate = needsUpdate
                 self.state.smcBackendMode = mode
+                self.refreshCompatibilityIfFingerprintChanged(force: false)
+            }
+        }
+
+        interactor.onWritableKeysUpdate = { [weak self] keys in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.state.writableKeys = keys
+                let hasBatt = !self.state.hardwareProfile.isDesktopMac
+                self.state.hardwareProfile = MacHardwareProfile.detectCurrent(writableKeys: keys, hasBatteryService: hasBatt)
+                self.refreshCompatibilityIfFingerprintChanged(force: false)
             }
         }
 
@@ -605,9 +704,16 @@ public final class VoltGuardPresenter: ObservableObject {
                     let targetLimit = (effectiveSettings.policy.topUpActive || isCalibratingToFull)
                         ? VoltGuardLimits.maxLimitPercent
                         : effectiveSettings.policy.limitPercent
-                    let calDischargeTarget = (effectiveCalibration.isActive && (effectiveCalibration.stage == .dischargingToLow || effectiveCalibration.stage == .holdingLow))
-                        ? effectiveCalibration.targetLowPercent
-                        : 0
+                    let calDischargeTarget: Int
+                    if effectiveCalibration.isActive && (effectiveCalibration.stage == .dischargingToLow || effectiveCalibration.stage == .holdingLow) {
+                        calDischargeTarget = effectiveCalibration.targetLowPercent
+                    } else if reason == .sailingPaused {
+                        calDischargeTarget = max(targetLimit - effectiveSettings.policy.sailingDeltaPercent, VoltGuardLimits.minSailingFloorPercent)
+                    } else if reason == .automaticDischarge || (reason == .limitReached && telemetry.isPluggedIn && telemetry.percentage > targetLimit) {
+                        calDischargeTarget = targetLimit
+                    } else {
+                        calDischargeTarget = 0
+                    }
                     let holdRemaining = effectiveCalibration.remainingHoldSeconds()
                     self.state.batteryETA = self.etaCalculator.update(
                         telemetry: telemetry,
@@ -712,6 +818,10 @@ public final class VoltGuardPresenter: ObservableObject {
                     }
                 } else if let errMsg {
                     self.state.telemetryState = .error(errMsg)
+                    self.state.hardwareProfile = MacHardwareProfile.detectCurrent(
+                        writableKeys: self.state.writableKeys,
+                        hasBatteryService: false
+                    )
                 }
                 if isCurrentGeneration {
                     self.state.settings = settings
@@ -828,15 +938,18 @@ public final class VoltGuardPresenter: ObservableObject {
             }
             persistAndSync()
         case .toggleManualDischarge:
+            guard state.effectiveCompatibility.discharge.supported else { return }
             state.settings.policy.manualDischarge.toggle()
             if state.settings.policy.manualDischarge {
                 state.settings.policy.topUpActive = false
             }
             persistAndSync()
         case .toggleAutomaticDischarge:
+            guard state.effectiveCompatibility.discharge.supported else { return }
             state.settings.policy.automaticDischarge.toggle()
             persistAndSync()
         case .toggleClamshellDischarge:
+            guard state.effectiveCompatibility.discharge.supported else { return }
             state.settings.policy.dischargeInClamshell.toggle()
             persistAndSync()
         case .toggleHeatProtection:
@@ -852,20 +965,32 @@ public final class VoltGuardPresenter: ObservableObject {
             state.settings.policy.sailingDeltaPercent = delta
             persistAndSync()
         case .setMagSafeLED(let mode):
+            guard state.effectiveCompatibility.magSafeLED.supported else { return }
             state.settings.policy.magSafeLEDMode = mode
             persistAndSync()
         case .toggleTopUp:
+            guard state.effectiveCompatibility.chargeLimit.supported else { return }
             state.settings.policy.topUpActive.toggle()
             if state.settings.policy.topUpActive {
                 state.settings.policy.manualDischarge = false
             }
             persistAndSync()
         case .startCalibration:
+            guard state.effectiveCompatibility.discharge.supported else { return }
+            let now = Date()
+            let baseTelemetry: BatteryTelemetry? = {
+                if case .loaded(let t, _) = state.telemetryState { return t }
+                return nil
+            }()
             let session = CalibrationSession(
                 stage: .chargingToFull,
-                stageStartedAt: Date(),
+                stageStartedAt: now,
+                startedAt: now,
                 targetLowPercent: VoltGuardLimits.calibrationLowPercent,
-                holdDurationSeconds: VoltGuardLimits.calibrationHoldSeconds
+                holdDurationSeconds: VoltGuardLimits.calibrationHoldSeconds,
+                beforeMaxCapacityMah: baseTelemetry?.maxCapacityMah,
+                beforeHealthPercent: baseTelemetry?.healthPercent,
+                beforeCycleCount: baseTelemetry?.cycleCount
             )
             state.calibration = session
             state.settings.calibrationSession = session
@@ -882,11 +1007,44 @@ public final class VoltGuardPresenter: ObservableObject {
             state.settings.policy.stopChargingWhenSleeping.toggle()
             persistAndSync()
         case .toggleLowPowerOnBattery:
+            guard state.effectiveCompatibility.lowPowerMode.supported else { return }
             state.settings.policy.lowPowerModeOnBattery.toggle()
             persistAndSync()
         case .toggleLowPowerAlways:
+            guard state.effectiveCompatibility.lowPowerMode.supported else { return }
             state.settings.policy.lowPowerModeAlways.toggle()
             persistAndSync()
+        case .toggleRestoreDefaultOnQuit:
+            state.settings.policy.restoreDefaultOnQuit.toggle()
+            persistAndSync()
+        case .checkForUpdates:
+            state.isCheckingUpdates = true
+            state.updateFeedbackMessage = nil
+            Task { [weak self] in
+                guard let self else { return }
+                do {
+                    let result = try await self.interactor.checkLatestUpdate()
+                    self.state.updateResult = result
+                } catch {
+                    self.state.updateFeedbackMessage = error.localizedDescription
+                }
+                self.state.isCheckingUpdates = false
+            }
+        case .installUpdate:
+            guard let dmgURL = state.updateResult?.dmgDownloadURL else { return }
+            state.isInstallingUpdate = true
+            state.updateFeedbackMessage = nil
+            Task { [weak self] in
+                guard let self else { return }
+                do {
+                    try await self.interactor.installUpdate(dmgURL: dmgURL)
+                    self.state.isInstallingUpdate = false
+                    NSApp.terminate(nil)
+                } catch {
+                    self.state.isInstallingUpdate = false
+                    self.state.updateFeedbackMessage = error.localizedDescription
+                }
+            }
         case .addScheduleRule(let rule):
             state.settings.schedules.append(rule)
             persistAndSync()
@@ -931,6 +1089,9 @@ public final class VoltGuardPresenter: ObservableObject {
             state.csvExportFeedback = true
         case .runDiagnostics:
             runAnimatedDiagnostics()
+        case .recheckCompatibility:
+            refreshCompatibilityIfFingerprintChanged(force: true)
+            syncPolicyStatusImmediately()
         case .openCrashLogs:
             NSWorkspace.shared.open(CrashReporter.shared.crashesDirectoryURL)
         case .clearCrashLogs:
@@ -1071,13 +1232,13 @@ public final class VoltGuardPresenter: ObservableObject {
                 bypassCooldown: true
             )
         case .quitApp:
-            interactor.restoreHardwareOnQuit(calibration: state.calibration)
+            interactor.restoreHardwareOnQuit(calibration: state.calibration, policy: state.settings.policy)
             NSApp.terminate(nil)
         }
     }
 
     public func handleApplicationTermination() {
-        interactor.restoreHardwareOnQuit(calibration: state.calibration)
+        interactor.restoreHardwareOnQuit(calibration: state.calibration, policy: state.settings.policy)
     }
 
     public func presentToolbarEvent(_ event: ToolbarNotificationEvent, bypassCooldown: Bool = false) {
@@ -1120,18 +1281,40 @@ public final class VoltGuardPresenter: ObservableObject {
                 interactorRef.runDiagnostics(alertsEnabled: alertsEnabled)
             }
 
-            for step in 0..<7 {
+            for step in 0..<8 {
                 guard !Task.isCancelled else { return }
                 self?.state.diagnosticsScanStep = step
-                try? await Task.sleep(nanoseconds: 75_000_000)
+                try? await Task.sleep(nanoseconds: 70_000_000)
             }
 
             let report = await probeTask.value
             guard !Task.isCancelled, let self else { return }
-            self.state.diagnosticsScanStep = 7
+            self.state.diagnosticsScanStep = 8
             self.state.diagnostics = report
             self.state.isRunningDiagnostics = false
         }
+    }
+
+    private func refreshCompatibilityIfFingerprintChanged(force: Bool) {
+        let hasBattery = !state.hardwareProfile.isDesktopMac
+        guard let updated = interactor.evaluateCompatibilityOnce(
+            existing: state.settings.cachedCompatibility,
+            hasBatteryService: hasBattery,
+            force: force
+        ) else {
+            return
+        }
+        stateMutationGeneration &+= 1
+        state.settings.cachedCompatibility = updated
+        if !updated.discharge.supported {
+            state.settings.policy.manualDischarge = false
+            state.settings.policy.automaticDischarge = false
+        }
+        if !updated.lowPowerMode.supported {
+            state.settings.policy.lowPowerModeOnBattery = false
+            state.settings.policy.lowPowerModeAlways = false
+        }
+        interactor.saveSettings(state.settings)
     }
 
     private func syncPolicyStatusImmediately() {
@@ -1141,7 +1324,8 @@ public final class VoltGuardPresenter: ObservableObject {
             policy: state.settings.policy,
             calibration: state.calibration,
             context: PolicyEvaluationContext(),
-            adapterCutMode: state.smcBackendMode == .adapterMode
+            adapterCutMode: state.smcBackendMode == .adapterMode,
+            compatibility: state.settings.cachedCompatibility
         )
         state.lastReason = eval.command.statusReason
         state.liveRecommendation = recommendUseCase.recommend(

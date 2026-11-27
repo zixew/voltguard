@@ -64,8 +64,9 @@ final class SMCClient {
         close()
     }
 
-    func isKeyWritable(_ key: String) -> Bool {
-        if let cached = cachedWritable[key] {
+    func isKeyWritable(_ key: String, verifyWrite: Bool = false) -> Bool {
+        let cacheKey = verifyWrite ? "\(key):verified" : key
+        if let cached = cachedWritable[cacheKey] {
             return cached
         }
         guard connection != 0, key.utf8.count == 4 else { return false }
@@ -74,12 +75,46 @@ final class SMCClient {
         input.key = fourCharCode(key)
         input.data8 = 9 // kSMCGetKeyInfo
         let infoRes = callSMC(input: &input, output: &output)
-        let ok = infoRes == kIOReturnSuccess
+        let attrOK = infoRes == kIOReturnSuccess
             && output.result == 0
             && output.keyInfo.dataSize > 0
             && (output.keyInfo.dataAttributes & 0x40) != 0
-        cachedWritable[key] = ok
-        return ok
+        guard attrOK else {
+            cachedWritable[cacheKey] = false
+            return false
+        }
+        if verifyWrite, let currentBytes = readBytes(key: key) {
+            let roundTripOK = writeBytes(key: key, values: currentBytes)
+            cachedWritable[cacheKey] = roundTripOK
+            return roundTripOK
+        }
+        cachedWritable[cacheKey] = true
+        return true
+    }
+
+    func readBytes(key: String) -> [UInt8]? {
+        guard connection != 0, key.utf8.count == 4 else { return nil }
+        var input = SMCKeyData()
+        var output = SMCKeyData()
+        input.key = fourCharCode(key)
+        input.data8 = 9 // kSMCGetKeyInfo
+        let infoRes = callSMC(input: &input, output: &output)
+        guard infoRes == kIOReturnSuccess, output.result == 0, output.keyInfo.dataSize > 0, output.keyInfo.dataSize <= 32 else {
+            return nil
+        }
+
+        var readInput = SMCKeyData()
+        var readOutput = SMCKeyData()
+        readInput.key = fourCharCode(key)
+        readInput.keyInfo.dataSize = output.keyInfo.dataSize
+        readInput.data8 = 5 // kSMCReadKey
+        let readRes = callSMC(input: &readInput, output: &readOutput)
+        guard readRes == kIOReturnSuccess, readOutput.result == 0 else { return nil }
+
+        let size = Int(output.keyInfo.dataSize)
+        return withUnsafeBytes(of: &readOutput.bytes) { rawBuf in
+            Array(rawBuf.prefix(size))
+        }
     }
 
     @discardableResult

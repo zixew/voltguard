@@ -1,11 +1,11 @@
 # VoltGuard
 
 [![macOS CI](https://github.com/zixew/voltguard/actions/workflows/macos-ci.yml/badge.svg)](https://github.com/zixew/voltguard/actions/workflows/macos-ci.yml)
-![Platform](https://img.shields.io/badge/macOS-14.0%20--%2027.x-0EA5E9)
+![Platform](https://img.shields.io/badge/macOS-13.0%20--%2027.x-0EA5E9)
 ![Architecture](https://img.shields.io/badge/Arch-Universal%20(arm64%20%2B%20x86__64)-10B981)
 ![Swift](https://img.shields.io/badge/Swift-5.9-F05138)
 
-> **English Summary:** **VoltGuard** is a native SwiftUI macOS menu bar app that protects MacBook battery health by limiting max charge (`20%` to `100%`), monitoring real-time power flow, preventing thermal stress, and automating 5-stage calibration. It supports Apple Silicon (`M1` through `M5`) and Intel Macs on **macOS 14 Sonoma through macOS 27** (including automatic `CHIE` Adapter Mode when macOS 27 locks legacy charge-control keys).
+> **English Summary:** **VoltGuard** is a native SwiftUI macOS menu bar app that protects MacBook battery health by limiting max charge (`20%` to `100%`), monitoring real-time power flow, preventing thermal stress, and automating 5-stage calibration. It supports Apple Silicon (`M1` through `M5`) and Intel Macs (2016-2020 official, 2012-2015 via OCLP) on **macOS 13 Ventura through macOS 27** (including automatic `CHIE` Adapter Mode when macOS 27 locks legacy charge-control keys).
 
 **VoltGuard** adalah aplikasi menu bar macOS untuk menjaga kesehatan dan memperpanjang usia baterai MacBook Anda. Atur batas pengisian harian, cegah panas berlebih saat bekerja dengan charger terpasang, pantau aliran daya secara langsung, dan jalankan kalibrasi baterai otomatis langsung dari menu bar maupun jendela dashboard penuh.
 
@@ -78,30 +78,31 @@ Menahan baterai Lithium-ion di angka `100%` terus-menerus sambil terkena panas a
 
 ## Kompatibilitas MacBook, Chip & Versi macOS
 
-VoltGuard dikemas sebagai **Universal Binary (`arm64` + `x86_64`)** dengan syarat minimum **macOS 14.0 Sonoma**.
+VoltGuard dikemas sebagai **Universal Binary (`arm64` + `x86_64`)** dengan syarat minimum **macOS 13.0 Ventura** serta deteksi otomatis seri Mac (`Apple Silicon`, `Intel T2`, `Intel Pre-T2`, maupun `Desktop Mac`).
 
 ### Dukungan Berdasarkan Versi macOS & Firmware
 
 | Versi macOS | Arsitektur / Chip | Mekanisme SMC | Status | Catatan |
 | :--- | :--- | :--- | :---: | :--- |
-| **macOS 14 Sonoma** | Apple Silicon M1/M2/M3 & Intel | `CH0B`/`CH0C`/`CH0I` (`BCLM`/`CH0K`) | Didukung Penuh | Bypass charging dan discharge penuh lewat SMC standar |
+| **macOS 13 Ventura** | Apple Silicon M1-M2 & Intel (2017-2020) | `CH0B`/`CH0C`/`CH0I` (`BCLM`) | Didukung Penuh | Membuka dukungan resmi Intel 2017 tanpa patch; animasi ringkas untuk SwiftUI 13 |
+| **macOS 14 Sonoma** | Apple Silicon M1-M3 & Intel | `CH0B`/`CH0C`/`CH0I` (`BCLM`/`CH0K`) | Didukung Penuh | Bypass charging, Sailing step-down, dan discharge penuh lewat SMC standar |
 | **macOS 15 Sequoia (< 15.8)** | Apple Silicon M1-M4 & Intel | `CH0B`/`CH0C`/`CH0I` (`BCLM`/`CH0K`) | Didukung Penuh | Bypass charging penuh + MagSafe 3 LED |
-| **macOS 15.8 & macOS 26 Tahoe** | Apple Silicon M1-M5 & Intel | `CHTE` + `CHIE` / `bfF0` | Didukung Penuh | Mendukung kunci Tahoe (`CHTE`) & cut adapter (`CHIE`) |
+| **macOS 15.8 & macOS 26 Tahoe** | Apple Silicon M1-M5 & Intel | `CHTE` + `CHIE` / `bfF0` | Didukung Penuh | Prioritaskan kunci Tahoe (`CHTE`) dengan fallback otomatis bila key lama terkunci |
 | **macOS 27 Beta 1-3 (`20356` - `20457.0.77`)** | Apple Silicon | `bfF0`/`bfD0`/`bfE0` + `CHIE` | Didukung Penuh | Menggunakan mode Firmware Limit bawaan |
-| **macOS 27 Beta 4+ / 27.x (`20457.0.125+`, termasuk 27.2.1)** | Apple Silicon M4 / M5 | **Adapter Mode (`CHIE=0x08`)** | Didukung (Adapter Mode) | Apple mengunci `CH0B`/`CH0C`/`CHTE`/`bfF0` (`kIOReturnNotPrivileged`). VoltGuard otomatis memakai `CHIE` dengan band hysteresis 3% saat Mac terjaga |
-| **macOS 11-13 (Big Sur - Ventura)** | Apple Silicon / Intel | - | Tidak Didukung | Membutuhkan API SwiftUI macOS 14.0+ |
+| **macOS 27 Beta 4+ / 27.x (`20457.0.125+`, termasuk 27.2.1)** | Apple Silicon M4 / M5 | **Adapter Mode (`CHIE=0x08`)** | Didukung (Adapter Mode) | Apple mengunci `CH0B`/`CH0C`/`CHTE`/`bfF0` (`kIOReturnNotPrivileged`). VoltGuard otomatis memakai `CHIE` dengan step-down Sailing & hysteresis 3% saat Mac terjaga |
+| **macOS 11-12 (Big Sur - Monterey)** | Apple Silicon / Intel | - | Tidak Didukung | Membutuhkan `MenuBarExtra` & `AppIntents` macOS 13.0+ |
 
-### Dukungan Per-Fitur Berdasarkan Perangkat
+### Dukungan Berdasarkan Seri Mac
 
-| Fitur VoltGuard | Apple Silicon (macOS 14-26) | Apple Silicon (macOS 27.x Adapter Mode) | Intel MacBook (2016-2020, macOS 14+) |
-| :--- | :---: | :---: | :---: |
-| **Charge Limit (`20%-100%`)** | Bypass Charging | Adapter-Cut Hysteresis (`CHIE`) | `BCLM` / `CH0B` |
-| **Mode Sailing & Heat Protection** | Ya | Ya | Ya |
-| **Discharge Manual & Otomatis** | Ya (`CH0I`/`CHIE`) | Ya (`CHIE=0x08`) | Ya (`CH0I`/`CH0K`) |
-| **Kalibrasi Baterai 5-Tahap** | Ya | Ya (saat Mac terjaga) | Ya |
-| **Kontrol Lampu MagSafe 3 LED** | Ya (`ACLC`) | Ya (`ACLC`) | Tidak ada MagSafe 3 |
-| **Power Flow, ETA, Health & Energy Monitor** | Ya (`IOKit`) | Ya (`IOKit`) | Ya (`IOKit`) |
-| **Self-Diagnostic & Crash Guard** | Ya | Ya | Ya |
+| Seri / Model Mac | Charge Limit | Bypass / Adapter Hold | Discharge & Kalibrasi | MagSafe 3 LED (`ACLC`) | Low Power Mode | Catatan |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **MacBook Pro 14"/16" (M1 Pro/Max, M2, M3, M4, M5)** | Ya | Ya | Ya | **Ya** (`ACLC`) | Ya | Semua fitur 100% didukung |
+| **MacBook Air 13"/15" (M2, M3, M4, M5)** | Ya | Ya | Ya | **Ya** (`ACLC`) | Ya | Semua fitur 100% didukung |
+| **MacBook Air M1 (2020) & MacBook Pro 13" M1/M2** | Ya | Ya | Ya | Tidak (USB-C only) | Ya | Kontrol MagSafe LED otomatis disembunyikan |
+| **Intel MacBook Pro / Air 2018-2020 (Chip T2)** | Ya | Ya (`CH0B`) | Ya (`CH0I`/`CH0J`) | Tidak (USB-C only) | Ya | Memakai `CH0B`/`CH0C`/`CH0I`; tanpa LED MagSafe 3 |
+| **Intel MacBook / Pro 2016-2017 (Non-T2)** | Ya (`BCLM`) | Ya (`BCLM`) | Ya (`CH0I`) | Tidak (USB-C only) | macOS 13+ | Resmi didukung di macOS 13 Ventura (& 14-15 via OCLP) |
+| **Intel MacBook Pro / Air 2012-2015 (MagSafe 2)** | Ya (`BCLM`) | Via `BCLM` | Terbatas (`CH0I`) | Tidak (MagSafe 2) | Tidak | Didukung bila menjalankan macOS 13+ via OCLP |
+| **Desktop Mac (`iMac`, `Mac mini`, `Mac Studio`, `Mac Pro`)** | Tidak | Tidak | Tidak | Tidak | Tidak | Otomatis menampilkan status *Desktop Mac Tanpa Baterai*; Monitor Energi tetap aktif |
 
 ---
 
@@ -134,7 +135,7 @@ Saat pengisian sering dibatasi di `60%-80%`, pembacaan persentase baterai di mac
 
 ## Build dari Source
 
-Persyaratan: macOS 14.0+ dan Xcode Command Line Tools (`Swift 5.9+`).
+Persyaratan: macOS 13.0+ dan Xcode Command Line Tools (`Swift 5.9+`).
 
 ```bash
 git clone https://github.com/zixew/voltguard.git

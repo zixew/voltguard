@@ -24,21 +24,22 @@ struct SMCCapabilities {
     let hasACLC: Bool
 
     init(client: SMCClient) {
-        self.hasFirmwareLimitKeys = client.isKeyWritable("bfF0")
-            && client.isKeyWritable("bfD0")
-            && client.isKeyWritable("bfE0")
-        self.hasLegacyChargePair = client.isKeyWritable("CH0B") && client.isKeyWritable("CH0C")
-        self.hasTahoeChargeKey = client.isKeyWritable("CHTE")
-        self.hasBCLM = client.isKeyWritable("BCLM")
-        self.hasACLC = client.isKeyWritable("ACLC")
+        self.hasFirmwareLimitKeys = client.isKeyWritable("bfF0", verifyWrite: true)
+            && client.isKeyWritable("bfD0", verifyWrite: true)
+            && client.isKeyWritable("bfE0", verifyWrite: true)
+        self.hasTahoeChargeKey = client.isKeyWritable("CHTE", verifyWrite: true)
+        self.hasLegacyChargePair = client.isKeyWritable("CH0B", verifyWrite: true)
+            && client.isKeyWritable("CH0C", verifyWrite: true)
+        self.hasBCLM = client.isKeyWritable("BCLM", verifyWrite: true)
+        self.hasACLC = client.isKeyWritable("ACLC", verifyWrite: true)
 
-        if client.isKeyWritable("CHIE") {
+        if client.isKeyWritable("CHIE", verifyWrite: true) {
             self.adapterKey = ("CHIE", 0x08)
-        } else if client.isKeyWritable("CH0I") {
+        } else if client.isKeyWritable("CH0I", verifyWrite: true) {
             self.adapterKey = ("CH0I", 0x01)
-        } else if client.isKeyWritable("CH0J") {
+        } else if client.isKeyWritable("CH0J", verifyWrite: true) {
             self.adapterKey = ("CH0J", 0x01)
-        } else if client.isKeyWritable("CH0K") {
+        } else if client.isKeyWritable("CH0K", verifyWrite: true) {
             self.adapterKey = ("CH0K", 0x01)
         } else {
             self.adapterKey = nil
@@ -94,9 +95,10 @@ func applyLowPowerModeIfNeeded(_ enabled: Bool?) {
 }
 
 @discardableResult
-func applySMC(_ cmd: HelperCommand, client: SMCClient, caps: SMCCapabilities) -> Bool {
+func applySMC(_ cmd: HelperCommand, client: SMCClient, caps: SMCCapabilities, resolvedMode: inout String) -> Bool {
     let clamped = min(max(cmd.limitPercent, 20), 100)
     var success = true
+    resolvedMode = caps.backendMode
 
     switch caps.backendMode {
     case "firmwareManaged":
@@ -104,6 +106,8 @@ func applySMC(_ cmd: HelperCommand, client: SMCClient, caps: SMCCapabilities) ->
             _ = client.writeByte(key: "bfF0", value: 0x00)
             if let adapter = caps.adapterKey {
                 success = client.writeByte(key: adapter.key, value: adapter.cutValue) && success
+            } else {
+                success = false
             }
         } else {
             if let adapter = caps.adapterKey {
@@ -117,47 +121,64 @@ func applySMC(_ cmd: HelperCommand, client: SMCClient, caps: SMCCapabilities) ->
                 success = client.writeUInt32BigEndian(key: "bfD0", value: UInt32(clamped)) && success
                 success = client.writeUInt32BigEndian(key: "bfE0", value: lower) && success
                 success = client.writeByte(key: "bfF0", value: 0x02) && success
+                if !success, let adapter = caps.adapterKey {
+                    success = client.writeByte(key: adapter.key, value: adapter.cutValue)
+                    if success { resolvedMode = "adapterMode" }
+                }
             } else {
                 _ = client.writeByte(key: "bfF0", value: 0x00)
             }
         }
 
     case "legacy":
+        var bclmOK = false
         if caps.hasBCLM {
-            _ = client.writeByte(key: "BCLM", value: UInt8(clamped))
+            bclmOK = client.writeByte(key: "BCLM", value: UInt8(clamped))
         }
         if cmd.forceDischarge {
             if let adapter = caps.adapterKey {
                 success = client.writeByte(key: adapter.key, value: adapter.cutValue) && success
-            }
-            if caps.hasLegacyChargePair {
-                _ = client.writeByte(key: "CH0B", value: 2)
-                _ = client.writeByte(key: "CH0C", value: 2)
+            } else {
+                success = false
             }
             if caps.hasTahoeChargeKey {
                 _ = client.writeBytes(key: "CHTE", values: [0x01, 0x00, 0x00, 0x00])
+            } else if caps.hasLegacyChargePair {
+                _ = client.writeByte(key: "CH0B", value: 2)
+                _ = client.writeByte(key: "CH0C", value: 2)
             }
         } else if !cmd.allowCharging {
             if let adapter = caps.adapterKey {
                 _ = client.writeByte(key: adapter.key, value: 0x00)
             }
-            if caps.hasLegacyChargePair {
-                success = client.writeByte(key: "CH0B", value: 2) && success
-                success = client.writeByte(key: "CH0C", value: 2) && success
-            }
+            var inhibitOK = false
             if caps.hasTahoeChargeKey {
-                success = client.writeBytes(key: "CHTE", values: [0x01, 0x00, 0x00, 0x00]) && success
+                inhibitOK = client.writeBytes(key: "CHTE", values: [0x01, 0x00, 0x00, 0x00])
             }
+            if !inhibitOK && caps.hasLegacyChargePair {
+                let b = client.writeByte(key: "CH0B", value: 2)
+                let c = client.writeByte(key: "CH0C", value: 2)
+                inhibitOK = b && c
+            }
+            if !inhibitOK && caps.hasBCLM {
+                inhibitOK = bclmOK
+            }
+            if !inhibitOK, let adapter = caps.adapterKey {
+                // Runtime fallback when firmware rejects primary charge-inhibit keys.
+                inhibitOK = client.writeByte(key: adapter.key, value: adapter.cutValue)
+                if inhibitOK { resolvedMode = "adapterMode" }
+            }
+            success = inhibitOK
         } else {
             if let adapter = caps.adapterKey {
                 _ = client.writeByte(key: adapter.key, value: 0x00)
             }
+            if caps.hasTahoeChargeKey {
+                _ = client.writeBytes(key: "CHTE", values: [0x00, 0x00, 0x00, 0x00])
+            }
             if caps.hasLegacyChargePair {
                 _ = client.writeByte(key: "CH0B", value: 0)
                 _ = client.writeByte(key: "CH0C", value: 0)
-            }
-            if caps.hasTahoeChargeKey {
-                _ = client.writeBytes(key: "CHTE", values: [0x00, 0x00, 0x00, 0x00])
             }
         }
 
@@ -229,10 +250,11 @@ func runDaemon() {
         if count > 0 {
             let data = Data(buffer.prefix(count))
             if let cmd = try? JSONDecoder().decode(HelperCommand.self, from: data) {
-                let appliedOK = (cmd.pingOnly == true) ? opened : (opened && applySMC(cmd, client: client, caps: caps))
+                var effectiveMode = caps.backendMode
+                let appliedOK = (cmd.pingOnly == true) ? opened : (opened && applySMC(cmd, client: client, caps: caps, resolvedMode: &effectiveMode))
                 let ack = HelperAck(
                     ok: appliedOK,
-                    backendMode: caps.backendMode,
+                    backendMode: effectiveMode,
                     writableKeys: caps.writableKeyList
                 )
                 if var ackData = try? JSONEncoder().encode(ack) {
