@@ -1900,8 +1900,8 @@ public struct FullDashboardView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
 
-                    HStack {
-                        HStack(spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
                             Circle()
                                 .fill(helperNeedsUpdate ? palette.warning : (presenter.state.helperConnected ? palette.accent : palette.warning))
                                 .frame(width: 8, height: 8)
@@ -1909,128 +1909,50 @@ public struct FullDashboardView: View {
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(palette.primaryText)
                             if presenter.state.helperConnected && !helperNeedsUpdate {
-                                Text(presenter.state.smcBackendMode == .adapterMode ? "· \(L10n.text(.smcModeAdapter, locale: locale))" : (presenter.state.smcBackendMode == .firmwareManaged ? "· \(L10n.text(.smcModeFirmware, locale: locale))" : ""))
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(palette.secondaryText)
+                                let modeText = presenter.state.smcBackendMode == .adapterMode ? L10n.text(.smcModeAdapter, locale: locale) : (presenter.state.smcBackendMode == .firmwareManaged ? L10n.text(.smcModeFirmware, locale: locale) : L10n.text(.smcModeLegacy, locale: locale))
+                                Text(modeText)
+                                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2)
+                                    .background(palette.accent.opacity(0.14))
+                                    .foregroundStyle(palette.accent)
+                                    .clipShape(Capsule())
                             }
+                            Spacer()
                         }
-                        Spacer()
-                        Button {
-                            presenter.dispatch(.testToolbarEvent)
-                        } label: {
-                            Label(L10n.text(.testToolbarAlert, locale: locale), systemImage: "bell.badge.fill")
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(palette.accent)
-                        .controlSize(.small)
-
-                        if presenter.state.helperConnected {
-                            Button(L10n.text(.uninstallHelper, locale: locale)) {
-                                presenter.dispatch(.uninstallHelper)
+                        HStack(spacing: 8) {
+                            Button {
+                                presenter.dispatch(.testToolbarEvent)
+                            } label: {
+                                Label(L10n.text(.testToolbarAlert, locale: locale), systemImage: "bell.badge.fill")
+                                    .font(.system(size: 11, weight: .semibold))
                             }
                             .buttonStyle(.bordered)
-                            .tint(palette.danger)
+                            .tint(palette.accent)
+                            .controlSize(.small)
+
+                            Spacer()
+
+                            if presenter.state.helperConnected {
+                                Button(L10n.text(.uninstallHelper, locale: locale)) {
+                                    presenter.dispatch(.uninstallHelper)
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(palette.danger)
+                                .controlSize(.small)
+                            }
+                            Button(L10n.text(helperNeedsUpdate ? .updateHelperNow : .installHelper, locale: locale)) {
+                                presenter.dispatch(.installHelper)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(helperNeedsUpdate ? palette.warning : palette.accent)
                             .controlSize(.small)
                         }
-                        Button(L10n.text(helperNeedsUpdate ? .updateHelperNow : .installHelper, locale: locale)) {
-                            presenter.dispatch(.installHelper)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(helperNeedsUpdate ? palette.warning : palette.accent)
-                        .controlSize(.small)
                     }
                     .padding(.top, 2)
 
                     if let err = presenter.state.helperErrorMessage {
                         Text(err).font(.caption).foregroundStyle(palette.danger)
-                    }
-                }
-            }
-
-            themedCard(title: L10n.text(.healthHistoryTitle, locale: locale), palette: palette) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(String(format: L10n.text(.daysRecordedFormat, locale: locale), presenter.state.healthSnapshots.count))
-                            .font(.callout)
-                            .foregroundStyle(palette.secondaryText)
-                        Spacer()
-                        Button(L10n.text(.exportCSV, locale: locale)) {
-                            presenter.dispatch(.exportHealthCSV)
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    if presenter.state.csvExportFeedback {
-                        Text(L10n.text(.csvCopiedHint, locale: locale))
-                            .font(.caption)
-                            .foregroundStyle(palette.accent)
-                    }
-                    if presenter.state.healthSnapshots.isEmpty {
-                        Text(L10n.text(.healthHistoryEmpty, locale: locale))
-                            .font(.caption)
-                            .foregroundStyle(palette.secondaryText)
-                    } else {
-                        ForEach(presenter.state.healthSnapshots.suffix(5).reversed()) { snap in
-                            HStack {
-                                Text(snap.id).font(.caption.monospaced())
-                                Spacer()
-                                Text("\(snap.healthPercent)%  |  \(snap.cycleCount) cyc  |  \(String(format: "%.1f C", snap.peakTemperatureCelsius))")
-                                    .font(.caption.monospaced())
-                                    .foregroundStyle(palette.secondaryText)
-                            }
-                        }
-                    }
-                }
-            }
-
-            themedCard(title: L10n.text(.settingsBackupTitle, locale: locale), palette: palette) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        Button(L10n.text(.exportSettings, locale: locale)) {
-                            presenter.dispatch(.exportSettingsJSON)
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button(L10n.text(.importSettings, locale: locale)) {
-                            let json = NSPasteboard.general.string(forType: .string) ?? ""
-                            presenter.dispatch(.importSettingsJSON(json))
-                        }
-                        .buttonStyle(.bordered)
-
-                        Spacer()
-
-                        Button(L10n.text(.resetSettings, locale: locale)) {
-                            presenter.dispatch(.resetSettingsToDefault)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(palette.danger)
-                    }
-                    if let feedback = presenter.state.settingsFeedbackMessage {
-                        Text(feedback)
-                            .font(.caption)
-                            .foregroundStyle(palette.accent)
-                    }
-                }
-            }
-
-            themedCard(title: L10n.text(.activityLogTitle, locale: locale), palette: palette) {
-                VStack(alignment: .leading, spacing: 6) {
-                    if presenter.state.activityLog.isEmpty {
-                        Text(L10n.text(.activityLogEmpty, locale: locale))
-                            .font(.caption)
-                            .foregroundStyle(palette.secondaryText)
-                    } else {
-                        ForEach(presenter.state.activityLog.prefix(8)) { entry in
-                            HStack {
-                                Text(L10n.text(entry.messageKey, locale: locale))
-                                    .font(.caption)
-                                    .foregroundStyle(palette.primaryText)
-                                Spacer()
-                                Text(entry.timestamp, style: .time)
-                                    .font(.caption2.monospaced())
-                                    .foregroundStyle(palette.secondaryText)
-                            }
-                        }
                     }
                 }
             }
@@ -2187,6 +2109,93 @@ public struct FullDashboardView: View {
                 .onAppear {
                     if presenter.state.diagnostics == nil && !presenter.state.isRunningDiagnostics {
                         presenter.dispatch(.runDiagnostics)
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.healthHistoryTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(String(format: L10n.text(.daysRecordedFormat, locale: locale), presenter.state.healthSnapshots.count))
+                            .font(.callout)
+                            .foregroundStyle(palette.secondaryText)
+                        Spacer()
+                        Button(L10n.text(.exportCSV, locale: locale)) {
+                            presenter.dispatch(.exportHealthCSV)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if presenter.state.csvExportFeedback {
+                        Text(L10n.text(.csvCopiedHint, locale: locale))
+                            .font(.caption)
+                            .foregroundStyle(palette.accent)
+                    }
+                    if presenter.state.healthSnapshots.isEmpty {
+                        Text(L10n.text(.healthHistoryEmpty, locale: locale))
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
+                    } else {
+                        ForEach(presenter.state.healthSnapshots.suffix(5).reversed()) { snap in
+                            HStack {
+                                Text(snap.id).font(.caption.monospaced())
+                                Spacer()
+                                Text("\(snap.healthPercent)%  |  \(snap.cycleCount) cyc  |  \(String(format: "%.1f C", snap.peakTemperatureCelsius))")
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(palette.secondaryText)
+                            }
+                        }
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.settingsBackupTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Button(L10n.text(.exportSettings, locale: locale)) {
+                            presenter.dispatch(.exportSettingsJSON)
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button(L10n.text(.importSettings, locale: locale)) {
+                            let json = NSPasteboard.general.string(forType: .string) ?? ""
+                            presenter.dispatch(.importSettingsJSON(json))
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer()
+
+                        Button(L10n.text(.resetSettings, locale: locale)) {
+                            presenter.dispatch(.resetSettingsToDefault)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(palette.danger)
+                    }
+                    if let feedback = presenter.state.settingsFeedbackMessage {
+                        Text(feedback)
+                            .font(.caption)
+                            .foregroundStyle(palette.accent)
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.activityLogTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 6) {
+                    if presenter.state.activityLog.isEmpty {
+                        Text(L10n.text(.activityLogEmpty, locale: locale))
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
+                    } else {
+                        ForEach(presenter.state.activityLog.prefix(8)) { entry in
+                            HStack {
+                                Text(L10n.text(entry.messageKey, locale: locale))
+                                    .font(.caption)
+                                    .foregroundStyle(palette.primaryText)
+                                Spacer()
+                                Text(entry.timestamp, style: .time)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(palette.secondaryText)
+                            }
+                        }
                     }
                 }
             }

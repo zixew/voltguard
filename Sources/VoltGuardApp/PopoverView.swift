@@ -640,9 +640,9 @@ public struct PopoverView: View {
         }
         switch state.smcBackendMode {
         case .adapterMode:
-            return "\(L10n.text(.helperConnected, locale: locale)) · \(L10n.text(.smcModeAdapter, locale: locale))"
+            return "\(L10n.text(.helperConnected, locale: locale)) · CHIE"
         case .firmwareManaged:
-            return "\(L10n.text(.helperConnected, locale: locale)) · \(L10n.text(.smcModeFirmware, locale: locale))"
+            return "\(L10n.text(.helperConnected, locale: locale)) · bfF0"
         default:
             return L10n.text(.helperConnected, locale: locale)
         }

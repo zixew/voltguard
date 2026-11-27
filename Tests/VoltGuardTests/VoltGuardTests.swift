@@ -870,15 +870,26 @@ final class VoltGuardTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["GENERATE_SHOWCASE"] == "1" else { return }
 
         final class ShowcaseBatteryReader: BatteryReadingGateway, @unchecked Sendable {
+            private let lock = NSLock()
+            private var sampleIndex = 0
+            private let wattsCurve: [Double] = [28, 42, 58, 67, 63, 52, 46, 54, 62, 67, 61, 49, 44, 57, 67, 67]
+            private let ampsCurve: [Double] = [0.85, 1.15, 1.48, 1.92, 2.35, 2.65, 2.40, 2.15, 1.80, 1.65, 1.95, 2.25, 2.05, 1.75, 1.55, 1.48]
+            private let tempsCurve: [Double] = [29.4, 29.7, 30.1, 30.5, 31.0, 31.4, 31.3, 31.1, 30.8, 30.7, 30.9, 31.2, 31.0, 30.8, 30.8, 30.8]
+
             func readTelemetry() throws -> BatteryTelemetry {
-                BatteryTelemetry(
+                let idx = lock.withLock { () -> Int in
+                    let i = sampleIndex % ampsCurve.count
+                    sampleIndex += 1
+                    return i
+                }
+                return BatteryTelemetry(
                     percentage: 76,
                     isCharging: true,
                     isPluggedIn: true,
-                    temperatureCelsius: 30.8,
+                    temperatureCelsius: tempsCurve[idx],
                     voltageVolts: 12.64,
-                    amperageAmps: 1.48,
-                    adapterWatts: 67,
+                    amperageAmps: ampsCurve[idx],
+                    adapterWatts: wattsCurve[idx],
                     cycleCount: 210,
                     designCycleCount: 1000,
                     currentCapacityMah: 3264,
@@ -893,6 +904,9 @@ final class VoltGuardTests: XCTestCase {
         }
         final class ShowcaseSMC: SMCControlGateway, @unchecked Sendable {
             var isPrivilegedHelperConnected: Bool { true }
+            var isInstalledHelperUpToDate: Bool { true }
+            var isAppleSMCDriverReadable: Bool { true }
+            var backendMode: SMCBackendMode { .adapterMode }
             func applyCommand(_ command: SMCCommandState) async throws {}
             func installHelper() async throws {}
             func uninstallHelper() async throws {}
@@ -900,6 +914,22 @@ final class VoltGuardTests: XCTestCase {
         final class ShowcasePower: PowerManagementGateway, @unchecked Sendable {
             func setPreventSleep(_ prevent: Bool, reason: String) {}
             func setLowPowerMode(_ enabled: Bool) async {}
+        }
+        final class ShowcaseLaunch: LaunchAtLoginGateway, @unchecked Sendable {
+            func setEnabled(_ enabled: Bool) throws {}
+            func isEnabled() -> Bool { true }
+        }
+        final class ShowcaseEnergyMonitor: EnergyMonitorGateway, @unchecked Sendable {
+            func fetchTopEnergyApps(limit: Int) async throws -> [EnergyAppUsage] {
+                [
+                    EnergyAppUsage(pid: 4101, name: "Xcode", bundleIdentifier: "com.apple.dt.Xcode", cpuPercent: 34.2),
+                    EnergyAppUsage(pid: 4102, name: "iOS Simulator", bundleIdentifier: "com.apple.iphonesimulator", cpuPercent: 18.7),
+                    EnergyAppUsage(pid: 4103, name: "Safari", bundleIdentifier: "com.apple.Safari", cpuPercent: 11.4),
+                    EnergyAppUsage(pid: 4104, name: "Figma", bundleIdentifier: "com.figma.Desktop", cpuPercent: 7.8),
+                    EnergyAppUsage(pid: 4105, name: "Slack", bundleIdentifier: "com.tinyspeck.slackmacgap", cpuPercent: 3.1)
+                ]
+            }
+            func terminateApp(pid: Int32) -> Bool { true }
         }
 
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("VoltGuardShowcase-\(UUID().uuidString)", isDirectory: true)
@@ -932,6 +962,9 @@ final class VoltGuardTests: XCTestCase {
         initialSettings.policy.heatProtectionEnabled = true
         initialSettings.policy.sailingModeEnabled = true
         initialSettings.policy.sailingDeltaPercent = 5
+        initialSettings.launchAtLogin = true
+        initialSettings.alertsEnabled = true
+        initialSettings.popoverLayout.hiddenModules = [.batteryHealth]
         initialSettings.menuBarIcon = MenuBarIconConfig(
             style: .shieldBattery,
             showPercentage: true,
@@ -949,13 +982,19 @@ final class VoltGuardTests: XCTestCase {
             batteryReader: ShowcaseBatteryReader(),
             smcGateway: ShowcaseSMC(),
             powerGateway: ShowcasePower(),
+            energyMonitor: ShowcaseEnergyMonitor(),
             settingsRepo: settingsRepo,
-            healthHistoryRepo: healthRepo
+            healthHistoryRepo: healthRepo,
+            launchAtLoginGateway: ShowcaseLaunch()
         )
         let presenter = VoltGuardPresenter(interactor: interactor)
-        for idx in 0..<16 {
+        for _ in 0..<16 {
             await interactor.tick(settings: presenter.state.settings, calibration: presenter.state.calibration)
-            _ = idx
+        }
+        presenter.dispatch(.refreshEnergyApps)
+        presenter.dispatch(.runDiagnostics)
+        for _ in 0..<60 where presenter.state.isRunningDiagnostics || presenter.state.diagnostics == nil {
+            try? await Task.sleep(nanoseconds: 50_000_000)
         }
         try? await Task.sleep(nanoseconds: 150_000_000)
 
@@ -963,7 +1002,25 @@ final class VoltGuardTests: XCTestCase {
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
 
         let heroCanvas = Self.buildHeroShowcaseCanvas(presenter: presenter)
-        try Self.saveViewAsPNG(heroCanvas, size: CGSize(width: 1400, height: 860), to: outDir.appendingPathComponent("voltguard-hero-showcase.png"))
+        try Self.saveViewAsPNG(heroCanvas, size: CGSize(width: 1480, height: 930), to: outDir.appendingPathComponent("voltguard-hero-showcase.png"))
+
+        // Light theme presenter for Paper Light side-by-side comparison
+        let lightRepo = JSONSettingsRepository(fileURL: dir.appendingPathComponent("light-settings.json"))
+        var lightSettings = initialSettings
+        lightSettings.theme = ThemeConfig(preset: .paperLight)
+        lightRepo.save(lightSettings)
+        let lightInteractor = VoltGuardInteractor(
+            batteryReader: ShowcaseBatteryReader(),
+            smcGateway: ShowcaseSMC(),
+            powerGateway: ShowcasePower(),
+            energyMonitor: ShowcaseEnergyMonitor(),
+            settingsRepo: lightRepo,
+            healthHistoryRepo: healthRepo,
+            launchAtLoginGateway: ShowcaseLaunch()
+        )
+        let lightPresenter = VoltGuardPresenter(interactor: lightInteractor)
+        await lightInteractor.tick(settings: lightPresenter.state.settings, calibration: lightPresenter.state.calibration)
+        try? await Task.sleep(nanoseconds: 120_000_000)
 
         var calSettings = presenter.state.settings
         let calSession = CalibrationSession(
@@ -975,97 +1032,179 @@ final class VoltGuardTests: XCTestCase {
         calSettings.calibrationSession = calSession
         settingsRepo.save(calSettings)
         await interactor.tick(settings: calSettings, calibration: calSession)
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        try? await Task.sleep(nanoseconds: 120_000_000)
 
-        let dualCanvas = Self.buildThemesAndCalibrationCanvas(presenter: presenter)
-        try Self.saveViewAsPNG(dualCanvas, size: CGSize(width: 1760, height: 820), to: outDir.appendingPathComponent("voltguard-themes-calibration.png"))
+        let dualCanvas = Self.buildThemesAndCalibrationCanvas(lightPresenter: lightPresenter, darkPresenter: presenter)
+        try Self.saveViewAsPNG(dualCanvas, size: CGSize(width: 1760, height: 950), to: outDir.appendingPathComponent("voltguard-themes-calibration.png"))
+
+        let diagEnergyCanvas = Self.buildDiagnosticsAndEnergyCanvas(presenter: presenter)
+        try Self.saveViewAsPNG(diagEnergyCanvas, size: CGSize(width: 1760, height: 1020), to: outDir.appendingPathComponent("voltguard-diagnostics-energy.png"))
+    }
+
+    @MainActor
+    private static func studioBackdrop(accent: Color) -> some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(hex: "#06090F"),
+                    Color(hex: "#0D1520"),
+                    Color(hex: "#080C12")
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            RadialGradient(
+                colors: [accent.opacity(0.18), Color.clear],
+                center: UnitPoint(x: 0.25, y: 0.18),
+                startRadius: 20,
+                endRadius: 680
+            )
+            RadialGradient(
+                colors: [Color(hex: "#0EA5E9").opacity(0.12), Color.clear],
+                center: UnitPoint(x: 0.82, y: 0.80),
+                startRadius: 20,
+                endRadius: 620
+            )
+        }
+    }
+
+    @MainActor
+    private static func macOSWindowFrame<Content: View>(
+        title: String,
+        badge: String? = nil,
+        accent: Color,
+        borderColor: Color,
+        titleBarBg: Color = Color(hex: "#151B23"),
+        titleColor: Color = Color(hex: "#9AA7B8"),
+        width: CGFloat,
+        height: CGFloat,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Circle().fill(Color(hex: "#FF5F56")).frame(width: 11, height: 11)
+                Circle().fill(Color(hex: "#FFBD2E")).frame(width: 11, height: 11)
+                Circle().fill(Color(hex: "#27C93F")).frame(width: 11, height: 11)
+                Spacer()
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(titleColor)
+                Spacer()
+                if let badge {
+                    Text(badge)
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(accent.opacity(0.16))
+                        .foregroundStyle(accent)
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(titleBarBg)
+
+            Rectangle().fill(borderColor).frame(height: 1)
+
+            content()
+                .frame(width: width, height: height)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.55), radius: 28, y: 14)
     }
 
     @MainActor
     private static func buildHeroShowcaseCanvas(presenter: VoltGuardPresenter) -> some View {
         let palette = presenter.state.palette
         return ZStack {
-            LinearGradient(
-                colors: [
-                    Color(hex: "#0A0E14"),
-                    Color(hex: "#111923"),
-                    Color(hex: "#0D131A")
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            studioBackdrop(accent: palette.accent)
 
-            VStack(spacing: 20) {
-                // Header banner
-                HStack(alignment: .center) {
+            VStack(spacing: 18) {
+                // Realistic macOS Translucent Top Menu Bar Strip
+                HStack(spacing: 16) {
                     HStack(spacing: 12) {
-                        BrandLogoView(size: 38, accentColor: palette.accent)
+                        Image(systemName: "apple.logo")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.9))
+                        Text("VoltGuard")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.white)
+                        Text("Battery Guard & AppleSMC Control")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Color.white.opacity(0.62))
+                    }
+                    Spacer()
+                    HStack(spacing: 14) {
+                        MenuBarIconView(presenter: presenter)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3)
+                            .background(palette.accent.opacity(0.18))
+                            .overlay(Capsule().stroke(palette.accent.opacity(0.55), lineWidth: 1))
+                            .clipShape(Capsule())
+                            .environment(\.colorScheme, .dark)
+                        Image(systemName: "wifi")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.82))
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.82))
+                        Text("Fri 19:55")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.9))
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 7)
+                .background(Color.white.opacity(0.06))
+                .overlay(Rectangle().fill(Color.white.opacity(0.10)).frame(height: 1), alignment: .bottom)
+
+                // Hero Headline
+                HStack(alignment: .center) {
+                    HStack(spacing: 14) {
+                        BrandLogoView(size: 40, accentColor: palette.accent)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("VoltGuard for macOS")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundStyle(Color(hex: "#F2F4F8"))
-                            Text("AppleSMC Charge Limiter  |  Time-Aware Battery ETA  |  Live Power Topology")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundStyle(Color(hex: "#F4F7FA"))
+                            Text("Universal Apple Silicon (M1-M5) & Intel  |  macOS 14-27 Adapter Mode (CHIE)  |  Live Power Topology")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Color(hex: "#9AA7B8"))
                         }
                     }
                     Spacer()
-                    // Simulated macOS Menu Bar strip
-                    HStack(spacing: 10) {
-                        Text("Menu Bar Live Pill")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color(hex: "#9AA7B8"))
-                        MenuBarIconView(presenter: presenter)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                            .background(Color(hex: "#1B2028"))
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.accent.opacity(0.6), lineWidth: 1))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                            .environment(\.colorScheme, .dark)
-                    }
+                    Text("Universal arm64 + x86_64")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(palette.accent.opacity(0.14))
+                        .foregroundStyle(palette.accent)
+                        .overlay(Capsule().stroke(palette.accent.opacity(0.45), lineWidth: 1))
+                        .clipShape(Capsule())
                 }
                 .padding(.horizontal, 36)
 
                 HStack(alignment: .top, spacing: 24) {
-                    // Main Dashboard Window Frame
-                    VStack(spacing: 0) {
-                        HStack(spacing: 8) {
-                            Circle().fill(Color(hex: "#FF5F56")).frame(width: 11, height: 11)
-                            Circle().fill(Color(hex: "#FFBD2E")).frame(width: 11, height: 11)
-                            Circle().fill(Color(hex: "#27C93F")).frame(width: 11, height: 11)
-                            Spacer()
-                            Text("VoltGuard : Overview & Battery Diagnostics")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(Color(hex: "#9AA7B8"))
-                            Spacer()
-                            Text("0.0% Idle CPU")
-                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(palette.accent.opacity(0.18))
-                                .foregroundStyle(palette.accent)
-                                .clipShape(RoundedRectangle(cornerRadius: 4))
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
-                        .background(Color(hex: "#161B22"))
-
-                        Rectangle().fill(palette.border).frame(height: 1)
-
+                    macOSWindowFrame(
+                        title: "VoltGuard : Overview & Telemetry",
+                        badge: "0.0% Idle CPU",
+                        accent: palette.accent,
+                        borderColor: palette.border,
+                        width: 990,
+                        height: 735
+                    ) {
                         FullDashboardView(presenter: presenter, initialSection: .overview)
-                            .frame(width: 960, height: 710)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.14), lineWidth: 1))
-                    .shadow(color: Color.black.opacity(0.55), radius: 24, y: 12)
 
-                    // Floating Menu Bar Popover Frame
                     VStack(spacing: 10) {
                         HStack(spacing: 6) {
                             Image(systemName: "menubar.rectangle")
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(palette.accent)
-                            Text("Quick Menu Bar Popover (Cmd+Option+V)")
+                            Text("Menu Bar Popover (Cmd+Option+V)")
                                 .font(.system(size: 11, weight: .semibold))
                                 .foregroundStyle(Color(hex: "#F2F4F8"))
                             Spacer()
@@ -1073,41 +1212,37 @@ final class VoltGuardTests: XCTestCase {
                         .padding(.horizontal, 4)
 
                         PopoverView(presenter: presenter)
-                            .frame(width: 340, height: 540)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(palette.accent.opacity(0.45), lineWidth: 1.2))
-                            .shadow(color: Color.black.opacity(0.55), radius: 24, y: 12)
+                            .frame(width: 340, height: 670)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(palette.accent.opacity(0.45), lineWidth: 1.2)
+                            )
+                            .shadow(color: Color.black.opacity(0.55), radius: 28, y: 14)
                     }
                 }
                 .padding(.horizontal, 36)
             }
-            .padding(.vertical, 24)
+            .padding(.bottom, 26)
         }
-        .frame(width: 1400, height: 860)
+        .frame(width: 1480, height: 930)
         .environment(\.colorScheme, .dark)
     }
 
     @MainActor
-    private static func buildThemesAndCalibrationCanvas(presenter: VoltGuardPresenter) -> some View {
-        let palette = presenter.state.palette
+    private static func buildThemesAndCalibrationCanvas(lightPresenter: VoltGuardPresenter, darkPresenter: VoltGuardPresenter) -> some View {
+        let darkPalette = darkPresenter.state.palette
+        let lightPalette = lightPresenter.state.palette
         return ZStack {
-            LinearGradient(
-                colors: [
-                    Color(hex: "#0A0E14"),
-                    Color(hex: "#121A24"),
-                    Color(hex: "#0D1218")
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            studioBackdrop(accent: darkPalette.accent)
 
             VStack(spacing: 18) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Theme Studio, Custom Background & 5-Stage Battery Calibration")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(Color(hex: "#F2F4F8"))
-                        Text("4 WCAG AA Theme Presets  |  Custom Image Background with Scrim & Blur  |  Persistent Guided Calibration & Automation Schedule")
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Theme Studio (Light & Dark) & 5-Stage Guided Calibration")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color(hex: "#F4F7FA"))
+                        Text("Paper Light & Obsidian Presets  |  Custom Wallpaper Scrim & Blur  |  Automated 5-Stage Calibration & Weekday Schedules")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color(hex: "#9AA7B8"))
                     }
@@ -1116,61 +1251,87 @@ final class VoltGuardTests: XCTestCase {
                 .padding(.horizontal, 36)
 
                 HStack(alignment: .top, spacing: 24) {
-                    // Left panel: Appearance & Custom Background Studio
-                    VStack(spacing: 0) {
-                        HStack(spacing: 8) {
-                            Circle().fill(Color(hex: "#FF5F56")).frame(width: 10, height: 10)
-                            Circle().fill(Color(hex: "#FFBD2E")).frame(width: 10, height: 10)
-                            Circle().fill(Color(hex: "#27C93F")).frame(width: 10, height: 10)
-                            Spacer()
-                            Text("Appearance, Custom Background & Menu Bar Layout")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(Color(hex: "#9AA7B8"))
-                            Spacer()
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color(hex: "#161B22"))
-
-                        Rectangle().fill(palette.border).frame(height: 1)
-
-                        FullDashboardView(presenter: presenter, initialSection: .appearance)
-                            .frame(width: 820, height: 675)
+                    macOSWindowFrame(
+                        title: "Paper Light Theme & Menu Bar Studio",
+                        badge: "WCAG AA Light",
+                        accent: lightPalette.accent,
+                        borderColor: lightPalette.border,
+                        titleBarBg: Color(hex: "#ECEEF2"),
+                        titleColor: Color(hex: "#4B5563"),
+                        width: 825,
+                        height: 790
+                    ) {
+                        FullDashboardView(presenter: lightPresenter, initialSection: .appearance)
+                            .environment(\.colorScheme, .light)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.14), lineWidth: 1))
-                    .shadow(color: Color.black.opacity(0.5), radius: 20, y: 10)
 
-                    // Right panel: 5-Stage Calibration & Schedule
-                    VStack(spacing: 0) {
-                        HStack(spacing: 8) {
-                            Circle().fill(Color(hex: "#FF5F56")).frame(width: 10, height: 10)
-                            Circle().fill(Color(hex: "#FFBD2E")).frame(width: 10, height: 10)
-                            Circle().fill(Color(hex: "#27C93F")).frame(width: 10, height: 10)
-                            Spacer()
-                            Text("5-Stage Persistent Calibration & Weekday Automation")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(Color(hex: "#9AA7B8"))
-                            Spacer()
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color(hex: "#161B22"))
-
-                        Rectangle().fill(palette.border).frame(height: 1)
-
-                        FullDashboardView(presenter: presenter, initialSection: .schedule)
-                            .frame(width: 820, height: 675)
+                    macOSWindowFrame(
+                        title: "5-Stage Persistent Calibration & Weekday Schedule",
+                        badge: "Stage 3 Active",
+                        accent: darkPalette.warning,
+                        borderColor: darkPalette.border,
+                        width: 825,
+                        height: 790
+                    ) {
+                        FullDashboardView(presenter: darkPresenter, initialSection: .schedule)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.14), lineWidth: 1))
-                    .shadow(color: Color.black.opacity(0.5), radius: 20, y: 10)
                 }
                 .padding(.horizontal, 36)
             }
-            .padding(.vertical, 22)
+            .padding(.vertical, 24)
         }
-        .frame(width: 1760, height: 820)
+        .frame(width: 1760, height: 950)
+        .environment(\.colorScheme, .dark)
+    }
+
+    @MainActor
+    private static func buildDiagnosticsAndEnergyCanvas(presenter: VoltGuardPresenter) -> some View {
+        let palette = presenter.state.palette
+        return ZStack {
+            studioBackdrop(accent: palette.accent)
+
+            VStack(spacing: 18) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Live Energy Monitor, Self-Diagnostic & Crash Guard")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color(hex: "#F4F7FA"))
+                        Text("Identify Power-Hungry Apps  |  7-Point Hardware & Helper Self-Test  |  Native Crash & Signal Protection")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color(hex: "#9AA7B8"))
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 36)
+
+                HStack(alignment: .top, spacing: 24) {
+                    macOSWindowFrame(
+                        title: "Energy Monitor : Top Power Consumers",
+                        badge: "Real-Time Sampling",
+                        accent: palette.accent,
+                        borderColor: palette.border,
+                        width: 825,
+                        height: 870
+                    ) {
+                        FullDashboardView(presenter: presenter, initialSection: .energy)
+                    }
+
+                    macOSWindowFrame(
+                        title: "System Diagnostics & AppleSMC Guard",
+                        badge: "7/7 Passed",
+                        accent: palette.accent,
+                        borderColor: palette.border,
+                        width: 825,
+                        height: 870
+                    ) {
+                        FullDashboardView(presenter: presenter, initialSection: .system)
+                    }
+                }
+                .padding(.horizontal, 36)
+            }
+            .padding(.vertical, 24)
+        }
+        .frame(width: 1760, height: 1020)
         .environment(\.colorScheme, .dark)
     }
 
