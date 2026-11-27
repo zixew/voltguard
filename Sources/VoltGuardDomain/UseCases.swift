@@ -275,6 +275,8 @@ public struct PowerFlowCalculator: Sendable {
 public enum ETAKind: Equatable, Sendable {
     case toEmpty
     case toTargetLimit
+    case toCalibrationTarget
+    case calibrationHold
     case steady
 }
 
@@ -293,6 +295,7 @@ public struct BatteryETA: Equatable, Sendable {
 public struct BatteryETACalculator: Sendable {
     private var smoothedAmps: Double?
     private var lastTimestamp: Date?
+    private var lastDisplayUpdateTime: Date?
     private var lastIsPluggedIn: Bool?
     private var lastIsCharging: Bool?
     private var lastKind: ETAKind?
@@ -301,15 +304,31 @@ public struct BatteryETACalculator: Sendable {
 
     public init() {}
 
-    public mutating func update(telemetry: BatteryTelemetry, targetLimit: Int) -> BatteryETA {
+    public mutating func update(
+        telemetry: BatteryTelemetry,
+        targetLimit: Int,
+        dischargeTargetPercent: Int = 0,
+        calibrationHoldRemainingSeconds: TimeInterval? = nil
+    ) -> BatteryETA {
+        let now = telemetry.timestamp
         let dt: TimeInterval
         if let prevTs = lastTimestamp {
-            let rawDt = telemetry.timestamp.timeIntervalSince(prevTs)
+            let rawDt = now.timeIntervalSince(prevTs)
             dt = rawDt > 0 ? min(max(rawDt, 0.5), 300.0) : 2.0
         } else {
             dt = 2.0
         }
-        lastTimestamp = telemetry.timestamp
+        lastTimestamp = now
+
+        if let holdSeconds = calibrationHoldRemainingSeconds, holdSeconds > 0 {
+            let holdMins = max(Int(ceil(holdSeconds / 60.0)), 1)
+            let holdETA = BatteryETA(kind: .calibrationHold, minutes: holdMins, targetPercent: telemetry.percentage)
+            lastKind = .calibrationHold
+            lastTargetPercent = telemetry.percentage
+            lastDisplayedMinutes = holdMins
+            lastDisplayUpdateTime = now
+            return holdETA
+        }
 
         let plugOrChargeChanged = (lastIsPluggedIn != nil && lastIsPluggedIn != telemetry.isPluggedIn)
             || (lastIsCharging != nil && lastIsCharging != telemetry.isCharging)
@@ -326,7 +345,6 @@ public struct BatteryETACalculator: Sendable {
         if !plugOrChargeChanged, let prev = smoothedAmps, (prev >= 0) == (currentAmps >= 0) {
             smoothedAmps = prev * (1.0 - alpha) + currentAmps * alpha
         } else {
-            // Seed initial battery discharge EMA from macOS AvgTimeToEmpty when available.
             if !telemetry.isPluggedIn, let mins = telemetry.timeRemainingMinutes, mins > 0, currentMah > 0 {
                 let seededAmps = -((currentMah / 1000.0) / (Double(mins) / 60.0))
                 smoothedAmps = (seededAmps * 0.7) + (currentAmps * 0.3)
@@ -334,6 +352,7 @@ public struct BatteryETACalculator: Sendable {
                 smoothedAmps = currentAmps
             }
             lastDisplayedMinutes = nil
+            lastDisplayUpdateTime = nil
         }
 
         let ema = smoothedAmps ?? currentAmps
@@ -347,8 +366,14 @@ public struct BatteryETACalculator: Sendable {
             } else if ema > VoltGuardLimits.minETACurrentAmps {
                 let targetMah = Double(telemetry.maxCapacityMah) * (Double(effectiveTarget) / 100.0)
                 let neededMah = max(targetMah - currentMah, 0)
-                let rawMinutes = Int(((neededMah / 1000.0) / ema) * 60.0)
-                let clamped = min(max(rawMinutes, 1), VoltGuardLimits.maxETAMinutes)
+                var rawMinutes = ((neededMah / 1000.0) / ema) * 60.0
+                if let sysMins = telemetry.timeRemainingMinutes, sysMins > 0, sysMins < 600 {
+                    let remainingToFull = Double(max(100 - telemetry.percentage, 1))
+                    let remainingToTarget = Double(max(effectiveTarget - telemetry.percentage, 1))
+                    let scaledSys = Double(sysMins) * (remainingToTarget / remainingToFull)
+                    rawMinutes = (rawMinutes * 0.65) + (scaledSys * 0.35)
+                }
+                let clamped = min(max(Int(rawMinutes.rounded()), 1), VoltGuardLimits.maxETAMinutes)
                 rawETA = BatteryETA(kind: .toTargetLimit, minutes: clamped, targetPercent: effectiveTarget)
             } else if let sysMins = telemetry.timeRemainingMinutes, sysMins > 0 {
                 let remainingToFull = max(100 - telemetry.percentage, 1)
@@ -360,49 +385,85 @@ public struct BatteryETACalculator: Sendable {
                 rawETA = BatteryETA(kind: .toTargetLimit, minutes: nil, targetPercent: effectiveTarget)
             }
         } else if !telemetry.isPluggedIn || ema < -VoltGuardLimits.minETACurrentAmps {
-            let drainAmps = abs(ema)
-            if drainAmps >= VoltGuardLimits.minETACurrentAmps {
-                let rawMinutes = Int(((currentMah / 1000.0) / drainAmps) * 60.0)
-                let clamped = min(max(rawMinutes, 1), VoltGuardLimits.maxETAMinutes)
-                rawETA = BatteryETA(kind: .toEmpty, minutes: clamped, targetPercent: 0)
+            let floorPercent = min(max(dischargeTargetPercent, 0), 95)
+            let kind: ETAKind = floorPercent > 0 ? .toCalibrationTarget : .toEmpty
+            if telemetry.percentage <= floorPercent && floorPercent > 0 {
+                rawETA = BatteryETA(kind: .calibrationHold, minutes: 60, targetPercent: floorPercent)
             } else {
-                rawETA = BatteryETA(kind: .toEmpty, minutes: telemetry.timeRemainingMinutes, targetPercent: 0)
+                let floorMah = Double(telemetry.maxCapacityMah) * (Double(floorPercent) / 100.0)
+                let drainableMah = max(currentMah - floorMah, 0)
+                let drainAmps = abs(ema)
+                if drainAmps >= VoltGuardLimits.minETACurrentAmps {
+                    var rawMinutes = ((drainableMah / 1000.0) / drainAmps) * 60.0
+                    if floorPercent == 0, let sysMins = telemetry.timeRemainingMinutes, sysMins > 0, sysMins < 1200 {
+                        rawMinutes = (rawMinutes * 0.65) + (Double(sysMins) * 0.35)
+                    }
+                    let clamped = min(max(Int(rawMinutes.rounded()), 1), VoltGuardLimits.maxETAMinutes)
+                    rawETA = BatteryETA(kind: kind, minutes: clamped, targetPercent: floorPercent)
+                } else if floorPercent == 0 {
+                    rawETA = BatteryETA(kind: .toEmpty, minutes: telemetry.timeRemainingMinutes, targetPercent: 0)
+                } else {
+                    rawETA = BatteryETA(kind: .toCalibrationTarget, minutes: nil, targetPercent: floorPercent)
+                }
             }
         } else {
             rawETA = BatteryETA(kind: .steady, minutes: nil, targetPercent: targetLimit)
         }
 
-        return stabilize(rawETA, dt: dt)
+        return stabilize(rawETA, now: now)
     }
 
-    private mutating func stabilize(_ eta: BatteryETA, dt: TimeInterval) -> BatteryETA {
+    private mutating func stabilize(_ eta: BatteryETA, now: Date) -> BatteryETA {
         guard let rawMins = eta.minutes else {
             if eta.kind == .steady {
                 lastKind = .steady
                 lastTargetPercent = eta.targetPercent
                 lastDisplayedMinutes = nil
+                lastDisplayUpdateTime = nil
             }
             return eta
         }
         guard lastKind == eta.kind,
               lastTargetPercent == eta.targetPercent,
-              let prevMins = lastDisplayedMinutes else {
+              let prevMins = lastDisplayedMinutes,
+              let lastUpdate = lastDisplayUpdateTime else {
             lastKind = eta.kind
             lastTargetPercent = eta.targetPercent
             lastDisplayedMinutes = rawMins
+            lastDisplayUpdateTime = now
             return eta
         }
-        let maxStep = max(1, Int(dt / 15.0))
+
+        let elapsedSinceDisplayUpdate = max(now.timeIntervalSince(lastUpdate), 0)
+        let diff = rawMins - prevMins
+        let absDiff = abs(diff)
+        let relativeShift = Double(absDiff) / Double(max(prevMins, 10))
+
+        // If power regime shifted substantially (>30% and >=8 min) after at least 12s of sustained samples,
+        // snap directly to the new estimate once instead of ticking down every 2 seconds.
+        if elapsedSinceDisplayUpdate >= 12.0 && absDiff >= 8 && relativeShift >= 0.30 {
+            lastDisplayedMinutes = rawMins
+            lastDisplayUpdateTime = now
+            return BatteryETA(kind: eta.kind, minutes: rawMins, targetPercent: eta.targetPercent)
+        }
+
+        // Wall-clock cadence gate: normal countdown/upward steps happen at most once every 30 seconds of real wall-clock time.
+        guard elapsedSinceDisplayUpdate >= 30.0 else {
+            return BatteryETA(kind: eta.kind, minutes: prevMins, targetPercent: eta.targetPercent)
+        }
+
+        let allowedMinutesStep = max(1, Int((elapsedSinceDisplayUpdate / 45.0).rounded()))
         let nextMins: Int
-        if rawMins > prevMins {
-            // Suppress 1-2 minute upward flicker caused by brief load dips.
-            if rawMins - prevMins < VoltGuardLimits.etaUpwardHysteresisMinutes {
+        if diff > 0 {
+            if diff < VoltGuardLimits.etaUpwardHysteresisMinutes {
                 nextMins = prevMins
             } else {
-                nextMins = min(rawMins, prevMins + maxStep)
+                nextMins = min(rawMins, prevMins + allowedMinutesStep)
+                lastDisplayUpdateTime = now
             }
-        } else if rawMins < prevMins {
-            nextMins = max(rawMins, prevMins - maxStep)
+        } else if diff < 0 {
+            nextMins = max(rawMins, prevMins - allowedMinutesStep)
+            lastDisplayUpdateTime = now
         } else {
             nextMins = prevMins
         }

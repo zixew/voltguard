@@ -581,7 +581,7 @@ final class VoltGuardTests: XCTestCase {
         let eta0 = calc.update(telemetry: base, targetLimit: 80)
         XCTAssertEqual(eta0.minutes, 144)
 
-        // Sudden 2-second CPU spike (-3.0 A) must be damped by time-aware EMA and ±1 min rate limit.
+        // Sudden 2-second CPU spike (-3.0 A) must be held steady by wall-clock cadence gate (no 1-2s rapid countdown!).
         let spike = BatteryTelemetry(
             percentage: 50,
             isCharging: false,
@@ -597,7 +597,25 @@ final class VoltGuardTests: XCTestCase {
             timestamp: t0.addingTimeInterval(2)
         )
         let etaSpike = calc.update(telemetry: spike, targetLimit: 80)
-        XCTAssertEqual(etaSpike.minutes, 143)
+        XCTAssertEqual(etaSpike.minutes, 144, "Must not tick down within 2 seconds")
+
+        // After 35 seconds of real wall-clock time, display is allowed to step down by 1 minute.
+        let after35s = BatteryTelemetry(
+            percentage: 50,
+            isCharging: false,
+            isPluggedIn: false,
+            temperatureCelsius: 30,
+            voltageVolts: 12.0,
+            amperageAmps: -1.5,
+            adapterWatts: 0,
+            cycleCount: 10,
+            currentCapacityMah: 2385,
+            maxCapacityMah: 4800,
+            designCapacityMah: 5000,
+            timestamp: t0.addingTimeInterval(35)
+        )
+        let etaAfter35s = calc.update(telemetry: after35s, targetLimit: 80)
+        XCTAssertEqual(etaAfter35s.minutes, 143)
 
         // Brief load dip (+1-2 min upward drift) is suppressed by upward hysteresis.
         var hysteresisCalc = BatteryETACalculator()

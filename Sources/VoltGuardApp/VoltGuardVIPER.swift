@@ -454,7 +454,7 @@ public final class VoltGuardInteractor {
             wasDischargeAlerted = false
         }
 
-        if !telemetry.isPluggedIn && telemetry.percentage < VoltGuardLimits.lowBatteryAlertThresholdPercent {
+        if !settings.calibrationSession.isActive && !telemetry.isPluggedIn && telemetry.percentage < VoltGuardLimits.lowBatteryAlertThresholdPercent {
             if !wasLowBatteryAlerted {
                 wasLowBatteryAlerted = true
                 alertGateway.sendAlert(
@@ -463,7 +463,7 @@ public final class VoltGuardInteractor {
                     body: L10n.text(.alertLowBatteryBody, locale: loc)
                 )
             }
-        } else if telemetry.isPluggedIn || telemetry.percentage >= VoltGuardLimits.lowBatteryAlertThresholdPercent + 5 {
+        } else if telemetry.isPluggedIn || settings.calibrationSession.isActive || telemetry.percentage >= VoltGuardLimits.lowBatteryAlertThresholdPercent + 5 {
             wasLowBatteryAlerted = false
         }
     }
@@ -523,11 +523,20 @@ public final class VoltGuardPresenter: ObservableObject {
                         TelemetrySample(watts: displayWatts, temperatureCelsius: telemetry.temperatureCelsius),
                         to: self.state.telemetryHistory
                     )
-                    let isCalibratingToFull = calibration.isActive && calibration.stage == .chargingToFull
+                    let isCalibratingToFull = calibration.isActive && (calibration.stage == .chargingToFull || calibration.stage == .holdingFull)
                     let targetLimit = (settings.policy.topUpActive || isCalibratingToFull)
                         ? VoltGuardLimits.maxLimitPercent
                         : settings.policy.limitPercent
-                    self.state.batteryETA = self.etaCalculator.update(telemetry: telemetry, targetLimit: targetLimit)
+                    let calDischargeTarget = (calibration.isActive && (calibration.stage == .dischargingToLow || calibration.stage == .holdingLow))
+                        ? calibration.targetLowPercent
+                        : 0
+                    let holdRemaining = calibration.remainingHoldSeconds()
+                    self.state.batteryETA = self.etaCalculator.update(
+                        telemetry: telemetry,
+                        targetLimit: targetLimit,
+                        dischargeTargetPercent: calDischargeTarget,
+                        calibrationHoldRemainingSeconds: holdRemaining
+                    )
 
                     // Suppress cold-start notifications on the initial telemetry sample so opening the app never spams.
                     if !isFirstTick {
@@ -607,7 +616,7 @@ public final class VoltGuardPresenter: ObservableObject {
                                 )
                             }
                         }
-                        if !telemetry.isPluggedIn && telemetry.percentage < VoltGuardLimits.lowBatteryAlertThresholdPercent {
+                        if !calibration.isActive && !telemetry.isPluggedIn && telemetry.percentage < VoltGuardLimits.lowBatteryAlertThresholdPercent {
                             if self.state.activityLog.first?.messageKey != .activityLowBattery {
                                 self.appendActivity(.activityLowBattery)
                                 self.presentToolbarEvent(

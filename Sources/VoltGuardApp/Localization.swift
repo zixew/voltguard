@@ -240,6 +240,8 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case toastActionEnergyMonitor
     case toastActionEnableLowPower
     case testToolbarAlert
+    case etaToCalibrationTarget
+    case etaCalibrationHold
 }
 
 public struct L10n {
@@ -488,7 +490,9 @@ public struct L10n {
         .toastActionViewProgress: "View Progress",
         .toastActionEnergyMonitor: "Energy Monitor",
         .toastActionEnableLowPower: "Low Power Mode",
-        .testToolbarAlert: "Test Toolbar Alert"
+        .testToolbarAlert: "Test Toolbar Alert",
+        .etaToCalibrationTarget: "to %d%% calibration target",
+        .etaCalibrationHold: "hold remaining (%d%%)"
     ]
 
     public static let id: [L10nKey: String] = [
@@ -729,7 +733,9 @@ public struct L10n {
         .toastActionViewProgress: "Lihat Progres",
         .toastActionEnergyMonitor: "Monitor Energi",
         .toastActionEnableLowPower: "Hemat Daya",
-        .testToolbarAlert: "Uji Notifikasi Toolbar"
+        .testToolbarAlert: "Uji Notifikasi Toolbar",
+        .etaToCalibrationTarget: "menuju target kalibrasi %d%%",
+        .etaCalibrationHold: "sisa waktu tahan (%d%%)"
     ]
 }
 
@@ -749,6 +755,18 @@ public enum BatteryETAFormatter {
                 return L10n.text(.etaCalculating, locale: locale)
             }
             let suffix = String(format: L10n.text(.etaToLimit, locale: locale), eta.targetPercent)
+            return "\(formatDuration(mins, locale: locale)) \(suffix)"
+        case .toCalibrationTarget:
+            guard let mins = eta.minutes else {
+                return L10n.text(.etaCalculating, locale: locale)
+            }
+            let suffix = String(format: L10n.text(.etaToCalibrationTarget, locale: locale), eta.targetPercent)
+            return "\(formatDuration(mins, locale: locale)) \(suffix)"
+        case .calibrationHold:
+            guard let mins = eta.minutes else {
+                return L10n.text(.etaCalculating, locale: locale)
+            }
+            let suffix = String(format: L10n.text(.etaCalibrationHold, locale: locale), eta.targetPercent)
             return "\(formatDuration(mins, locale: locale)) \(suffix)"
         }
     }
