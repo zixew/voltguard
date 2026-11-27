@@ -1,29 +1,27 @@
 {
-  "version": "1.4.0",
-  "build": "5",
+  "version": "1.5.0",
+  "build": "6",
   "publishedAt": "2026-11-28",
   "installerURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard-Windows-Setup.exe",
-  "sha256": "2aaa33c7104e219aadecad385e4921d6a2746df596521cbb2b315c23b9242d15",
+  "sha256": "ab6436f407d6f7c9b07c0787989bb6c123c302fb1150393efe43a9a48665bec0",
   "binaryURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard.exe",
-  "binarySha256": "81d0993d08dac94a14428cf4c9ebf9b5687f9f5ed9bbf8ad238dba7f800d8766",
+  "binarySha256": "3835b40f85972dfdf2dc66a2da3a8ed31285ddd6135ff2d586730392a17839a5",
   "changesEN": [
-    "Multi-OEM hardware control expansion for Acer Aspire 14 (Care Center / Acer WMI), Lenovo, ASUS, Dell, HP, and MSI",
-    "Active Thermal Guard & Force Discharge enforcement via powrprof.dll + Windows Power Mode Overlay",
-    "Automatic background update check (startup + every 4 hours) with silent in-place binary auto-update",
-    "1-click Administrator elevation option in System & Guide for OEM BIOS/WMI access"
+    "Capability-gated Windows 10/11 hardware features: removed unsupported Force Discharge and disabled Sailing Mode when OEM EC write is unavailable (e.g. Acer Aspire 14)",
+    "Always-alive sinusoidal liquid wave, ambient rising bubbles, and live PowerTopologyCard energy flow at 100% AC",
+    "Honest OEM guidance recommending Acer Care Center / Sense, MyASUS, Vantage, Dell Power Manager, or MSI Center when firmware hides EC writes"
   ],
   "fixesEN": [
-    "Verified all 7 dashboard pages and Tray Quick Popover in Dark & Light themes via automated WPF render tests",
-    "Verified silent install/uninstall and v1.4.0.5 binary integrity on windows-latest"
+    "Fixed false-positive OemHardwareLimit status from read-only WMI SELECT probes on Acer, Dell, HP, and MSI",
+    "Verified capability gating, GDI leak safety, and silent in-place update integrity on windows-latest"
   ],
   "changesID": [
-    "Ekspansi kontrol hardware Multi-OEM untuk Acer Aspire 14 (Care Center / Acer WMI), Lenovo, ASUS, Dell, HP, dan MSI",
-    "Enforcement aktif Thermal Guard & Force Discharge via powrprof.dll + Windows Power Mode Overlay",
-    "Cek pembaruan otomatis di latar belakang (startup + tiap 4 jam) dengan auto-update biner senyap",
-    "Opsi Restart as Administrator 1-klik di System & Guide untuk akses BIOS/WMI OEM"
+    "Penyesuaian fitur berdasarkan dukungan hardware resmi Windows 10/11: hapus Force Discharge dan nonaktifkan Sailing Mode jika EC write OEM tidak tersedia (mis. Acer Aspire 14)",
+    "Animasi gelombang baterai sinus, gelembung pengisian, dan aliran PowerTopologyCard tetap hidup di 100% AC",
+    "Panduan OEM jujur (Acer Care Center / Sense, MyASUS, Vantage, Dell Power Manager, MSI Center) saat firmware tidak membuka EC write"
   ],
   "fixesID": [
-    "Verifikasi render UI semua 7 halaman dashboard dan Tray Quick Popover di tema Dark & Light",
-    "Verifikasi instalasi/uninstalasi senyap dan integritas biner v1.4.0.5 di windows-latest"
+    "Perbaikan false-positive status OemHardwareLimit dari probe WMI read-only pada Acer, Dell, HP, dan MSI",
+    "Verifikasi gating kapabilitas, bebas kebocoran GDI, dan integritas auto-update senyap di windows-latest"
   ]
 }
