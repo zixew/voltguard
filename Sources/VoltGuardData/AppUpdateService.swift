@@ -67,18 +67,29 @@ public final class AppUpdateService: Sendable {
 
         let mountPoint = FileManager.default.temporaryDirectory.appendingPathComponent("voltguard-mount-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: mountPoint, withIntermediateDirectories: true)
+        let useDiskUtil = Self.supportsModernDiskUtilImage()
         defer {
             let detach = Process()
-            detach.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-            detach.arguments = ["detach", mountPoint.path, "-quiet", "-force"]
+            if useDiskUtil {
+                detach.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+                detach.arguments = ["unmount", "force", mountPoint.path]
+            } else {
+                detach.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+                detach.arguments = ["detach", mountPoint.path, "-quiet", "-force"]
+            }
             try? detach.run()
             detach.waitUntilExit()
             try? FileManager.default.removeItem(at: mountPoint)
         }
 
         let attach = Process()
-        attach.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
-        attach.arguments = ["attach", stagedDMG.path, "-mountpoint", mountPoint.path, "-nobrowse", "-quiet"]
+        if useDiskUtil {
+            attach.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+            attach.arguments = ["image", "attach", "--nobrowse", "--mountPoint", mountPoint.path, stagedDMG.path]
+        } else {
+            attach.executableURL = URL(fileURLWithPath: "/usr/bin/hdiutil")
+            attach.arguments = ["attach", stagedDMG.path, "-mountpoint", mountPoint.path, "-nobrowse", "-quiet"]
+        }
         try attach.run()
         attach.waitUntilExit()
         guard attach.terminationStatus == 0 else {
@@ -117,6 +128,21 @@ public final class AppUpdateService: Sendable {
         relaunch.executableURL = URL(fileURLWithPath: "/usr/bin/open")
         relaunch.arguments = ["-n", destinationApp.path]
         try? relaunch.run()
+    }
+
+    private static func supportsModernDiskUtilImage() -> Bool {
+        let probe = Process()
+        probe.executableURL = URL(fileURLWithPath: "/usr/sbin/diskutil")
+        probe.arguments = ["image", "--help"]
+        probe.standardOutput = FileHandle.nullDevice
+        probe.standardError = FileHandle.nullDevice
+        do {
+            try probe.run()
+            probe.waitUntilExit()
+            return probe.terminationStatus == 0
+        } catch {
+            return false
+        }
     }
 }
 

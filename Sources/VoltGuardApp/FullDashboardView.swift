@@ -93,14 +93,14 @@ public struct FullDashboardView: View {
         )
         .preferredColorScheme(palette.isDark ? .dark : .light)
         .tint(palette.accent)
-        .onChange(of: selectedSection) { newValue in
+        .compatOnChange(of: selectedSection) { newValue in
             if newValue == .energy {
                 presenter.dispatch(.refreshEnergyApps)
             } else if newValue == .system {
                 presenter.dispatch(.runDiagnostics)
             }
         }
-        .onChange(of: presenter.state.requestedDashboardTab) { tabIdx in
+        .compatOnChange(of: presenter.state.requestedDashboardTab) { tabIdx in
             guard let tabIdx, DashboardSection.allCases.indices.contains(tabIdx) else { return }
             selectedSection = DashboardSection.allCases[tabIdx]
         }

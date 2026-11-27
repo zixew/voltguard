@@ -69,7 +69,12 @@ mkdir -p "$DMG_STAGE"
 cp -R "$APP_DIR" "$DMG_STAGE/"
 ln -s /Applications "$DMG_STAGE/Applications"
 
-hdiutil create -volname "VoltGuard" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG_PATH"
+rm -f "$DMG_PATH"
+if diskutil image --help >/dev/null 2>&1; then
+    diskutil image create from --format UDZO --volumeName "VoltGuard" "$DMG_STAGE" "$DMG_PATH"
+else
+    hdiutil create -volname "VoltGuard" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG_PATH"
+fi
 rm -rf "$DMG_STAGE"
 
 if [ "${CI:-false}" != "true" ]; then

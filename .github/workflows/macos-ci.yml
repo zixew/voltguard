@@ -20,7 +20,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Show macOS, Swift and Xcode version
         run: |
@@ -45,7 +45,7 @@ jobs:
 
       - name: Upload VoltGuard DMG Artifact
         if: matrix.os == 'macos-26'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: VoltGuard-macOS-DMG
           path: dist/VoltGuard.dmg
