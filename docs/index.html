@@ -61,7 +61,7 @@
             </div>
           </div>
 
-          <!-- Interactive Live Battery & Thermal Simulator -->
+          <!-- Interactive Live Battery, Power Flow Bus & Thermal Simulator -->
           <div class="console-panel" aria-label="Interactive battery limit and thermal guard simulator">
             <div class="console-split">
               <div class="battery-stage">
@@ -94,7 +94,6 @@
 
                   <rect id="sim-battery-hull" class="battery-hull" fill="none" x="22" y="26" width="108" height="176" rx="18" style="fill: none;"/>
 
-                  <!-- High-contrast frosted HUD badge prevents overlap or color-clash over any liquid level -->
                   <rect class="battery-hud-pill" x="34" y="88" width="84" height="50" rx="10"/>
                   <text id="sim-pct-text" class="battery-pct-label" x="76" y="114" text-anchor="middle">76%</text>
                   <text id="sim-mode-text" class="battery-sub-label" x="76" y="130" text-anchor="middle">Charging</text>
@@ -145,6 +144,22 @@
               </div>
             </div>
 
+            <!-- Live Animated Power Flow SVG -->
+            <div class="flow-bus">
+              <svg class="flow-svg" viewBox="0 0 420 44" role="img" aria-label="Animated power flow bus">
+                <line class="flow-track" x1="86" y1="22" x2="170" y2="22"/>
+                <line id="sim-flow-sys" class="flow-stream" x1="86" y1="22" x2="170" y2="22"/>
+                <line class="flow-track" x1="250" y1="22" x2="334" y2="22"/>
+                <line id="sim-flow-cell" class="flow-stream" x1="250" y1="22" x2="334" y2="22"/>
+                <rect class="flow-node-box" x="2" y="7" width="84" height="30" rx="8"/>
+                <text class="flow-node-label" x="44" y="26" text-anchor="middle">Adapter</text>
+                <rect class="flow-node-box" x="170" y="7" width="80" height="30" rx="8"/>
+                <text class="flow-node-label" x="210" y="26" text-anchor="middle">Mac System</text>
+                <rect class="flow-node-box" x="334" y="7" width="84" height="30" rx="8"/>
+                <text id="sim-cell-node-txt" class="flow-node-label" x="376" y="26" text-anchor="middle">Battery</text>
+              </svg>
+            </div>
+
             <div class="telemetry-strip">
               <div class="metric-cell">
                 <span class="metric-cell__label">Adapter Input</span>
@@ -155,8 +170,11 @@
                 <span id="sim-battery-w" class="metric-cell__val num">+29.8 W</span>
               </div>
               <div class="metric-cell">
-                <span class="metric-cell__label">Thermal Status</span>
+                <span class="metric-cell__label">Thermal Headroom</span>
                 <span id="sim-thermal-state" class="metric-cell__val">Cool Headroom</span>
+                <div class="meter-track" aria-hidden="true">
+                  <span id="sim-thermal-meter" class="meter-fill" style="transform: scaleX(0.35);"></span>
+                </div>
               </div>
             </div>
           </div>
@@ -166,7 +184,7 @@
         <div class="media-duo">
           <figure class="media-figure">
             <div class="media-figure__frame">
-              <img src="assets/voltguard-hero-showcase.png" alt="VoltGuard macOS dashboard and menu bar quick control window showing battery limit and system health" loading="eager">
+              <img src="assets/voltguard-hero-showcase.png?v=3" alt="VoltGuard macOS dashboard and menu bar quick control window showing battery limit and system health" loading="eager">
             </div>
             <figcaption class="media-figure__caption">
               <span class="media-figure__title">Full macOS Window &amp; Menu Bar Control</span>
@@ -175,7 +193,7 @@
           </figure>
           <figure class="media-figure">
             <div class="media-figure__frame media-figure__frame--gif">
-              <img src="assets/voltguard-live-motion.gif" alt="Animated preview of VoltGuard live power topology, charging liquid wave, and thermal guard meter" loading="lazy">
+              <img src="assets/voltguard-live-motion.gif?v=3" alt="Animated preview of VoltGuard live power topology, charging liquid wave, and thermal guard meter" loading="lazy">
             </div>
             <figcaption class="media-figure__caption">
               <span class="media-figure__title">Live Power Topology &amp; Thermal Motion</span>
@@ -192,7 +210,7 @@
         <div class="section-head">
           <h2>Test every control directly before installing.</h2>
           <p class="section-desc">
-            Switch between VoltGuard workflows below. Each panel pairs interactive controls with real app previews and motion recordings.
+            Switch between VoltGuard workflows below. Every panel pairs animated interactive simulations with real app recordings.
           </p>
         </div>
 
@@ -220,7 +238,7 @@
           <div class="feature-sandbox">
             <h3>Sailing Mode &amp; Quit Restoration</h3>
             <p class="feature-sandbox__copy">
-              Sailing Mode lets your Mac drop gracefully by your chosen hysteresis window before starting a top-up cycle, reducing shallow micro-charges on desk setups.
+              Sailing Mode lets your Mac drop gracefully inside your chosen buffer before topping back up, minimizing micro-cycles on desk power.
             </p>
             <div class="control-block">
               <div class="control-header">
@@ -241,6 +259,22 @@
               </div>
               <input id="sail-soc-range" class="range-input" type="range" min="65" max="85" step="1" value="77">
             </div>
+
+            <!-- Interactive Hysteresis Window Gauge -->
+            <div class="gauge-card">
+              <div class="gauge-bar-outer" aria-hidden="true">
+                <span id="sail-coast-band" class="gauge-band-fill" style="transform: translateX(50%) scaleX(0.25);"></span>
+                <span id="sail-needle" class="gauge-marker" style="transform: translateX(60%);">
+                  <span class="gauge-marker-pip"></span>
+                </span>
+              </div>
+              <div class="gauge-legend">
+                <span>65%</span>
+                <span id="sail-zone-label">Coast Zone: 75% to 80%</span>
+                <span>85%</span>
+              </div>
+            </div>
+
             <div class="toggle-line">
               <label for="quit-restore-switch">Restore System Charging (100%) on Quit</label>
               <button id="quit-restore-switch" class="switch-btn" type="button" role="switch" aria-checked="true">
@@ -250,7 +284,7 @@
             <div class="sim-rows divider-top">
               <div class="sim-row">
                 <span>Live Decision Engine</span>
-                <span id="sail-decision-out" class="sim-row__metric">Sailing Coast (Inside 75% to 80% Buffer)</span>
+                <span id="sail-decision-out" class="sim-row__metric">Sailing Coast (75% to 80%)</span>
               </div>
               <div class="sim-row">
                 <span>On App Exit Behavior</span>
@@ -259,7 +293,7 @@
             </div>
           </div>
           <div class="feature-visual">
-            <img src="assets/voltguard-live-motion.gif" alt="VoltGuard animated charging and thermal coasting preview" loading="lazy">
+            <img src="assets/voltguard-live-motion.gif?v=3" alt="VoltGuard animated charging and thermal coasting preview" loading="lazy">
             <div class="feature-visual__meta">
               <span>Live Charging &amp; Coast Hold Motion</span>
               <span>Animated GIF</span>
@@ -272,7 +306,7 @@
           <div class="feature-sandbox">
             <h3>Guided 5-Stage Capacity Calibration</h3>
             <p class="feature-sandbox__copy">
-              Step through or play the full cycle that anchors upper and lower battery gauge endpoints before restoring your daily cap and logging capacity gains.
+              Step through or auto-play the cycle that stabilizes upper and lower fuel-gauge voltage anchors before restoring your daily cap.
             </p>
             <div class="control-header">
               <span id="cal-stage-heading">Stage 1: Charging to 100%</span>
@@ -289,19 +323,20 @@
               <button class="cal-stage-btn" type="button" data-cal-stage="4" aria-pressed="false">5. Restore 80%</button>
               <button class="cal-stage-btn" type="button" data-cal-stage="5" aria-pressed="false">Verified Done</button>
             </div>
-            <div class="sim-rows divider-top">
-              <div class="sim-row">
-                <span>Before Snapshot</span>
-                <span class="sim-row__metric">4180 mAh (90% Health)</span>
+
+            <!-- Interactive Before/After Animated Bars -->
+            <div class="gauge-card">
+              <div class="control-header">
+                <span>Before: 4180 mAh (90%)</span>
+                <span id="cal-after-val" class="mono-readout num">Pending Verification</span>
               </div>
-              <div class="sim-row">
-                <span id="cal-after-label">Expected Outcome</span>
-                <span id="cal-after-val" class="sim-row__metric">Full gauge alignment pending</span>
+              <div class="meter-track" aria-hidden="true">
+                <span id="cal-after-bar" class="meter-fill" style="transform: scaleX(0.90);"></span>
               </div>
             </div>
           </div>
           <div class="feature-visual">
-            <img src="assets/voltguard-calibration-motion.gif" alt="VoltGuard animated 5-stage battery calibration workflow" loading="lazy">
+            <img src="assets/voltguard-calibration-motion.gif?v=3" alt="VoltGuard animated 5-stage battery calibration workflow" loading="lazy">
             <div class="feature-visual__meta">
               <span>5-Stage Persistent Calibration Cycle</span>
               <span>Animated GIF</span>
@@ -314,7 +349,7 @@
           <div class="feature-sandbox">
             <h3>Daylight Presets &amp; Automated Schedules</h3>
             <p class="feature-sandbox__copy">
-              Match desktop lighting with Paper Light or Slate themes while weekday rules prepare a 100% top-up right before travel.
+              Match your desktop setup with Nordic Slate or Paper Light themes while scheduled windows prepare a 100% top-up before travel.
             </p>
             <div class="control-block">
               <div class="control-header">
@@ -327,11 +362,20 @@
                 <button class="preset-chip" type="button" data-sched-profile="overnight" aria-pressed="false">Overnight Cool (70%)</button>
               </div>
             </div>
-            <div class="sim-rows divider-top">
-              <div class="sim-row">
-                <span>Scheduled Window</span>
-                <span id="sched-window-out" class="sim-row__metric">Mon to Fri at 08:30</span>
+
+            <!-- Interactive 24-Hour Schedule Timeline Gauge -->
+            <div class="gauge-card">
+              <div class="gauge-bar-outer" aria-hidden="true">
+                <span id="sched-timeline-band" class="gauge-band-fill" style="transform: translateX(35%) scaleX(0.35);"></span>
               </div>
+              <div class="gauge-legend">
+                <span>00:00</span>
+                <span id="sched-window-out">Mon to Fri at 08:30</span>
+                <span>24:00</span>
+              </div>
+            </div>
+
+            <div class="sim-rows divider-top">
               <div class="sim-row">
                 <span>Target Policy &amp; Thermal Safe</span>
                 <span id="sched-policy-out" class="sim-row__metric">Hold at 80% / Max 35.0 C</span>
@@ -339,10 +383,10 @@
             </div>
           </div>
           <div class="feature-visual">
-            <img src="assets/voltguard-themes-calibration.png" alt="VoltGuard appearance studio showing Paper Light theme, Nordic Slate theme, and calibration scheduler" loading="lazy">
+            <img src="assets/voltguard-themes-motion.gif?v=3" alt="VoltGuard animated appearance theme switching and weekday schedule controls" loading="lazy">
             <div class="feature-visual__meta">
-              <span>Theme Presets &amp; Weekday Scheduler</span>
-              <span>Static App View</span>
+              <span>Theme Studio &amp; Weekday Scheduler</span>
+              <span>Animated GIF</span>
             </div>
           </div>
         </div>
@@ -352,17 +396,25 @@
           <div class="feature-sandbox">
             <h3>Energy Insights &amp; Native App Updater</h3>
             <p class="feature-sandbox__copy">
-              Spot background apps warming up your battery and keep VoltGuard up to date inside the native Software Update view with automatic DMG cleanup.
+              Spot background apps warming up your battery and run automatic in-app updates that install cleanly and delete temporary DMG files.
             </p>
             <div class="control-header">
               <span>VoltGuard v1.2.0 (Build 3)</span>
               <button id="update-check-btn" class="preset-chip" type="button" aria-pressed="false">Check for Updates</button>
             </div>
-            <div class="sim-rows">
-              <div class="sim-row">
-                <span>Update Status</span>
-                <span id="update-status-out" class="sim-row__metric">Ready to verify latest release</span>
+
+            <!-- Interactive Animated Update Progress Meter -->
+            <div class="gauge-card">
+              <div class="control-header">
+                <span>Updater Pipeline</span>
+                <span id="update-status-out" class="mono-readout">Ready to verify feed</span>
               </div>
+              <div class="meter-track" aria-hidden="true">
+                <span id="update-progress-bar" class="meter-fill" style="transform: scaleX(0.06);"></span>
+              </div>
+            </div>
+
+            <div class="sim-rows">
               <div class="sim-row">
                 <span>Xcode Build Service</span>
                 <span class="sim-row__metric">28.4% CPU</span>
@@ -372,16 +424,16 @@
                 <span class="sim-row__metric">14.2% CPU</span>
               </div>
               <div class="sim-row">
-                <span>Installer Cleanup Policy</span>
-                <span class="sim-row__metric">Deletes Temp DMG After Install</span>
+                <span>Installer Cleanup</span>
+                <span class="sim-row__metric">Auto-Deletes Temp DMG</span>
               </div>
             </div>
           </div>
           <div class="feature-visual">
-            <img src="assets/voltguard-diagnostics-energy.png" alt="VoltGuard Energy Monitor and System Diagnostics view" loading="lazy">
+            <img src="assets/voltguard-energy-motion.gif?v=3" alt="VoltGuard animated Energy Monitor, Diagnostics, and native Software Update flow" loading="lazy">
             <div class="feature-visual__meta">
-              <span>Energy Monitor &amp; Self-Checks</span>
-              <span>Static App View</span>
+              <span>Energy Monitor, Checks &amp; Updater</span>
+              <span>Animated GIF</span>
             </div>
           </div>
         </div>
@@ -446,6 +498,10 @@
       const adapterW = document.getElementById("sim-adapter-w");
       const batteryW = document.getElementById("sim-battery-w");
       const thermalState = document.getElementById("sim-thermal-state");
+      const thermalMeter = document.getElementById("sim-thermal-meter");
+      const flowSys = document.getElementById("sim-flow-sys");
+      const flowCell = document.getElementById("sim-flow-cell");
+      const cellNodeTxt = document.getElementById("sim-cell-node-txt");
 
       let currentSimCharge = 76;
       let maxAllowedTemp = 35.0;
@@ -482,10 +538,16 @@
         liquidGroup.style.transform = "translateY(" + liquidOffsetY.toFixed(1) + "px)";
         limitGroup.style.transform = "translateY(" + Math.max(limitOffsetY, 32).toFixed(1) + "px)";
 
+        const tempRatio = Math.min(1, Math.max(0.1, (temp - 24) / (44 - 24)));
+        thermalMeter.style.transform = "scaleX(" + tempRatio.toFixed(2) + ")";
+        thermalMeter.classList.remove("meter-fill--warn", "meter-fill--hot");
+
         waveFront.classList.remove("battery-wave--warm", "battery-wave--hot");
         waveBack.classList.remove("battery-wave--warm", "battery-wave--hot");
         batteryHull.classList.remove("battery-hull--paused", "battery-hull--hot");
         statusPill.classList.remove("status-pill--warm", "status-pill--alert");
+        flowSys.classList.remove("flow-stream--hold", "flow-stream--hot");
+        flowCell.classList.remove("flow-stream--hold", "flow-stream--hot");
 
         if (isHot) {
           modeText.textContent = "Thermal Hold";
@@ -494,6 +556,9 @@
           waveFront.classList.add("battery-wave--hot");
           waveBack.classList.add("battery-wave--hot");
           batteryHull.classList.add("battery-hull--hot");
+          thermalMeter.classList.add("meter-fill--hot");
+          flowCell.classList.add("flow-stream--hot");
+          cellNodeTxt.textContent = "Paused";
           adapterW.textContent = "18.4 W";
           batteryW.textContent = "0.0 W (Hold)";
           thermalState.textContent = "Thermal Pause Active";
@@ -502,6 +567,11 @@
           statusPill.textContent = "Hold at " + limit + "%";
           statusPill.classList.add("status-pill--warm");
           batteryHull.classList.add("battery-hull--paused");
+          if (temp >= maxAllowedTemp - 2) {
+            thermalMeter.classList.add("meter-fill--warn");
+          }
+          flowCell.classList.add("flow-stream--hold");
+          cellNodeTxt.textContent = "Bypass";
           adapterW.textContent = "19.2 W";
           batteryW.textContent = "0.0 W (Bypass)";
           thermalState.textContent = temp >= maxAllowedTemp - 2 ? "Warming Near Limit" : "Cool Headroom";
@@ -510,6 +580,7 @@
           const net = Math.max(4.5, watts - 18.4);
           modeText.textContent = "Charging";
           statusPill.textContent = "Charging to " + limit + "%";
+          cellNodeTxt.textContent = "+" + net.toFixed(0) + "W";
           adapterW.textContent = watts.toFixed(1) + " W";
           batteryW.textContent = "+" + net.toFixed(1) + " W";
           thermalState.textContent = !heatGuardOn && temp >= maxAllowedTemp ? "Guard Off (Monitor)" : "Cool Headroom";
@@ -550,7 +621,7 @@
 
       syncHeroSim();
 
-      // Synchronize sticky topbar active indicator on click and scroll
+      // Sticky topbar scrollspy synchronization
       const navLinks = Array.from(document.querySelectorAll(".nav-links a"));
       const navSections = ["overview", "features", "download"]
         .map((id) => document.getElementById(id))
@@ -616,7 +687,7 @@
 
       syncNavOnScroll();
 
-      // Feature Tab Switcher + Keyboard Navigation
+      // Feature Tab Switcher + Panel Entrance Choreography
       const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
       const tabPanels = {
         charge: document.getElementById("panel-charge"),
@@ -631,7 +702,8 @@
           btn.setAttribute("aria-selected", isActive ? "true" : "false");
         });
         Object.keys(tabPanels).forEach((k) => {
-          tabPanels[k].hidden = k !== key;
+          const panel = tabPanels[k];
+          panel.hidden = k !== key;
         });
       }
 
@@ -652,12 +724,15 @@
         });
       });
 
-      // Sailing & Quit Restore Sandbox
+      // Tab 1: Sailing Hysteresis Gauge + Quit Restore Sandbox
       const sailButtons = Array.from(document.querySelectorAll("[data-sail-delta]"));
       const sailDeltaReadout = document.getElementById("sail-delta-readout");
       const sailSocRange = document.getElementById("sail-soc-range");
       const sailSocReadout = document.getElementById("sail-soc-readout");
       const sailDecisionOut = document.getElementById("sail-decision-out");
+      const sailCoastBand = document.getElementById("sail-coast-band");
+      const sailNeedle = document.getElementById("sail-needle");
+      const sailZoneLabel = document.getElementById("sail-zone-label");
       const quitRestoreSwitch = document.getElementById("quit-restore-switch");
       const quitRestoreOut = document.getElementById("quit-restore-out");
       let sailDelta = 5;
@@ -668,9 +743,18 @@
         const rearmAt = 80 - sailDelta;
         sailDeltaReadout.textContent = sailDelta + "% (Re-arm at " + rearmAt + "%)";
         sailSocReadout.textContent = soc + "%";
+        sailZoneLabel.textContent = "Coast Zone: " + rearmAt + "% to 80%";
         sailButtons.forEach((b) => {
           b.setAttribute("aria-pressed", Number(b.dataset.sailDelta) === sailDelta ? "true" : "false");
         });
+
+        // Map 65..85 onto 0%..100% track using transform only
+        const bandStartPct = ((rearmAt - 65) / 20) * 100;
+        const bandScale = sailDelta / 20;
+        sailCoastBand.style.transform = "translateX(" + bandStartPct.toFixed(1) + "%) scaleX(" + bandScale.toFixed(3) + ")";
+        const needlePct = ((soc - 65) / 20) * 96;
+        sailNeedle.style.transform = "translateX(" + needlePct.toFixed(1) + "%)";
+
         if (soc >= 80) {
           sailDecisionOut.textContent = "Target Hold (Adapter Bypass)";
         } else if (soc > rearmAt) {
@@ -693,21 +777,22 @@
         quitRestoreSwitch.setAttribute("aria-checked", restoreOnQuit ? "true" : "false");
         syncSailing();
       });
+      syncSailing();
 
-      // 5-Stage Calibration Stepper & Auto-Play
+      // Tab 2: 5-Stage Calibration Stepper & Capacity Bars
       const calStages = [
-        { title: "Stage 1: Charging to 100%", progress: 0.18, afterLabel: "Expected Outcome", afterVal: "Full gauge alignment pending" },
-        { title: "Stage 2: Holding at 100% (60 min)", progress: 0.36, afterLabel: "Expected Outcome", afterVal: "Upper voltage anchor stabilizing" },
-        { title: "Stage 3: Guided Drain to 15%", progress: 0.56, afterLabel: "Expected Outcome", afterVal: "Measuring usable discharge curve" },
-        { title: "Stage 4: Resting Baseline (60 min)", progress: 0.74, afterLabel: "Expected Outcome", afterVal: "Settling low-voltage resting state" },
-        { title: "Stage 5: Restoring 80% Cap", progress: 0.90, afterLabel: "Expected Outcome", afterVal: "Returning safely to daily ceiling" },
-        { title: "Completed: Capacity Verified", progress: 1.0, afterLabel: "After Calibration", afterVal: "4295 mAh (93% Health) / +115 mAh" }
+        { title: "Stage 1: Charging to 100%", progress: 0.18, afterVal: "Full gauge alignment pending", barScale: 0.90 },
+        { title: "Stage 2: Holding at 100% (60 min)", progress: 0.36, afterVal: "Upper voltage anchor stabilizing", barScale: 0.91 },
+        { title: "Stage 3: Guided Drain to 15%", progress: 0.56, afterVal: "Measuring usable discharge curve", barScale: 0.91 },
+        { title: "Stage 4: Resting Baseline (60 min)", progress: 0.74, afterVal: "Settling low-voltage resting state", barScale: 0.92 },
+        { title: "Stage 5: Restoring 80% Cap", progress: 0.90, afterVal: "Returning safely to daily ceiling", barScale: 0.92 },
+        { title: "Completed: Capacity Verified", progress: 1.0, afterVal: "4295 mAh (93% Health / +115 mAh)", barScale: 0.96 }
       ];
       const calButtons = Array.from(document.querySelectorAll("[data-cal-stage]"));
       const calStageHeading = document.getElementById("cal-stage-heading");
       const calTrackFill = document.getElementById("cal-track-fill");
-      const calAfterLabel = document.getElementById("cal-after-label");
       const calAfterVal = document.getElementById("cal-after-val");
+      const calAfterBar = document.getElementById("cal-after-bar");
       const calAutoBtn = document.getElementById("cal-autoplay-btn");
       let calIndex = 0;
       let calTimer = null;
@@ -717,8 +802,8 @@
         const step = calStages[index];
         calStageHeading.textContent = step.title;
         calTrackFill.style.transform = "scaleX(" + step.progress + ")";
-        calAfterLabel.textContent = step.afterLabel;
         calAfterVal.textContent = step.afterVal;
+        calAfterBar.style.transform = "scaleX(" + step.barScale + ")";
         calButtons.forEach((b) => {
           b.setAttribute("aria-pressed", Number(b.dataset.calStage) === index ? "true" : "false");
         });
@@ -751,16 +836,17 @@
         }, 1250);
       });
 
-      // Schedule Profile Switcher
+      // Tab 3: Schedule Profile Switcher & Interactive 24h Timeline Band
       const schedProfiles = {
-        office: { badge: "80% Cap Active", window: "Mon to Fri at 08:30", policy: "Hold at 80% / Max 35.0 C" },
-        travel: { badge: "100% Travel Top-Up", window: "Fridays at 17:00", policy: "Full 100% Charge / Thermal Watch On" },
-        overnight: { badge: "70% Overnight Hold", window: "Daily at 22:30", policy: "Hold at 70% / Silent Passive Cooling" }
+        office: { badge: "80% Cap Active", window: "Mon to Fri at 08:30", policy: "Hold at 80% / Max 35.0 C", band: "translateX(35%) scaleX(0.35)" },
+        travel: { badge: "100% Travel Top-Up", window: "Fridays at 17:00", policy: "Full 100% Charge / Thermal Watch On", band: "translateX(70%) scaleX(0.22)" },
+        overnight: { badge: "70% Overnight Hold", window: "Daily at 22:30", policy: "Hold at 70% / Silent Passive Cooling", band: "translateX(8%) scaleX(0.28)" }
       };
       const schedBtns = Array.from(document.querySelectorAll("[data-sched-profile]"));
       const schedBadge = document.getElementById("sched-mode-badge");
       const schedWindow = document.getElementById("sched-window-out");
       const schedPolicy = document.getElementById("sched-policy-out");
+      const schedTimelineBand = document.getElementById("sched-timeline-band");
 
       schedBtns.forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -770,21 +856,29 @@
           schedBadge.textContent = profile.badge;
           schedWindow.textContent = profile.window;
           schedPolicy.textContent = profile.policy;
+          schedTimelineBand.style.transform = profile.band;
         });
       });
 
-      // Update Check Simulation
+      // Tab 4: Multi-Stage Animated Update Progress Simulator
       const updateBtn = document.getElementById("update-check-btn");
       const updateOut = document.getElementById("update-status-out");
+      const updateBar = document.getElementById("update-progress-bar");
       updateBtn.addEventListener("click", () => {
         updateBtn.disabled = true;
-        updateOut.textContent = "Verifying signed update feed...";
+        updateOut.textContent = "Checking update feed...";
+        updateBar.style.transform = "scaleX(0.28)";
+        setTimeout(() => {
+          updateOut.textContent = "Verifying build 3 checksum...";
+          updateBar.style.transform = "scaleX(0.68)";
+        }, 320);
         setTimeout(() => {
           updateOut.textContent = "Up to date: VoltGuard v1.2.0 (Build 3)";
+          updateBar.style.transform = "scaleX(1.0)";
           updateBtn.textContent = "Checked Just Now";
           updateBtn.setAttribute("aria-pressed", "true");
           updateBtn.disabled = false;
-        }, 480);
+        }, 720);
       });
     })();
   </script>

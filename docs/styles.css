@@ -2,6 +2,11 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Remove extra mouse focus halo while preserving keyboard focus visibility */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Top navigation bar */
 .site-nav {
   position: sticky;
@@ -37,6 +42,11 @@ html {
   height: 28px;
   flex-shrink: 0;
   color: var(--color-accent);
+  transition: transform var(--dur-short) var(--ease-out);
+}
+
+.brand-link:hover .brand-link__mark {
+  transform: scale(1.06);
 }
 
 .nav-links {
@@ -97,6 +107,7 @@ html {
   border: var(--rule-hair) solid var(--color-rule-2);
   border-radius: 999px;
   padding: var(--space-2xs) var(--space-sm);
+  transition: background-color var(--dur-short) var(--ease-out), color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
 }
 
 .status-pill--warm {
@@ -154,12 +165,13 @@ html {
   border-radius: var(--radius-pill);
   background: var(--color-paper-2);
   border: var(--rule-hair) solid var(--color-rule-2);
-  transition: transform var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+  transition: transform var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
 }
 
 .text-cta:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   border-color: var(--color-accent);
+  background: var(--color-paper-3);
 }
 
 .text-cta:active {
@@ -201,6 +213,11 @@ html {
   padding: var(--space-lg);
   display: grid;
   gap: var(--space-lg);
+  transition: border-color var(--dur-short) var(--ease-out);
+}
+
+.console-panel:hover {
+  border-color: var(--color-rule-2);
 }
 
 .console-split {
@@ -275,11 +292,11 @@ html {
 }
 
 .wave-anim-a {
-  animation: waveFlowA 3.4s linear infinite;
+  animation: waveFlowA 3.2s linear infinite;
 }
 
 .wave-anim-b {
-  animation: waveFlowB 5.2s linear infinite;
+  animation: waveFlowB 5s linear infinite;
 }
 
 @keyframes bubbleRise {
@@ -290,17 +307,17 @@ html {
 
 .battery-bubble {
   fill: var(--color-ink);
-  animation: bubbleRise 3.1s ease-in infinite;
+  animation: bubbleRise 3s ease-in infinite;
 }
 
 .battery-bubble--two {
-  animation-delay: 1.1s;
-  animation-duration: 3.8s;
+  animation-delay: 1s;
+  animation-duration: 3.6s;
 }
 
 .battery-bubble--three {
-  animation-delay: 2.1s;
-  animation-duration: 2.8s;
+  animation-delay: 2s;
+  animation-duration: 2.7s;
 }
 
 .battery-limit-group {
@@ -335,7 +352,66 @@ html {
   font-weight: 700;
 }
 
-/* Telemetry Readout Strip */
+/* Live SVG Power Flow Bus + Thermal Meter inside Overview Console */
+.flow-bus {
+  padding-top: var(--space-md);
+  border-top: var(--rule-hair) solid var(--color-rule);
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.flow-svg {
+  width: 100%;
+  height: 44px;
+  display: block;
+}
+
+.flow-track {
+  stroke: var(--color-rule);
+  stroke-width: 3;
+  fill: none;
+}
+
+.flow-stream {
+  stroke: var(--color-accent);
+  stroke-width: 3;
+  stroke-dasharray: 8 10;
+  fill: none;
+  animation: flowDash 1.1s linear infinite;
+  transition: stroke var(--dur-short) var(--ease-out), opacity var(--dur-short) var(--ease-out);
+}
+
+.flow-stream--hold {
+  stroke: var(--color-warn);
+  animation-duration: 3.2s;
+  opacity: 0.55;
+}
+
+.flow-stream--hot {
+  stroke: var(--color-bad);
+  animation-play-state: paused;
+  opacity: 0.35;
+}
+
+@keyframes flowDash {
+  0% { stroke-dashoffset: 36; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.flow-node-box {
+  fill: var(--color-paper);
+  stroke: var(--color-rule-2);
+  stroke-width: 1;
+}
+
+.flow-node-label {
+  fill: var(--color-ink-2);
+  font-family: var(--font-outlier);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Telemetry Readout Strip + Thermal Gauge */
 .telemetry-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -346,7 +422,7 @@ html {
 
 .metric-cell {
   display: grid;
-  gap: var(--space-3xs);
+  gap: var(--space-2xs);
   min-width: 0;
 }
 
@@ -363,7 +439,32 @@ html {
   color: var(--color-ink);
 }
 
-/* Form Controls */
+.meter-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-paper-3);
+  overflow: hidden;
+}
+
+.meter-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--color-accent);
+  transform-origin: left center;
+  transition: transform var(--dur-short) var(--ease-out), background-color var(--dur-short) var(--ease-out);
+}
+
+.meter-fill--warn {
+  background: var(--color-warn);
+}
+
+.meter-fill--hot {
+  background: var(--color-bad);
+}
+
+/* Form Controls — clean single 1px border (no double outline or inset shadow) */
 .control-stack {
   display: grid;
   gap: var(--space-md);
@@ -458,7 +559,6 @@ html {
 .preset-chip[aria-pressed="true"] {
   background: var(--color-paper-3);
   border-color: var(--color-accent);
-  box-shadow: inset 0 0 0 1px var(--color-accent);
   color: var(--color-accent-deep);
 }
 
@@ -495,7 +595,6 @@ html {
 .switch-btn[aria-checked="true"] {
   background: var(--color-paper);
   border-color: var(--color-accent);
-  box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
 .switch-btn__thumb {
@@ -531,6 +630,12 @@ html {
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-card);
+  transition: transform var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+
+.media-figure:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-rule-2);
 }
 
 .media-figure__frame {
@@ -607,7 +712,6 @@ html {
 .tab-btn[aria-selected="true"] {
   background: var(--color-paper-3);
   border-color: var(--color-accent);
-  box-shadow: inset 0 0 0 1px var(--color-accent);
   color: var(--color-accent-deep);
 }
 
@@ -615,6 +719,17 @@ html {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+@keyframes panelEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .feature-panel {
@@ -628,6 +743,7 @@ html {
   border-radius: var(--radius-card);
   padding: var(--space-lg);
   box-shadow: var(--shadow-card);
+  animation: panelEnter var(--dur-short) var(--ease-out);
 }
 
 .feature-panel[hidden] {
@@ -652,6 +768,61 @@ html {
 .divider-top {
   padding-top: var(--space-md);
   border-top: var(--rule-hair) solid var(--color-rule);
+}
+
+/* Interactive Gauges inside Tabs (Hysteresis, Schedule Clock, CPU Bars, Updater Progress) */
+.gauge-card {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border-radius: var(--radius-pill);
+  border: var(--rule-hair) solid var(--color-rule);
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.gauge-bar-outer {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--color-paper-3);
+  overflow: hidden;
+}
+
+.gauge-band-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--color-cool);
+  opacity: 0.48;
+  transform-origin: left center;
+  transition: transform var(--dur-short) var(--ease-out);
+}
+
+.gauge-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  transition: transform var(--dur-short) var(--ease-out);
+}
+
+.gauge-marker-pip {
+  display: block;
+  width: 8px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--color-ink);
+}
+
+.gauge-legend {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-outlier);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
 }
 
 /* Calibration Interactive Progress Track */
@@ -693,7 +864,6 @@ html {
 .cal-stage-btn[aria-pressed="true"] {
   background: var(--color-paper-3);
   border-color: var(--color-accent);
-  box-shadow: inset 0 0 0 1px var(--color-accent);
   color: var(--color-accent-deep);
 }
 

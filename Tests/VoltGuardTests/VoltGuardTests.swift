@@ -1273,6 +1273,105 @@ final class VoltGuardTests: XCTestCase {
             frameDelay: 0.75,
             to: outDir.appendingPathComponent("voltguard-calibration-motion.gif")
         )
+
+        // Render Themes & Weekday Schedules motion GIF from real macOS views.
+        let themeSlides: [(String, DashboardSection, VoltGuardPresenter, ColorScheme)] = [
+            ("Nordic Slate Theme", .appearance, presenter, .dark),
+            ("Paper Light Theme", .appearance, lightPresenter, .light),
+            ("Weekday Schedules & Limits", .schedule, presenter, .dark),
+            ("Light Appearance Studio", .appearance, lightPresenter, .light)
+        ]
+        let themeFrames: [AnyView] = themeSlides.map { (badge, section, activePresenter, scheme) in
+            return AnyView(
+                ZStack {
+                    Color(hex: "#161B22")
+                    VStack(spacing: 12) {
+                        HStack {
+                            BrandLogoView(size: 28, accentColor: palette.accent)
+                            Text("Appearance Studio & Automated Schedules")
+                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color(hex: "#E6EDF5"))
+                            Spacer()
+                            Text(badge)
+                                .font(.system(size: 12, weight: .semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(palette.accent.opacity(0.18))
+                                .foregroundStyle(Color(hex: "#7CC0FA"))
+                                .clipShape(Capsule())
+                        }
+                        FullDashboardView(presenter: activePresenter, initialSection: section)
+                            .frame(width: 980, height: 610)
+                            .scaleEffect(0.74)
+                            .frame(width: 725, height: 450)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(Color(hex: "#35404F"), lineWidth: 1)
+                            )
+                            .environment(\.colorScheme, scheme)
+                    }
+                    .padding(20)
+                }
+                .frame(width: 920, height: 540)
+                .environment(\.colorScheme, .dark)
+            )
+        }
+        try Self.saveFramesAsGIF(
+            frames: themeFrames,
+            size: CGSize(width: 920, height: 540),
+            frameDelay: 0.95,
+            to: outDir.appendingPathComponent("voltguard-themes-motion.gif")
+        )
+
+        // Render Energy Monitor, Diagnostics & Software Update motion GIF from real macOS views.
+        let energySlides: [(String, DashboardSection)] = [
+            ("Energy Monitor: Top Consumers", .energy),
+            ("System Self-Checks: 8/8 Passed", .system),
+            ("Software Update: v1.2.0 Feed", .updates),
+            ("Live Energy Impact Tracking", .energy)
+        ]
+        let energyFrames: [AnyView] = energySlides.map { (badge, section) in
+            return AnyView(
+                ZStack {
+                    Color(hex: "#161B22")
+                    VStack(spacing: 12) {
+                        HStack {
+                            BrandLogoView(size: 28, accentColor: palette.accent)
+                            Text("Energy Insights, Diagnostics & App Updates")
+                                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color(hex: "#E6EDF5"))
+                            Spacer()
+                            Text(badge)
+                                .font(.system(size: 12, weight: .semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(palette.accent.opacity(0.18))
+                                .foregroundStyle(Color(hex: "#7CC0FA"))
+                                .clipShape(Capsule())
+                        }
+                        FullDashboardView(presenter: presenter, initialSection: section)
+                            .frame(width: 980, height: 610)
+                            .scaleEffect(0.74)
+                            .frame(width: 725, height: 450)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(Color(hex: "#35404F"), lineWidth: 1)
+                            )
+                    }
+                    .padding(20)
+                }
+                .frame(width: 920, height: 540)
+                .environment(\.colorScheme, .dark)
+            )
+        }
+        try Self.saveFramesAsGIF(
+            frames: energyFrames,
+            size: CGSize(width: 920, height: 540),
+            frameDelay: 0.95,
+            to: outDir.appendingPathComponent("voltguard-energy-motion.gif")
+        )
     }
 
     @MainActor
