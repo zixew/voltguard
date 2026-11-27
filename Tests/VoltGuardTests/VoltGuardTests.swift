@@ -422,11 +422,13 @@ final class VoltGuardTests: XCTestCase {
     func testSmartAlertsFireOnEdgeTransitionsOnly() async {
         final class MockBatteryReader: BatteryReadingGateway, @unchecked Sendable {
             var temp: Double = 36.5
+            var pct: Int = 60
+            var plugged: Bool = true
             func readTelemetry() throws -> BatteryTelemetry {
                 BatteryTelemetry(
-                    percentage: 60,
-                    isCharging: true,
-                    isPluggedIn: true,
+                    percentage: pct,
+                    isCharging: pct < 80,
+                    isPluggedIn: plugged,
                     temperatureCelsius: temp,
                     voltageVolts: 12.5,
                     amperageAmps: 1.5,
@@ -453,10 +455,11 @@ final class VoltGuardTests: XCTestCase {
             func sendAlert(id: String, title: String, body: String) { sentIDs.append(id) }
         }
 
+        let reader = MockBatteryReader()
         let alerts = MockAlerts()
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("voltguard-alert-\(UUID().uuidString).json")
         let interactor = VoltGuardInteractor(
-            batteryReader: MockBatteryReader(),
+            batteryReader: reader,
             smcGateway: MockSMC(),
             powerGateway: MockPower(),
             settingsRepo: JSONSettingsRepository(fileURL: tempURL),
@@ -466,6 +469,21 @@ final class VoltGuardTests: XCTestCase {
         await interactor.tick(settings: settings, calibration: CalibrationSession())
         await interactor.tick(settings: settings, calibration: CalibrationSession())
         XCTAssertEqual(alerts.sentIDs, ["voltguard.heat"], "Heat alert should fire once per transition")
+
+        // Cool down to normal charging at 79%, then hit 80% limit -> fires limitreached once.
+        reader.temp = 30.0
+        reader.pct = 79
+        await interactor.tick(settings: settings, calibration: CalibrationSession())
+        reader.pct = 80
+        await interactor.tick(settings: settings, calibration: CalibrationSession())
+        XCTAssertEqual(alerts.sentIDs, ["voltguard.heat", "voltguard.limitreached"])
+
+        // Minor 1-2% drift (79% -> 80%) while plugged in must NOT re-spam limitreached because latch resets only below limit - 5%.
+        reader.pct = 79
+        await interactor.tick(settings: settings, calibration: CalibrationSession())
+        reader.pct = 80
+        await interactor.tick(settings: settings, calibration: CalibrationSession())
+        XCTAssertEqual(alerts.sentIDs, ["voltguard.heat", "voltguard.limitreached"], "Limit alert must not spam on minor drift near cap")
     }
 
     func testHealthHistoryRepositoryAndCSVExport() {

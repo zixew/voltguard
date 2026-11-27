@@ -180,6 +180,9 @@ public final class VoltGuardInteractor {
     private var lastScheduleMinuteKey: String = ""
     private var previousStatusReason: PolicyReason = .normalCharging
     private var wasLowBatteryAlerted: Bool = false
+    private var wasLimitReachedAlerted: Bool = false
+    private var wasDischargeAlerted: Bool = false
+    private var lastAlertTargetLimit: Int?
 
     public var onStateUpdate: ((BatteryTelemetry?, PowerFlowMetrics, AppSettings, CalibrationSession, PolicyReason, Bool, [BatteryHealthSnapshot]?, String?) -> Void)?
 
@@ -353,6 +356,14 @@ public final class VoltGuardInteractor {
         alertGateway.requestAuthorization()
     }
 
+    public func sendSystemTestAlert(locale: AppLocale) {
+        alertGateway.sendAlert(
+            id: "voltguard.test",
+            title: L10n.text(.statusLimitReached, locale: locale),
+            body: L10n.text(.alertLimitReachedBody, locale: locale)
+        )
+    }
+
     public func loadHealthSnapshots() -> [BatteryHealthSnapshot] {
         healthHistoryRepo.loadSnapshots()
     }
@@ -403,14 +414,46 @@ public final class VoltGuardInteractor {
                 title: L10n.text(.alertCalibrationTitle, locale: loc),
                 body: L10n.text(.alertCalibrationBody, locale: loc)
             )
-        }
-        if newReason == .limitReached && previousStatusReason == .normalCharging {
+        } else if previousCalibrationStage != newCalibrationStage && newCalibrationStage == .dischargingToLow {
             alertGateway.sendAlert(
-                id: "voltguard.limitreached",
-                title: L10n.text(.alertLimitReachedTitle, locale: loc),
-                body: L10n.text(.alertLimitReachedBody, locale: loc)
+                id: "voltguard.calibration",
+                title: L10n.text(.toastCalStageTitle, locale: loc),
+                body: L10n.text(.calStageDischargingDesc, locale: loc)
             )
         }
+
+        // Reset limit-reached latch when user changes target limit, unplugs charger, or battery drops >= 5% below limit.
+        if lastAlertTargetLimit != settings.policy.limitPercent {
+            lastAlertTargetLimit = settings.policy.limitPercent
+            wasLimitReachedAlerted = false
+        }
+        if !telemetry.isPluggedIn || telemetry.percentage <= settings.policy.limitPercent - 5 {
+            wasLimitReachedAlerted = false
+        }
+
+        if (newReason == .limitReached || newReason == .sailingPaused) && previousStatusReason == .normalCharging {
+            if !wasLimitReachedAlerted {
+                wasLimitReachedAlerted = true
+                alertGateway.sendAlert(
+                    id: "voltguard.limitreached",
+                    title: L10n.text(.statusLimitReached, locale: loc),
+                    body: L10n.text(.alertLimitReachedBody, locale: loc)
+                )
+            }
+        }
+
+        let isDischargingNow = (newReason == .manualDischarge || newReason == .automaticDischarge)
+        if isDischargingNow && !wasDischargeAlerted {
+            wasDischargeAlerted = true
+            alertGateway.sendAlert(
+                id: "voltguard.discharge",
+                title: L10n.text(.toastDischargeTitle, locale: loc),
+                body: L10n.text(.toastDischargeBody, locale: loc)
+            )
+        } else if !isDischargingNow {
+            wasDischargeAlerted = false
+        }
+
         if !telemetry.isPluggedIn && telemetry.percentage < VoltGuardLimits.lowBatteryAlertThresholdPercent {
             if !wasLowBatteryAlerted {
                 wasLowBatteryAlerted = true
@@ -444,7 +487,10 @@ public final class VoltGuardPresenter: ObservableObject {
     private let recommendUseCase = RecommendProfileUseCase()
     private var etaCalculator = BatteryETACalculator()
     private var settingsObserver: NSObjectProtocol?
+    private var systemAlertActionObserver: NSObjectProtocol?
     private var toastDismissTask: Task<Void, Never>?
+    private var lastToolbarEventAtByTitle: [L10nKey: Date] = [:]
+    private var hasReceivedFirstTelemetryTick = false
     public weak var router: AppRouterProtocol?
 
     public init(interactor: VoltGuardInteractor = VoltGuardInteractor()) {
@@ -454,10 +500,15 @@ public final class VoltGuardPresenter: ObservableObject {
         state.calibration = initial.calibrationSession
         state.palette = ThemePalette.resolve(initial.theme)
         state.healthSnapshots = interactor.loadHealthSnapshots()
+        if initial.alertsEnabled {
+            interactor.requestAlertPermissions()
+        }
 
         interactor.onStateUpdate = { [weak self] telemetry, flow, settings, calibration, reason, helperConnected, snapshots, errMsg in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                let isFirstTick = !self.hasReceivedFirstTelemetryTick
+                self.hasReceivedFirstTelemetryTick = true
                 let prevReason = self.state.lastReason
                 let prevTopUp = self.state.settings.policy.topUpActive
                 let prevCalStage = self.state.calibration.stage
@@ -478,95 +529,98 @@ public final class VoltGuardPresenter: ObservableObject {
                         : settings.policy.limitPercent
                     self.state.batteryETA = self.etaCalculator.update(telemetry: telemetry, targetLimit: targetLimit)
 
-                    if reason == .heatProtectionPaused && prevReason != .heatProtectionPaused {
-                        self.appendActivity(.activityHeatPaused)
-                        self.presentToolbarEvent(
-                            ToolbarNotificationEvent(
-                                icon: "thermometer.sun.fill",
-                                titleKey: .alertHeatTitle,
-                                bodyKey: .alertHeatBody,
-                                severity: .danger,
-                                actionTitleKey: .toastActionEnergyMonitor,
-                                action: .openEnergyMonitor
-                            )
-                        )
-                    } else if reason == .limitReached && prevReason == .normalCharging {
-                        self.appendActivity(.activityLimitReached)
-                        self.presentToolbarEvent(
-                            ToolbarNotificationEvent(
-                                icon: "bolt.horizontal.circle.fill",
-                                titleKey: .statusLimitReached,
-                                bodyKey: .alertLimitReachedBody,
-                                severity: .accent,
-                                actionTitleKey: .topUp,
-                                action: .topUp100
-                            )
-                        )
-                    } else if (reason == .manualDischarge || reason == .automaticDischarge)
-                                && prevReason != .manualDischarge && prevReason != .automaticDischarge {
-                        self.presentToolbarEvent(
-                            ToolbarNotificationEvent(
-                                icon: "arrow.down.circle.fill",
-                                titleKey: .toastDischargeTitle,
-                                bodyKey: .toastDischargeBody,
-                                severity: .warning,
-                                actionTitleKey: .toastActionStopDischarge,
-                                action: .stopDischarge
-                            )
-                        )
-                    }
-                    if prevTopUp && !settings.policy.topUpActive {
-                        self.appendActivity(.activityTopUpDone)
-                        self.presentToolbarEvent(
-                            ToolbarNotificationEvent(
-                                icon: "checkmark.seal.fill",
-                                titleKey: .alertTopUpTitle,
-                                bodyKey: .alertTopUpBody,
-                                severity: .accent,
-                                actionTitleKey: .openFullApp,
-                                action: .openFullApp
-                            )
-                        )
-                    }
-                    if prevCalStage != calibration.stage && calibration.stage != .idle {
-                        if calibration.stage == .completed {
-                            self.appendActivity(.activityCalibrationDone)
+                    // Suppress cold-start notifications on the initial telemetry sample so opening the app never spams.
+                    if !isFirstTick {
+                        if reason == .heatProtectionPaused && prevReason != .heatProtectionPaused {
+                            self.appendActivity(.activityHeatPaused)
                             self.presentToolbarEvent(
                                 ToolbarNotificationEvent(
-                                    icon: "checkmark.seal.fill",
-                                    titleKey: .alertCalibrationTitle,
-                                    bodyKey: .alertCalibrationBody,
-                                    severity: .accent,
-                                    actionTitleKey: .toastActionViewProgress,
-                                    action: .openCalibration
+                                    icon: "thermometer.sun.fill",
+                                    titleKey: .alertHeatTitle,
+                                    bodyKey: .alertHeatBody,
+                                    severity: .danger,
+                                    actionTitleKey: .toastActionEnergyMonitor,
+                                    action: .openEnergyMonitor
                                 )
                             )
-                        } else {
+                        } else if reason == .limitReached && prevReason == .normalCharging {
+                            self.appendActivity(.activityLimitReached)
                             self.presentToolbarEvent(
                                 ToolbarNotificationEvent(
-                                    icon: "gauge.with.dots.needle.67percent",
-                                    titleKey: .toastCalStageTitle,
-                                    bodyKey: .toastCalStageBody,
+                                    icon: "bolt.horizontal.circle.fill",
+                                    titleKey: .statusLimitReached,
+                                    bodyKey: .alertLimitReachedBody,
+                                    severity: .accent,
+                                    actionTitleKey: .topUp,
+                                    action: .topUp100
+                                )
+                            )
+                        } else if (reason == .manualDischarge || reason == .automaticDischarge)
+                                    && prevReason != .manualDischarge && prevReason != .automaticDischarge {
+                            self.presentToolbarEvent(
+                                ToolbarNotificationEvent(
+                                    icon: "arrow.down.circle.fill",
+                                    titleKey: .toastDischargeTitle,
+                                    bodyKey: .toastDischargeBody,
                                     severity: .warning,
-                                    actionTitleKey: .toastActionViewProgress,
-                                    action: .openCalibration
+                                    actionTitleKey: .toastActionStopDischarge,
+                                    action: .stopDischarge
                                 )
                             )
                         }
-                    }
-                    if !telemetry.isPluggedIn && telemetry.percentage < VoltGuardLimits.lowBatteryAlertThresholdPercent {
-                        if self.state.activityLog.first?.messageKey != .activityLowBattery {
-                            self.appendActivity(.activityLowBattery)
+                        if prevTopUp && !settings.policy.topUpActive {
+                            self.appendActivity(.activityTopUpDone)
                             self.presentToolbarEvent(
                                 ToolbarNotificationEvent(
-                                    icon: "battery.25",
-                                    titleKey: .alertLowBatteryTitle,
-                                    bodyKey: .alertLowBatteryBody,
-                                    severity: .danger,
-                                    actionTitleKey: .toastActionEnableLowPower,
-                                    action: .enableLowPowerOnBattery
+                                    icon: "checkmark.seal.fill",
+                                    titleKey: .alertTopUpTitle,
+                                    bodyKey: .alertTopUpBody,
+                                    severity: .accent,
+                                    actionTitleKey: .openFullApp,
+                                    action: .openFullApp
                                 )
                             )
+                        }
+                        if prevCalStage != calibration.stage && calibration.stage != .idle {
+                            if calibration.stage == .completed {
+                                self.appendActivity(.activityCalibrationDone)
+                                self.presentToolbarEvent(
+                                    ToolbarNotificationEvent(
+                                        icon: "checkmark.seal.fill",
+                                        titleKey: .alertCalibrationTitle,
+                                        bodyKey: .alertCalibrationBody,
+                                        severity: .accent,
+                                        actionTitleKey: .toastActionViewProgress,
+                                        action: .openCalibration
+                                    )
+                                )
+                            } else {
+                                self.presentToolbarEvent(
+                                    ToolbarNotificationEvent(
+                                        icon: "gauge.with.dots.needle.67percent",
+                                        titleKey: .toastCalStageTitle,
+                                        bodyKey: .toastCalStageBody,
+                                        severity: .warning,
+                                        actionTitleKey: .toastActionViewProgress,
+                                        action: .openCalibration
+                                    )
+                                )
+                            }
+                        }
+                        if !telemetry.isPluggedIn && telemetry.percentage < VoltGuardLimits.lowBatteryAlertThresholdPercent {
+                            if self.state.activityLog.first?.messageKey != .activityLowBattery {
+                                self.appendActivity(.activityLowBattery)
+                                self.presentToolbarEvent(
+                                    ToolbarNotificationEvent(
+                                        icon: "battery.25",
+                                        titleKey: .alertLowBatteryTitle,
+                                        bodyKey: .alertLowBatteryBody,
+                                        severity: .danger,
+                                        actionTitleKey: .toastActionEnableLowPower,
+                                        action: .enableLowPowerOnBattery
+                                    )
+                                )
+                            }
                         }
                     }
                 } else if let errMsg {
@@ -593,12 +647,40 @@ public final class VoltGuardPresenter: ObservableObject {
             }
         }
 
+        systemAlertActionObserver = NotificationCenter.default.addObserver(
+            forName: SystemAlertNotificationGateway.actionNotificationName,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            let actionID = note.userInfo?["actionIdentifier"] as? String ?? ""
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                switch actionID {
+                case "ACTION_TOP_UP":
+                    self.dispatch(.triggerToolbarEventAction(.topUp100))
+                case "ACTION_STOP_DISCHARGE":
+                    self.dispatch(.triggerToolbarEventAction(.stopDischarge))
+                case "ACTION_OPEN_ENERGY":
+                    self.dispatch(.triggerToolbarEventAction(.openEnergyMonitor))
+                case "ACTION_ENABLE_LOW_POWER":
+                    self.dispatch(.triggerToolbarEventAction(.enableLowPowerOnBattery))
+                case "ACTION_OPEN_CALIBRATION":
+                    self.dispatch(.triggerToolbarEventAction(.openCalibration))
+                default:
+                    self.dispatch(.openFullApp)
+                }
+            }
+        }
+
         startPolling(activePopover: false)
     }
 
     deinit {
         if let settingsObserver {
             DistributedNotificationCenter.default().removeObserver(settingsObserver)
+        }
+        if let systemAlertActionObserver {
+            NotificationCenter.default.removeObserver(systemAlertActionObserver)
         }
     }
 
@@ -859,6 +941,8 @@ public final class VoltGuardPresenter: ObservableObject {
                 router?.openFullAppWindow()
             }
         case .testToolbarEvent:
+            interactor.requestAlertPermissions()
+            interactor.sendSystemTestAlert(locale: state.settings.locale)
             presentToolbarEvent(
                 ToolbarNotificationEvent(
                     icon: "bolt.horizontal.circle.fill",
@@ -867,15 +951,23 @@ public final class VoltGuardPresenter: ObservableObject {
                     severity: .accent,
                     actionTitleKey: .topUp,
                     action: .topUp100
-                )
+                ),
+                bypassCooldown: true
             )
         case .quitApp:
             NSApp.terminate(nil)
         }
     }
 
-    public func presentToolbarEvent(_ event: ToolbarNotificationEvent) {
+    public func presentToolbarEvent(_ event: ToolbarNotificationEvent, bypassCooldown: Bool = false) {
         guard state.settings.alertsEnabled else { return }
+        if !bypassCooldown {
+            let now = Date()
+            if let last = lastToolbarEventAtByTitle[event.titleKey], now.timeIntervalSince(last) < 120 {
+                return
+            }
+            lastToolbarEventAtByTitle[event.titleKey] = now
+        }
         toastDismissTask?.cancel()
         state.activeToolbarEvent = event
         router?.showToolbarEventToast()
