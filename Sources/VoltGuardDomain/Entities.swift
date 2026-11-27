@@ -497,7 +497,7 @@ public enum AppReleaseInfo {
     public static let githubRepo = "zixew/voltguard"
     public static let latestReleaseAPI = "https://api.github.com/repos/zixew/voltguard/releases/latest"
     public static let releasesWebURL = "https://github.com/zixew/voltguard/releases"
-    public static let websiteURL = "https://zixew.github.io/voltguard/"
+    public static let websiteURL = "https://voltguard-mocha.vercel.app"
 
     public static let changelog: [AppReleaseChangelogEntry] = [
         AppReleaseChangelogEntry(

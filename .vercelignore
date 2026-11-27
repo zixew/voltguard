@@ -1,0 +1,13 @@
+.build
+.swiftpm
+.vercel
+.env*
+dist
+.git
+.github
+Sources
+Tests
+scripts
+Package.swift
+Package.resolved
+README.md

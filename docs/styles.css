@@ -40,7 +40,7 @@
   gap: var(--space-lg);
 }
 
-.masthead__links a {
+.masthead__links a:not(.btn) {
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--color-muted);
@@ -48,7 +48,7 @@
   transition: color var(--dur-short) var(--ease-out);
 }
 
-.masthead__links a:hover {
+.masthead__links a:not(.btn):hover {
   color: var(--color-ink);
 }
 
