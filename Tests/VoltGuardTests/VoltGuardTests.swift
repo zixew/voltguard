@@ -534,8 +534,8 @@ final class VoltGuardTests: XCTestCase {
         XCTAssertEqual(BatteryETAFormatter.text(for: etaEmpty, locale: .en), "2h 24m until empty")
         XCTAssertEqual(BatteryETAFormatter.text(for: etaLimit, locale: .id), "57m sampai penuh 80%")
         XCTAssertEqual(BatteryETAFormatter.text(for: etaLimit, locale: .en), "57m to 80% full")
-        XCTAssertEqual(BatteryETAFormatter.text(for: etaSteady, locale: .id), "Batas 80% tercapai")
-        XCTAssertEqual(BatteryETAFormatter.text(for: etaSteady, locale: .en), "80% limit reached")
+        XCTAssertEqual(BatteryETAFormatter.text(for: etaSteady, locale: .id), "Batas 80% (Bypass Aktif)")
+        XCTAssertEqual(BatteryETAFormatter.text(for: etaSteady, locale: .en), "80% limit (Bypass Active)")
         XCTAssertEqual(BatteryETAFormatter.text(for: etaCalculating, locale: .id), "Menghitung sisa waktu...")
         XCTAssertEqual(BatteryETAFormatter.text(for: etaCalculating, locale: .en), "Calculating time...")
     }
