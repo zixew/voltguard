@@ -12,8 +12,9 @@
 
 ## Fitur Utama
 
-### 1. Pembatas Pengisian Baterai (Charge Limiter)
+### 1. Pembatas Pengisian Baterai & Bypass Charging Otomatis
 - **Batas Pengisian Kustom (`20%` hingga `100%`)**: Mencegah baterai MacBook terus tertahan di `100%` saat sering terhubung ke charger.
+- **Bypass Charging Otomatis di Batas Target**: Begitu baterai mencapai batas pengisian yang Anda pilih (misalnya `80%`), VoltGuard otomatis beralih ke **Bypass Charging**. Seluruh daya yang dibutuhkan MacBook langsung diambil 100% dari adaptor daya, sementara aliran listrik ke baterai diputus (`0.0 W`) sehingga baterai beristirahat tanpa panas dan tanpa siklus pakai.
 - **Tombol Cepat & Kontrol Geser**: Pilih batas cepat (`60%`, `80%`, `90%`, `100%`) lewat satu klik, geser slider, atau tarik langsung garis batas pada ilustrasi baterai.
 - **Top Up 100%**: Isi penuh baterai ke `100%` satu kali sebelum bepergian. Setelah mencapai `100%`, VoltGuard otomatis mengembalikan batas pengisian harian Anda.
 

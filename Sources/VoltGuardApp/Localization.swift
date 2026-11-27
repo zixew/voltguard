@@ -216,6 +216,10 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case calStage4Duration
     case calStage5Duration
     case calTotalDurationBadge
+    case bypassActiveBadge
+    case bypassFlowSubtitle
+    case bypassCardTitle
+    case bypassCardDesc
 }
 
 public struct L10n {
@@ -230,7 +234,7 @@ public struct L10n {
         .appTitle: "VoltGuard",
         .openFullApp: "Open App",
         .statusCharging: "Charging",
-        .statusLimitReached: "Limit Reached",
+        .statusLimitReached: "Bypass Charging (Limit Reached)",
         .statusSailing: "Sailing Mode",
         .statusHeatPaused: "Paused (Thermal Guard)",
         .statusManualDischarge: "Discharging",
@@ -349,7 +353,7 @@ public struct L10n {
         .showTimeRemaining: "Show Time Estimate",
         .etaToEmpty: "until empty",
         .etaToLimit: "to %d%% full",
-        .etaLimitReached: "%d%% limit reached",
+        .etaLimitReached: "%d%% limit (Bypass Active)",
         .etaCalculating: "Calculating time...",
         .batteryCondition: "Condition",
         .conditionNormal: "Normal",
@@ -440,14 +444,18 @@ public struct L10n {
         .calStage3Duration: "~1-3 hours",
         .calStage4Duration: "60 min hold",
         .calStage5Duration: "~30-60 min",
-        .calTotalDurationBadge: "Total: ~3.5 - 6 Hours"
+        .calTotalDurationBadge: "Total: ~3.5 - 6 Hours",
+        .bypassActiveBadge: "Bypass Active",
+        .bypassFlowSubtitle: "Direct Adapter -> Mac power (Battery bypassed at 0 W)",
+        .bypassCardTitle: "Automatic Bypass Charging at Limit",
+        .bypassCardDesc: "When battery reaches your target limit (e.g. 80%), VoltGuard automatically switches to hardware Bypass Charging: your Mac runs 100% directly from the power adapter while the battery rests at 0.0 W."
     ]
 
     public static let id: [L10nKey: String] = [
         .appTitle: "VoltGuard",
         .openFullApp: "Buka Aplikasi",
         .statusCharging: "Mengisi Daya",
-        .statusLimitReached: "Batas Tercapai",
+        .statusLimitReached: "Bypass Charging (Batas Tercapai)",
         .statusSailing: "Mode Sailing",
         .statusHeatPaused: "Dijeda (Pelindung Panas)",
         .statusManualDischarge: "Menguras Baterai",
@@ -566,7 +574,7 @@ public struct L10n {
         .showTimeRemaining: "Tampilkan Sisa Waktu",
         .etaToEmpty: "sampai habis",
         .etaToLimit: "sampai penuh %d%%",
-        .etaLimitReached: "Batas %d%% tercapai",
+        .etaLimitReached: "Batas %d%% (Bypass Aktif)",
         .etaCalculating: "Menghitung sisa waktu...",
         .batteryCondition: "Kondisi",
         .conditionNormal: "Normal",
@@ -657,7 +665,11 @@ public struct L10n {
         .calStage3Duration: "~1-3 jam",
         .calStage4Duration: "Tahan 60 mnt",
         .calStage5Duration: "~30-60 mnt",
-        .calTotalDurationBadge: "Total: ~3,5 - 6 Jam"
+        .calTotalDurationBadge: "Total: ~3,5 - 6 Jam",
+        .bypassActiveBadge: "Bypass Aktif",
+        .bypassFlowSubtitle: "Daya langsung Adaptor -> Mac (Baterai di-bypass 0 W)",
+        .bypassCardTitle: "Bypass Charging Otomatis Saat Batas Tercapai",
+        .bypassCardDesc: "Saat baterai mencapai batas target (misal 80%), VoltGuard otomatis beralih ke Bypass Charging: seluruh daya MacBook disuplai langsung dari adaptor sementara baterai beristirahat di 0.0 W."
     ]
 }
 

@@ -269,11 +269,29 @@ public struct PowerTopologyCardView: View {
     }
 
     public var body: some View {
+        let isBypassing = telemetry.isPluggedIn
+            && !telemetry.isCharging
+            && abs(flow.batteryNetWatts) < MotionConstants.activeFlowWattThreshold
+
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(L10n.text(.livePowerFlow, locale: locale))
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(palette.primaryText)
+                if isBypassing {
+                    HStack(spacing: 4) {
+                        Image(systemName: "bolt.horizontal.circle.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .accessibilityHidden(true)
+                        Text(L10n.text(.bypassActiveBadge, locale: locale))
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(palette.accent.opacity(0.18))
+                    .foregroundStyle(palette.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                }
                 Spacer()
                 Button {
                     withAnimation(reduceMotion ? nil : .easeInOut(duration: MotionConstants.uiTransitionDuration)) {
@@ -286,6 +304,12 @@ public struct PowerTopologyCardView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("Toggle telemetry details"))
+            }
+
+            if isBypassing {
+                Text(L10n.text(.bypassFlowSubtitle, locale: locale))
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(palette.accent)
             }
 
             HStack(spacing: 8) {

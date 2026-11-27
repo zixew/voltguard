@@ -593,10 +593,38 @@ public struct FullDashboardView: View {
     @ViewBuilder
     private func chargingSection(locale: AppLocale, palette: ThemePalette) -> some View {
         let policy = presenter.state.settings.policy
+        let isBypassActive: Bool = {
+            if case .loaded(let t, let flow) = presenter.state.telemetryState {
+                return t.isPluggedIn && !t.isCharging && abs(flow.batteryNetWatts) < MotionConstants.activeFlowWattThreshold
+            }
+            return false
+        }()
+
         VStack(alignment: .leading, spacing: 16) {
             Text(L10n.text(.tabCharging, locale: locale))
                 .font(.title2.bold())
                 .foregroundStyle(palette.primaryText)
+
+            themedCard(palette: palette) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label(L10n.text(.bypassCardTitle, locale: locale), systemImage: "bolt.horizontal.circle.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(palette.primaryText)
+                        Spacer()
+                        Text(L10n.text(isBypassActive ? .bypassActiveBadge : .appliedProfile, locale: locale))
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(palette.accent.opacity(0.18))
+                            .foregroundStyle(palette.accent)
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                    }
+                    Text(L10n.text(.bypassCardDesc, locale: locale))
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                }
+            }
 
             themedCard(palette: palette) {
                 VStack(alignment: .leading, spacing: 12) {
