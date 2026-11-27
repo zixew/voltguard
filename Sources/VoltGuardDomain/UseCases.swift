@@ -4,15 +4,21 @@ public struct PolicyEvaluationContext: Equatable, Sendable {
     public var isSailingPaused: Bool
     public var isHeatPaused: Bool
     public var isSystemSleeping: Bool
+    public var isAutoDischarging: Bool
+    public var isAdapterLimitPaused: Bool
 
     public init(
         isSailingPaused: Bool = false,
         isHeatPaused: Bool = false,
-        isSystemSleeping: Bool = false
+        isSystemSleeping: Bool = false,
+        isAutoDischarging: Bool = false,
+        isAdapterLimitPaused: Bool = false
     ) {
         self.isSailingPaused = isSailingPaused
         self.isHeatPaused = isHeatPaused
         self.isSystemSleeping = isSystemSleeping
+        self.isAutoDischarging = isAutoDischarging
+        self.isAdapterLimitPaused = isAdapterLimitPaused
     }
 }
 
@@ -39,7 +45,8 @@ public struct EvaluateChargePolicyUseCase: Sendable {
         telemetry: BatteryTelemetry,
         policy: ChargePolicy,
         calibration: CalibrationSession,
-        context: PolicyEvaluationContext
+        context: PolicyEvaluationContext,
+        adapterCutMode: Bool = false
     ) -> PolicyEvaluationResult {
         var nextPolicy = policy
         var nextContext = context
@@ -115,6 +122,7 @@ public struct EvaluateChargePolicyUseCase: Sendable {
         let canDischargeInCurrentLidState = !telemetry.isClamshellClosed || nextPolicy.dischargeInClamshell
 
         if nextPolicy.manualDischarge && telemetry.isPluggedIn && canDischargeInCurrentLidState && telemetry.percentage > VoltGuardLimits.minSafeDischargePercent {
+            nextContext.isAutoDischarging = false
             let cmd = SMCCommandState(
                 targetLimitPercent: effectiveLimit,
                 allowCharging: false,
@@ -127,17 +135,26 @@ public struct EvaluateChargePolicyUseCase: Sendable {
             return PolicyEvaluationResult(command: cmd, updatedPolicy: nextPolicy, updatedContext: nextContext)
         }
 
-        if nextPolicy.automaticDischarge && telemetry.isPluggedIn && canDischargeInCurrentLidState && telemetry.percentage > effectiveLimit + VoltGuardLimits.autoDischargeBufferPercent {
-            let cmd = SMCCommandState(
-                targetLimitPercent: effectiveLimit,
-                allowCharging: false,
-                forceDischarge: true,
-                preventSleepAssertion: nextPolicy.sleepControlEnabled,
-                magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: true),
-                lowPowerModeEnabled: lowPowerEnabled,
-                statusReason: .automaticDischarge
-            )
-            return PolicyEvaluationResult(command: cmd, updatedPolicy: nextPolicy, updatedContext: nextContext)
+        if nextPolicy.automaticDischarge && !nextPolicy.topUpActive && telemetry.isPluggedIn && canDischargeInCurrentLidState {
+            if telemetry.percentage > effectiveLimit + VoltGuardLimits.autoDischargeBufferPercent {
+                nextContext.isAutoDischarging = true
+            } else if telemetry.percentage <= effectiveLimit {
+                nextContext.isAutoDischarging = false
+            }
+            if nextContext.isAutoDischarging {
+                let cmd = SMCCommandState(
+                    targetLimitPercent: effectiveLimit,
+                    allowCharging: false,
+                    forceDischarge: true,
+                    preventSleepAssertion: nextPolicy.sleepControlEnabled,
+                    magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: true),
+                    lowPowerModeEnabled: lowPowerEnabled,
+                    statusReason: .automaticDischarge
+                )
+                return PolicyEvaluationResult(command: cmd, updatedPolicy: nextPolicy, updatedContext: nextContext)
+            }
+        } else {
+            nextContext.isAutoDischarging = false
         }
 
         if nextPolicy.sailingModeEnabled && !nextPolicy.topUpActive {
@@ -148,6 +165,7 @@ public struct EvaluateChargePolicyUseCase: Sendable {
                 nextContext.isSailingPaused = false
             }
             if nextContext.isSailingPaused {
+                nextContext.isAdapterLimitPaused = false
                 let cmd = SMCCommandState(
                     targetLimitPercent: effectiveLimit,
                     allowCharging: false,
@@ -161,6 +179,29 @@ public struct EvaluateChargePolicyUseCase: Sendable {
             }
         } else {
             nextContext.isSailingPaused = false
+        }
+
+        if adapterCutMode && !nextPolicy.topUpActive && effectiveLimit < VoltGuardLimits.maxLimitPercent {
+            let adapterLowerBound = max(effectiveLimit - 3, VoltGuardLimits.minLimitPercent)
+            if telemetry.percentage >= effectiveLimit {
+                nextContext.isAdapterLimitPaused = true
+            } else if telemetry.percentage <= adapterLowerBound {
+                nextContext.isAdapterLimitPaused = false
+            }
+            if nextContext.isAdapterLimitPaused {
+                let cmd = SMCCommandState(
+                    targetLimitPercent: effectiveLimit,
+                    allowCharging: false,
+                    forceDischarge: false,
+                    preventSleepAssertion: false,
+                    magSafeLED: resolvedLED(nextPolicy.magSafeLEDMode, allowCharging: false, forceDischarge: false),
+                    lowPowerModeEnabled: lowPowerEnabled,
+                    statusReason: .limitReached
+                )
+                return PolicyEvaluationResult(command: cmd, updatedPolicy: nextPolicy, updatedContext: nextContext)
+            }
+        } else {
+            nextContext.isAdapterLimitPaused = false
         }
 
         let allowCharge = telemetry.percentage < effectiveLimit

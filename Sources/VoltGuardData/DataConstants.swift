@@ -24,6 +24,8 @@ public enum DataConstants {
         public static let settingsFileName = "settings.json"
         public static let healthHistoryFileName = "health_history.json"
         public static let lockFileName = "voltguard.lock"
+        public static let crashesFolderName = "crashes"
+        public static let activeSessionMarkerName = "session.active"
         public static let reopenNotificationName = "com.voltguard.reopen"
         public static let settingsChangedNotificationName = "com.voltguard.settingsChanged"
     }

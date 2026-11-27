@@ -113,6 +113,21 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case diagHelper
     case diagLogin
     case diagAlerts
+    case diagCrashReporter
+    case diagCrashDetected
+    case openCrashLogs
+    case clearCrashLogs
+    case diagScanning
+    case diagChecking
+    case diagQueued
+    case diagAllPassed
+    case diagNeedsAttention
+    case diagLastChecked
+    case updateHelperNow
+    case helperOutdatedBanner
+    case smcModeAdapter
+    case smcModeLegacy
+    case smcModeFirmware
     case diagPass
     case diagInactive
     case globalHotkeyHint
@@ -369,6 +384,21 @@ public struct L10n {
         .diagHelper: "SMC Privileged Helper",
         .diagLogin: "Launch at Login",
         .diagAlerts: "Smart Alerts",
+        .diagCrashReporter: "Crash & Signal Guard",
+        .diagCrashDetected: "Crash Logged",
+        .openCrashLogs: "Open Crash Logs",
+        .clearCrashLogs: "Clear Logs",
+        .diagScanning: "Scanning...",
+        .diagChecking: "Checking",
+        .diagQueued: "Queued",
+        .diagAllPassed: "All Checks Passed",
+        .diagNeedsAttention: "Needs Attention",
+        .diagLastChecked: "Checked",
+        .updateHelperNow: "Update Helper",
+        .helperOutdatedBanner: "Installed SMC helper is outdated. Update once so Charge Limit, Discharge, and Sailing Mode take effect.",
+        .smcModeAdapter: "Adapter Mode (CHIE)",
+        .smcModeLegacy: "SMC Charge Key",
+        .smcModeFirmware: "Firmware Limit (bfF0)",
         .diagPass: "OK",
         .diagInactive: "Inactive",
         .globalHotkeyHint: "Global Shortcut: Cmd+Option+V toggles menu bar popover",
@@ -617,6 +647,21 @@ public struct L10n {
         .diagHelper: "Helper SMC Root",
         .diagLogin: "Jalankan Saat Login",
         .diagAlerts: "Notifikasi Cerdas",
+        .diagCrashReporter: "Proteksi Crash & Sinyal",
+        .diagCrashDetected: "Ada Log Crash",
+        .openCrashLogs: "Buka Log Crash",
+        .clearCrashLogs: "Hapus Log",
+        .diagScanning: "Memindai...",
+        .diagChecking: "Memeriksa",
+        .diagQueued: "Antre",
+        .diagAllPassed: "Semua Uji Lolos",
+        .diagNeedsAttention: "Perlu Perhatian",
+        .diagLastChecked: "Diperiksa",
+        .updateHelperNow: "Perbarui Helper",
+        .helperOutdatedBanner: "Helper SMC terpasang versi lama. Perbarui sekali agar Batas Daya, Discharge, dan Sailing Mode bekerja.",
+        .smcModeAdapter: "Mode Adapter (CHIE)",
+        .smcModeLegacy: "Kunci SMC Bawaan",
+        .smcModeFirmware: "Limit Firmware (bfF0)",
         .diagPass: "OK",
         .diagInactive: "Nonaktif",
         .globalHotkeyHint: "Pintasan Global: Cmd+Option+V untuk buka/tutup popover",

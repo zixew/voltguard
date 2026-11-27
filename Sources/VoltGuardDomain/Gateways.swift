@@ -48,6 +48,7 @@ public protocol SMCControlGateway: Sendable {
     var isPrivilegedHelperConnected: Bool { get }
     var isInstalledHelperUpToDate: Bool { get }
     var isAppleSMCDriverReadable: Bool { get }
+    var backendMode: SMCBackendMode { get }
     func probeLiveConnection() -> Bool
     func applyCommand(_ command: SMCCommandState) async throws
     func restoreDefaultChargingSync()
@@ -58,6 +59,7 @@ public protocol SMCControlGateway: Sendable {
 public extension SMCControlGateway {
     var isInstalledHelperUpToDate: Bool { isPrivilegedHelperConnected }
     var isAppleSMCDriverReadable: Bool { true }
+    var backendMode: SMCBackendMode { .unknown }
     func probeLiveConnection() -> Bool { isPrivilegedHelperConnected }
     func restoreDefaultChargingSync() {}
 }

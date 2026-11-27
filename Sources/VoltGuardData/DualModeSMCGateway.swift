@@ -20,15 +20,18 @@ public enum SMCHelperError: Error, LocalizedError {
 }
 
 public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
-    private let socketPath = DataConstants.Helper.socketPath
+    private let socketPath: String
     private let helperInstallPath = DataConstants.Helper.installPath
     private let plistPath = DataConstants.Helper.plistPath
     private let lock = NSLock()
     private var lastAppliedCommand: SMCCommandState?
     private var lastSocketReachable: Bool?
+    private var lastBackendMode: SMCBackendMode = .unknown
     private var skippedIdenticalCount: Int = 0
 
-    public init() {}
+    public init(socketPath: String = DataConstants.Helper.socketPath) {
+        self.socketPath = socketPath
+    }
 
     public var isPrivilegedHelperConnected: Bool {
         guard FileManager.default.fileExists(atPath: socketPath) else { return false }
@@ -36,6 +39,14 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
             return known
         }
         return probeLiveConnection()
+    }
+
+    public var backendMode: SMCBackendMode {
+        guard isPrivilegedHelperConnected else { return .unknown }
+        if !isInstalledHelperUpToDate {
+            return .outdatedHelper
+        }
+        return lock.withLock { lastBackendMode }
     }
 
     public var isInstalledHelperUpToDate: Bool {
@@ -60,33 +71,33 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
 
     public func probeLiveConnection() -> Bool {
         guard FileManager.default.fileExists(atPath: socketPath) else {
-            lock.withLock { lastSocketReachable = false }
+            lock.withLock {
+                lastSocketReachable = false
+                lastBackendMode = .unknown
+            }
             return false
         }
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { return false }
-        defer { close(fd) }
-
-        var addr = sockaddr_un()
-        addr.sun_family = sa_family_t(AF_UNIX)
-        let pathBytes = socketPath.utf8CString
-        guard pathBytes.count <= MemoryLayout.size(ofValue: addr.sun_path) else { return false }
-        withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
-            ptr.withMemoryRebound(to: CChar.self, capacity: pathBytes.count) { dest in
-                _ = pathBytes.withUnsafeBufferPointer { src in
-                    memcpy(dest, src.baseAddress!, pathBytes.count)
-                }
+        let pingPayload = HelperPayload(
+            limitPercent: 80,
+            allowCharging: true,
+            forceDischarge: false,
+            magSafeLED: "system",
+            lowPowerModeEnabled: false,
+            pingOnly: true
+        )
+        guard let data = try? JSONEncoder().encode(pingPayload),
+              let ack = try? sendToSocket(data) else {
+            lock.withLock {
+                lastSocketReachable = false
+                lastBackendMode = .unknown
             }
+            return false
         }
-        let addrLen = socklen_t(MemoryLayout<sockaddr_un>.size)
-        let res = withUnsafePointer(to: &addr) { ptr in
-            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
-                connect(fd, sockPtr, addrLen)
-            }
+        lock.withLock {
+            lastSocketReachable = true
+            lastBackendMode = ack
         }
-        let ok = (res == 0)
-        lock.withLock { lastSocketReachable = ok }
-        return ok
+        return true
     }
 
     public func restoreDefaultChargingSync() {
@@ -96,10 +107,11 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
             allowCharging: true,
             forceDischarge: false,
             magSafeLED: "system",
-            lowPowerModeEnabled: false
+            lowPowerModeEnabled: false,
+            pingOnly: false
         )
         guard let data = try? JSONEncoder().encode(payload) else { return }
-        try? sendToSocket(data)
+        _ = try? sendToSocket(data)
     }
 
     public func applyCommand(_ command: SMCCommandState) async throws {
@@ -130,13 +142,15 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
             allowCharging: command.allowCharging,
             forceDischarge: command.forceDischarge,
             magSafeLED: command.magSafeLED.rawValue,
-            lowPowerModeEnabled: command.lowPowerModeEnabled
+            lowPowerModeEnabled: command.lowPowerModeEnabled,
+            pingOnly: false
         )
         let data = try JSONEncoder().encode(payload)
         do {
-            try sendToSocket(data)
+            let detectedMode = try sendToSocket(data)
             lock.withLock {
                 lastSocketReachable = true
+                lastBackendMode = detectedMode
                 lastAppliedCommand = command
             }
         } catch {
@@ -184,8 +198,9 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
         cp '\(tempPlist)' '\(plistPath)' && \
         chmod 644 '\(plistPath)' && \
         chown root:wheel '\(plistPath)' && \
-        launchctl unload '\(plistPath)' 2>/dev/null || true && \
-        launchctl load -w '\(plistPath)'
+        launchctl bootout system/\(DataConstants.Helper.daemonLabel) 2>/dev/null || launchctl unload '\(plistPath)' 2>/dev/null || true && \
+        launchctl bootstrap system '\(plistPath)' 2>/dev/null || launchctl load -w '\(plistPath)' && \
+        launchctl kickstart -k system/\(DataConstants.Helper.daemonLabel) 2>/dev/null || true
         """
 
         do {
@@ -223,10 +238,12 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
             let errorPipe = Pipe()
             process.standardError = errorPipe
             process.terminationHandler = { proc in
+                proc.terminationHandler = nil
+                let errData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+                try? errorPipe.fileHandleForReading.close()
                 if proc.terminationStatus == 0 {
                     continuation.resume()
                 } else {
-                    let errData = errorPipe.fileHandleForReading.readDataToEndOfFile()
                     let errMsg = String(data: errData, encoding: .utf8) ?? "Unknown authorization error"
                     continuation.resume(throwing: SMCHelperError.installationCancelled(errMsg.trimmingCharacters(in: .whitespacesAndNewlines)))
                 }
@@ -254,15 +271,22 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
         return nil
     }
 
-    private func sendToSocket(_ data: Data) throws {
+    private func openConnectedSocket() throws -> Int32 {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw SMCHelperError.socketWriteFailed }
-        defer { close(fd) }
+
+        var noSigPipe: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
+
+        var timeout = timeval(tv_sec: 2, tv_usec: 0)
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
 
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
         let pathBytes = socketPath.utf8CString
         guard pathBytes.count <= MemoryLayout.size(ofValue: addr.sun_path) else {
+            close(fd)
             throw SMCHelperError.socketWriteFailed
         }
         withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
@@ -279,14 +303,47 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
                 connect(fd, sockPtr, addrLen)
             }
         }
-        guard connectResult == 0 else { throw SMCHelperError.socketWriteFailed }
+        guard connectResult == 0 else {
+            close(fd)
+            throw SMCHelperError.socketWriteFailed
+        }
+        return fd
+    }
 
+    @discardableResult
+    private func sendToSocket(_ data: Data) throws -> SMCBackendMode {
         var lineData = data
         lineData.append(0x0A)
-        let sent = lineData.withUnsafeBytes { buf in
-            write(fd, buf.baseAddress!, lineData.count)
+
+        for attempt in 0..<2 {
+            let fd = try openConnectedSocket()
+            let sent = lineData.withUnsafeBytes { buf in
+                write(fd, buf.baseAddress!, lineData.count)
+            }
+            let writeErrno = errno
+
+            if sent == lineData.count {
+                var ackBuffer = [UInt8](repeating: 0, count: 1024)
+                let readCount = read(fd, &ackBuffer, ackBuffer.count)
+                close(fd)
+
+                if readCount > 0 {
+                    let ackData = Data(ackBuffer.prefix(readCount))
+                    if let ack = try? JSONDecoder().decode(HelperAckPayload.self, from: ackData) {
+                        return SMCBackendMode(rawValue: ack.backendMode) ?? .unknown
+                    }
+                }
+                return .outdatedHelper
+            }
+
+            close(fd)
+            let transientError = (writeErrno == EPIPE || writeErrno == ECONNRESET)
+            if attempt == 0 && transientError {
+                continue
+            }
+            throw SMCHelperError.socketWriteFailed
         }
-        guard sent == lineData.count else { throw SMCHelperError.socketWriteFailed }
+        throw SMCHelperError.socketWriteFailed
     }
 }
 
@@ -296,4 +353,10 @@ private struct HelperPayload: Encodable {
     let forceDischarge: Bool
     let magSafeLED: String
     let lowPowerModeEnabled: Bool
+    let pingOnly: Bool?
+}
+
+private struct HelperAckPayload: Decodable {
+    let ok: Bool
+    let backendMode: String
 }

@@ -580,29 +580,71 @@ public struct PopoverView: View {
 
     @ViewBuilder
     private func footerBar(state: VoltGuardViewState, palette: ThemePalette, locale: AppLocale) -> some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(state.helperConnected ? palette.accent : palette.warning)
-                .frame(width: 7, height: 7)
-                .accessibilityHidden(true)
-            Text(L10n.text(state.helperConnected ? .helperConnected : .helperDryRun, locale: locale))
-                .font(.system(size: 11))
+        let needsUpdate = state.helperNeedsUpdate || state.smcBackendMode == .outdatedHelper
+        VStack(alignment: .leading, spacing: 6) {
+            if needsUpdate {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(palette.warning)
+                    Text(L10n.text(.helperOutdatedBanner, locale: locale))
+                        .font(.system(size: 10))
+                        .foregroundStyle(palette.primaryText)
+                        .lineLimit(2)
+                    Spacer(minLength: 4)
+                    Button(L10n.text(.updateHelperNow, locale: locale)) {
+                        presenter.dispatch(.installHelper)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(palette.warning)
+                    .controlSize(.mini)
+                }
+                .padding(8)
+                .background(palette.warning.opacity(0.14))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.warning.opacity(0.45), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(needsUpdate ? palette.warning : (state.helperConnected ? palette.accent : palette.warning))
+                    .frame(width: 7, height: 7)
+                    .accessibilityHidden(true)
+                Text(helperStatusLabel(state: state, locale: locale))
+                    .font(.system(size: 11))
+                    .foregroundStyle(palette.secondaryText)
+                    .lineLimit(1)
+                Spacer()
+                Button(L10n.text(.minimizeToBackground, locale: locale)) {
+                    presenter.dispatch(.minimizeToBackground)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(palette.secondaryText)
-                .lineLimit(1)
-            Spacer()
-            Button(L10n.text(.minimizeToBackground, locale: locale)) {
-                presenter.dispatch(.minimizeToBackground)
-            }
-            .buttonStyle(.plain)
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(palette.secondaryText)
 
-            Button(L10n.text(.quit, locale: locale)) {
-                presenter.dispatch(.quitApp)
+                Button(L10n.text(.quit, locale: locale)) {
+                    presenter.dispatch(.quitApp)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(palette.danger)
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(palette.danger)
+        }
+    }
+
+    private func helperStatusLabel(state: VoltGuardViewState, locale: AppLocale) -> String {
+        if state.helperNeedsUpdate || state.smcBackendMode == .outdatedHelper {
+            return L10n.text(.diagUpdateNeeded, locale: locale)
+        }
+        guard state.helperConnected else {
+            return L10n.text(.helperDryRun, locale: locale)
+        }
+        switch state.smcBackendMode {
+        case .adapterMode:
+            return "\(L10n.text(.helperConnected, locale: locale)) · \(L10n.text(.smcModeAdapter, locale: locale))"
+        case .firmwareManaged:
+            return "\(L10n.text(.helperConnected, locale: locale)) · \(L10n.text(.smcModeFirmware, locale: locale))"
+        default:
+            return L10n.text(.helperConnected, locale: locale)
         }
     }
 

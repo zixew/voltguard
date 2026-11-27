@@ -1878,14 +1878,41 @@ public struct FullDashboardView: View {
                         palette: palette
                     ) { presenter.dispatch(.toggleSmartAlerts) }
 
+                    let helperNeedsUpdate = presenter.state.helperNeedsUpdate || presenter.state.smcBackendMode == .outdatedHelper
+                    if helperNeedsUpdate {
+                        HStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(palette.warning)
+                            Text(L10n.text(.helperOutdatedBanner, locale: locale))
+                                .font(.caption)
+                                .foregroundStyle(palette.primaryText)
+                            Spacer()
+                            Button(L10n.text(.updateHelperNow, locale: locale)) {
+                                presenter.dispatch(.installHelper)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(palette.warning)
+                            .controlSize(.small)
+                        }
+                        .padding(10)
+                        .background(palette.warning.opacity(0.14))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.warning.opacity(0.45), lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+
                     HStack {
                         HStack(spacing: 6) {
                             Circle()
-                                .fill(presenter.state.helperConnected ? palette.accent : palette.warning)
+                                .fill(helperNeedsUpdate ? palette.warning : (presenter.state.helperConnected ? palette.accent : palette.warning))
                                 .frame(width: 8, height: 8)
                             Text(L10n.text(presenter.state.helperConnected ? .helperConnected : .helperDryRun, locale: locale))
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(palette.primaryText)
+                            if presenter.state.helperConnected && !helperNeedsUpdate {
+                                Text(presenter.state.smcBackendMode == .adapterMode ? "· \(L10n.text(.smcModeAdapter, locale: locale))" : (presenter.state.smcBackendMode == .firmwareManaged ? "· \(L10n.text(.smcModeFirmware, locale: locale))" : ""))
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(palette.secondaryText)
+                            }
                         }
                         Spacer()
                         Button {
@@ -1906,11 +1933,11 @@ public struct FullDashboardView: View {
                             .tint(palette.danger)
                             .controlSize(.small)
                         }
-                        Button(L10n.text(.installHelper, locale: locale)) {
+                        Button(L10n.text(helperNeedsUpdate ? .updateHelperNow : .installHelper, locale: locale)) {
                             presenter.dispatch(.installHelper)
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(palette.accent)
+                        .tint(helperNeedsUpdate ? palette.warning : palette.accent)
                         .controlSize(.small)
                     }
                     .padding(.top, 2)
@@ -2009,18 +2036,75 @@ public struct FullDashboardView: View {
             }
 
             themedCard(title: L10n.text(.diagnosticsTitle, locale: locale), palette: palette) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
+                let isScanning = presenter.state.isRunningDiagnostics
+                let scanStep = presenter.state.diagnosticsScanStep
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
                         Text(L10n.text(.globalHotkeyHint, locale: locale))
                             .font(.caption)
                             .foregroundStyle(palette.secondaryText)
                         Spacer()
-                        Button(L10n.text(.runDiagnostics, locale: locale)) {
+                        Button {
                             presenter.dispatch(.runDiagnostics)
+                        } label: {
+                            HStack(spacing: 6) {
+                                if isScanning {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .scaleEffect(0.75)
+                                } else {
+                                    Image(systemName: "play.circle.fill")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                Text(L10n.text(isScanning ? .diagScanning : .runDiagnostics, locale: locale))
+                            }
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(palette.accent)
+                        .disabled(isScanning)
                     }
+
+                    if isScanning {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ProgressView(value: Double(scanStep), total: 7.0)
+                                .tint(palette.accent)
+                            Text("\(L10n.text(.diagScanning, locale: locale)) (\(min(scanStep + 1, 7))/7)")
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(palette.accent)
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    } else if let diag = presenter.state.diagnostics {
+                        let checks = [
+                            diag.iokitReadable,
+                            diag.appleSMCReadable,
+                            diag.smcHelperConnected,
+                            diag.smcHelperUpToDate,
+                            diag.launchAtLoginEnabled,
+                            diag.alertsEnabled,
+                            diag.crashReportCount == 0
+                        ]
+                        let passedCount = checks.filter { $0 }.count
+                        let allPassed = (passedCount == checks.count)
+                        HStack(spacing: 8) {
+                            Image(systemName: allPassed ? "checkmark.shield.fill" : "exclamationmark.shield.fill")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(allPassed ? palette.accent : palette.warning)
+                            Text("\(passedCount)/\(checks.count) · \(L10n.text(allPassed ? .diagAllPassed : .diagNeedsAttention, locale: locale))")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(palette.primaryText)
+                            Spacer()
+                            Text("\(L10n.text(.diagLastChecked, locale: locale)) \(diag.checkedAt.formatted(date: .omitted, time: .standard))")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(palette.secondaryText)
+                                .contentTransition(.numericText())
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background((allPassed ? palette.accent : palette.warning).opacity(0.12))
+                        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder((allPassed ? palette.accent : palette.warning).opacity(0.35), lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    }
+
                     if let diag = presenter.state.diagnostics {
                         if let summary = diag.sensorSummary {
                             HStack(spacing: 6) {
@@ -2038,22 +2122,70 @@ public struct FullDashboardView: View {
                             .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(palette.accent.opacity(0.35), lineWidth: 1))
                             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                         }
-                        diagRow(label: L10n.text(.diagIOKit, locale: locale), ok: diag.iokitReadable, palette: palette, locale: locale)
-                        diagRow(label: L10n.text(.diagAppleSMCDriver, locale: locale), ok: diag.appleSMCReadable, palette: palette, locale: locale)
-                        diagRow(label: L10n.text(.diagHelper, locale: locale), ok: diag.smcHelperConnected, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagIOKit, locale: locale), ok: diag.iokitReadable, stepIndex: 0, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagAppleSMCDriver, locale: locale), ok: diag.appleSMCReadable, stepIndex: 1, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagHelper, locale: locale), ok: diag.smcHelperConnected, stepIndex: 2, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
                         diagRow(
                             label: L10n.text(.diagHelperVersion, locale: locale),
                             ok: diag.smcHelperUpToDate,
                             failBadgeKey: .diagUpdateNeeded,
+                            stepIndex: 3,
+                            isScanning: isScanning,
+                            currentStep: scanStep,
                             palette: palette,
                             locale: locale
                         )
-                        diagRow(label: L10n.text(.diagLogin, locale: locale), ok: diag.launchAtLoginEnabled, palette: palette, locale: locale)
-                        diagRow(label: L10n.text(.diagAlerts, locale: locale), ok: diag.alertsEnabled, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagLogin, locale: locale), ok: diag.launchAtLoginEnabled, stepIndex: 4, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagAlerts, locale: locale), ok: diag.alertsEnabled, stepIndex: 5, isScanning: isScanning, currentStep: scanStep, palette: palette, locale: locale)
+                        diagRow(
+                            label: L10n.text(.diagCrashReporter, locale: locale),
+                            ok: diag.crashReportCount == 0,
+                            failBadgeKey: .diagCrashDetected,
+                            stepIndex: 6,
+                            isScanning: isScanning,
+                            currentStep: scanStep,
+                            palette: palette,
+                            locale: locale
+                        )
+                        if let latestCrash = diag.latestCrashSummary {
+                            Text(latestCrash)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(palette.secondaryText)
+                                .lineLimit(2)
+                        }
+                        HStack(spacing: 8) {
+                            Button(L10n.text(.openCrashLogs, locale: locale)) {
+                                presenter.dispatch(.openCrashLogs)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            if diag.crashReportCount > 0 {
+                                Button(L10n.text(.clearCrashLogs, locale: locale)) {
+                                    presenter.dispatch(.clearCrashLogs)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                        }
+                    } else if isScanning {
+                        let placeholderLabels = [
+                            L10n.text(.diagIOKit, locale: locale),
+                            L10n.text(.diagAppleSMCDriver, locale: locale),
+                            L10n.text(.diagHelper, locale: locale),
+                            L10n.text(.diagHelperVersion, locale: locale),
+                            L10n.text(.diagLogin, locale: locale),
+                            L10n.text(.diagAlerts, locale: locale),
+                            L10n.text(.diagCrashReporter, locale: locale)
+                        ]
+                        ForEach(Array(placeholderLabels.enumerated()), id: \.offset) { index, label in
+                            diagRow(label: label, ok: false, stepIndex: index, isScanning: true, currentStep: scanStep, palette: palette, locale: locale)
+                        }
                     }
                 }
+                .animation(.spring(response: 0.28, dampingFraction: 0.85), value: scanStep)
+                .animation(.easeInOut(duration: 0.2), value: isScanning)
                 .onAppear {
-                    if presenter.state.diagnostics == nil {
+                    if presenter.state.diagnostics == nil && !presenter.state.isRunningDiagnostics {
                         presenter.dispatch(.runDiagnostics)
                     }
                 }
@@ -2076,30 +2208,54 @@ public struct FullDashboardView: View {
         label: String,
         ok: Bool,
         failBadgeKey: L10nKey = .diagInactive,
+        stepIndex: Int,
+        isScanning: Bool,
+        currentStep: Int,
         palette: ThemePalette,
         locale: AppLocale
     ) -> some View {
+        let isChecking = isScanning && stepIndex == currentStep
+        let isQueued = isScanning && stepIndex > currentStep
+        let badgeColor: Color = isChecking ? palette.accent : (isQueued ? palette.secondaryText : (ok ? palette.accent : palette.warning))
+        let badgeKey: L10nKey = isChecking ? .diagChecking : (isQueued ? .diagQueued : (ok ? .diagPass : failBadgeKey))
+
         HStack {
-            Image(systemName: ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(ok ? palette.accent : palette.warning)
+            if isChecking {
+                ProgressView()
+                    .controlSize(.small)
+                    .scaleEffect(0.68)
+                    .frame(width: 14, height: 14)
+            } else if isQueued {
+                Image(systemName: "circle.dotted")
+                    .font(.system(size: 12))
+                    .foregroundStyle(palette.secondaryText.opacity(0.65))
+            } else {
+                Image(systemName: ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(ok ? palette.accent : palette.warning)
+                    .transition(.scale.combined(with: .opacity))
+            }
             Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(palette.primaryText)
+                .font(.system(size: 12, weight: isChecking ? .semibold : .medium))
+                .foregroundStyle(isQueued ? palette.secondaryText : palette.primaryText)
             Spacer()
-            Text(L10n.text(ok ? .diagPass : failBadgeKey, locale: locale))
+            Text(L10n.text(badgeKey, locale: locale))
                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
-                .background((ok ? palette.accent : palette.warning).opacity(0.18))
-                .foregroundStyle(ok ? palette.accent : palette.warning)
+                .background(badgeColor.opacity(0.18))
+                .foregroundStyle(badgeColor)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(palette.background.opacity(0.5))
-        .overlay(RoundedRectangle(cornerRadius: 7).stroke(palette.border.opacity(0.6), lineWidth: 1))
+        .background(isChecking ? palette.accent.opacity(0.08) : palette.background.opacity(0.5))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(isChecking ? palette.accent.opacity(0.55) : palette.border.opacity(0.6), lineWidth: isChecking ? 1.2 : 1)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 7))
+        .opacity(isQueued ? 0.65 : 1.0)
     }
 
     @ViewBuilder

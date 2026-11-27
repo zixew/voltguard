@@ -24,6 +24,7 @@ public final class SystemEnergyMonitor: EnergyMonitorGateway, @unchecked Sendabl
 
         try process.run()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        try? pipe.fileHandleForReading.close()
         process.waitUntilExit()
 
         guard process.terminationStatus == 0,

@@ -94,6 +94,8 @@ public struct VoltGuardViewState: Equatable {
     public var activeToolbarEvent: ToolbarNotificationEvent?
     public var requestedDashboardTab: Int?
     public var diagnostics: DiagnosticsReport?
+    public var isRunningDiagnostics: Bool = false
+    public var diagnosticsScanStep: Int = 0
     public var csvExportFeedback: Bool = false
     public var settingsFeedbackMessage: String?
     public var isUIVisible: Bool = false
@@ -103,6 +105,8 @@ public struct VoltGuardViewState: Equatable {
     public var calibration: CalibrationSession = CalibrationSession()
     public var lastReason: PolicyReason = .normalCharging
     public var helperConnected: Bool = false
+    public var helperNeedsUpdate: Bool = false
+    public var smcBackendMode: SMCBackendMode = .unknown
     public var helperErrorMessage: String?
     public var palette: ThemePalette = ThemePalette.resolve(ThemeConfig())
 }
@@ -138,6 +142,8 @@ public enum VoltGuardAction {
     case movePopoverModule(PopoverModuleID, Int)
     case exportHealthCSV
     case runDiagnostics
+    case openCrashLogs
+    case clearCrashLogs
     case toggleLaunchAtLogin
     case toggleSmartAlerts
     case saveCustomProfile
@@ -172,7 +178,10 @@ public final class VoltGuardInteractor {
     private let scheduleUseCase = ScheduleEvaluatorUseCase()
     private let powerFlowCalculator = PowerFlowCalculator()
 
+    private let policyLock = NSLock()
     private var policyContext = PolicyEvaluationContext()
+    private var latestSettingsSnapshot = AppSettings()
+    private var latestCalibrationSnapshot = CalibrationSession()
     private var timer: DispatchSourceTimer?
     private let timerQueue = DispatchQueue(label: "com.voltguard.telemetry", qos: .utility)
     private var sleepObserver: NSObjectProtocol?
@@ -185,6 +194,7 @@ public final class VoltGuardInteractor {
     private var lastAlertTargetLimit: Int?
 
     public var onStateUpdate: ((BatteryTelemetry?, PowerFlowMetrics, AppSettings, CalibrationSession, PolicyReason, Bool, [BatteryHealthSnapshot]?, String?, UInt64) -> Void)?
+    public var onHardwareStatusUpdate: ((Bool, Bool, SMCBackendMode) -> Void)?
 
     public init(
         batteryReader: BatteryReadingGateway = IOKitBatteryReader(),
@@ -286,20 +296,34 @@ public final class VoltGuardInteractor {
                 mutableSettings.calibrationSession = mutableCalibration
             }
 
+            let currentContext = policyLock.withLock { () -> PolicyEvaluationContext in
+                latestSettingsSnapshot = mutableSettings
+                latestCalibrationSnapshot = mutableCalibration
+                return policyContext
+            }
+            let isAdapterCutMode = (smcGateway.backendMode == .adapterMode)
             let eval = policyUseCase.execute(
                 telemetry: telemetry,
                 policy: mutableSettings.policy,
                 calibration: mutableCalibration,
-                context: policyContext
+                context: currentContext,
+                adapterCutMode: isAdapterCutMode
             )
-            policyContext = eval.updatedContext
             mutableSettings.policy = eval.updatedPolicy
+            policyLock.withLock {
+                policyContext = eval.updatedContext
+                latestSettingsSnapshot = mutableSettings
+            }
 
             if mutableSettings != settings {
                 settingsRepo.save(mutableSettings)
             }
 
             try? await smcGateway.applyCommand(eval.command)
+            let connected = smcGateway.isPrivilegedHelperConnected
+            let needsUpdate = connected && !smcGateway.isInstalledHelperUpToDate
+            let mode = smcGateway.backendMode
+            onHardwareStatusUpdate?(connected, needsUpdate, mode)
             powerGateway.setPreventSleep(eval.command.preventSleepAssertion, reason: "VoltGuard active discharge or calibration")
             await powerGateway.setLowPowerMode(eval.command.lowPowerModeEnabled)
 
@@ -383,6 +407,10 @@ public final class VoltGuardInteractor {
         let summary: String? = telemetry.map {
             String(format: "%d%%  |  %d / %d mAh  |  %.2f V  |  %+.2f A", $0.percentage, $0.maxCapacityMah, $0.designCapacityMah, $0.voltageVolts, $0.amperageAmps)
         }
+        let crashReports = CrashReporter.shared.loadReports()
+        let latestCrash = crashReports.first.map {
+            "[\($0.buildMode)] \($0.name): \($0.reason)"
+        }
         return DiagnosticsReport(
             iokitReadable: iokitOK,
             smcHelperConnected: socketLive,
@@ -390,7 +418,10 @@ public final class VoltGuardInteractor {
             appleSMCReadable: smcDriverOK,
             launchAtLoginEnabled: launchAtLoginGateway.isEnabled(),
             alertsEnabled: alertsEnabled,
-            sensorSummary: summary
+            sensorSummary: summary,
+            crashReportCount: crashReports.count,
+            latestCrashSummary: latestCrash,
+            smcBackendMode: smcGateway.backendMode
         )
     }
 
@@ -489,10 +520,24 @@ public final class VoltGuardInteractor {
     private func observeSleepWake() {
         let nc = NSWorkspace.shared.notificationCenter
         sleepObserver = nc.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: nil) { [weak self] _ in
-            self?.policyContext.isSystemSleeping = true
+            guard let self else { return }
+            let (settings, cal) = self.policyLock.withLock {
+                self.policyContext.isSystemSleeping = true
+                return (self.latestSettingsSnapshot, self.latestCalibrationSnapshot)
+            }
+            Task { [weak self] in
+                await self?.tick(settings: settings, calibration: cal)
+            }
         }
         wakeObserver = nc.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: nil) { [weak self] _ in
-            self?.policyContext.isSystemSleeping = false
+            guard let self else { return }
+            let (settings, cal) = self.policyLock.withLock {
+                self.policyContext.isSystemSleeping = false
+                return (self.latestSettingsSnapshot, self.latestCalibrationSnapshot)
+            }
+            Task { [weak self] in
+                await self?.tick(settings: settings, calibration: cal)
+            }
         }
     }
 }
@@ -508,6 +553,7 @@ public final class VoltGuardPresenter: ObservableObject {
     private var settingsObserver: NSObjectProtocol?
     private var systemAlertActionObserver: NSObjectProtocol?
     private var toastDismissTask: Task<Void, Never>?
+    private var diagnosticsTask: Task<Void, Never>?
     private var lastToolbarEventAtByTitle: [L10nKey: Date] = [:]
     private var hasReceivedFirstTelemetryTick = false
     private var stateMutationGeneration: UInt64 = 0
@@ -522,6 +568,15 @@ public final class VoltGuardPresenter: ObservableObject {
         state.healthSnapshots = interactor.loadHealthSnapshots()
         if initial.alertsEnabled {
             interactor.requestAlertPermissions()
+        }
+
+        interactor.onHardwareStatusUpdate = { [weak self] connected, needsUpdate, mode in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.state.helperConnected = connected
+                self.state.helperNeedsUpdate = needsUpdate
+                self.state.smcBackendMode = mode
+            }
         }
 
         interactor.onStateUpdate = { [weak self] telemetry, flow, settings, calibration, reason, helperConnected, snapshots, errMsg, tickGen in
@@ -712,6 +767,8 @@ public final class VoltGuardPresenter: ObservableObject {
     }
 
     deinit {
+        diagnosticsTask?.cancel()
+        toastDismissTask?.cancel()
         if let settingsObserver {
             DistributedNotificationCenter.default().removeObserver(settingsObserver)
         }
@@ -763,11 +820,18 @@ public final class VoltGuardPresenter: ObservableObject {
             }
             persistAndSync()
         case .setChargeLimit(let limit):
-            state.settings.policy.limitPercent = min(max(limit, VoltGuardLimits.minLimitPercent), VoltGuardLimits.maxLimitPercent)
+            let clamped = min(max(limit, VoltGuardLimits.minLimitPercent), VoltGuardLimits.maxLimitPercent)
+            state.settings.policy.limitPercent = clamped
             state.settings.policy.topUpActive = false
+            if clamped >= VoltGuardLimits.maxLimitPercent {
+                state.settings.policy.manualDischarge = false
+            }
             persistAndSync()
         case .toggleManualDischarge:
             state.settings.policy.manualDischarge.toggle()
+            if state.settings.policy.manualDischarge {
+                state.settings.policy.topUpActive = false
+            }
             persistAndSync()
         case .toggleAutomaticDischarge:
             state.settings.policy.automaticDischarge.toggle()
@@ -792,6 +856,9 @@ public final class VoltGuardPresenter: ObservableObject {
             persistAndSync()
         case .toggleTopUp:
             state.settings.policy.topUpActive.toggle()
+            if state.settings.policy.topUpActive {
+                state.settings.policy.manualDischarge = false
+            }
             persistAndSync()
         case .startCalibration:
             let session = CalibrationSession(
@@ -863,6 +930,11 @@ public final class VoltGuardPresenter: ObservableObject {
             NSPasteboard.general.setString(csv, forType: .string)
             state.csvExportFeedback = true
         case .runDiagnostics:
+            runAnimatedDiagnostics()
+        case .openCrashLogs:
+            NSWorkspace.shared.open(CrashReporter.shared.crashesDirectoryURL)
+        case .clearCrashLogs:
+            CrashReporter.shared.clearReports()
             state.diagnostics = interactor.runDiagnostics(alertsEnabled: state.settings.alertsEnabled)
         case .toggleLaunchAtLogin:
             let next = !state.settings.launchAtLogin
@@ -1035,13 +1107,41 @@ public final class VoltGuardPresenter: ObservableObject {
         }
     }
 
+    private func runAnimatedDiagnostics() {
+        diagnosticsTask?.cancel()
+        let alertsEnabled = state.settings.alertsEnabled
+        let interactorRef = interactor
+
+        state.isRunningDiagnostics = true
+        state.diagnosticsScanStep = 0
+
+        diagnosticsTask = Task { @MainActor [weak self] in
+            let probeTask = Task.detached(priority: .userInitiated) {
+                interactorRef.runDiagnostics(alertsEnabled: alertsEnabled)
+            }
+
+            for step in 0..<7 {
+                guard !Task.isCancelled else { return }
+                self?.state.diagnosticsScanStep = step
+                try? await Task.sleep(nanoseconds: 75_000_000)
+            }
+
+            let report = await probeTask.value
+            guard !Task.isCancelled, let self else { return }
+            self.state.diagnosticsScanStep = 7
+            self.state.diagnostics = report
+            self.state.isRunningDiagnostics = false
+        }
+    }
+
     private func syncPolicyStatusImmediately() {
         guard case .loaded(let telemetry, _) = state.telemetryState else { return }
         let eval = instantPolicyUseCase.execute(
             telemetry: telemetry,
             policy: state.settings.policy,
             calibration: state.calibration,
-            context: PolicyEvaluationContext()
+            context: PolicyEvaluationContext(),
+            adapterCutMode: state.smcBackendMode == .adapterMode
         )
         state.lastReason = eval.command.statusReason
         state.liveRecommendation = recommendUseCase.recommend(

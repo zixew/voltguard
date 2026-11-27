@@ -12,6 +12,15 @@ public enum AppLocale: String, Codable, CaseIterable, Sendable {
     }
 }
 
+public enum SMCBackendMode: String, Codable, Equatable, Sendable {
+    case unknown
+    case legacy
+    case firmwareManaged
+    case adapterMode
+    case outdatedHelper
+    case unsupported
+}
+
 public enum MagSafeLEDMode: String, Codable, CaseIterable, Sendable {
     case system
     case off
@@ -354,6 +363,9 @@ public struct DiagnosticsReport: Equatable, Sendable {
     public let launchAtLoginEnabled: Bool
     public let alertsEnabled: Bool
     public let sensorSummary: String?
+    public let crashReportCount: Int
+    public let latestCrashSummary: String?
+    public let smcBackendMode: SMCBackendMode
     public let checkedAt: Date
 
     public init(
@@ -364,6 +376,9 @@ public struct DiagnosticsReport: Equatable, Sendable {
         launchAtLoginEnabled: Bool,
         alertsEnabled: Bool,
         sensorSummary: String? = nil,
+        crashReportCount: Int = 0,
+        latestCrashSummary: String? = nil,
+        smcBackendMode: SMCBackendMode = .unknown,
         checkedAt: Date = Date()
     ) {
         self.iokitReadable = iokitReadable
@@ -373,6 +388,9 @@ public struct DiagnosticsReport: Equatable, Sendable {
         self.launchAtLoginEnabled = launchAtLoginEnabled
         self.alertsEnabled = alertsEnabled
         self.sensorSummary = sensorSummary
+        self.crashReportCount = crashReportCount
+        self.latestCrashSummary = latestCrashSummary
+        self.smcBackendMode = smcBackendMode
         self.checkedAt = checkedAt
     }
 }

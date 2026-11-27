@@ -9,9 +9,9 @@ DMG_PATH="$DIST_DIR/VoltGuard.dmg"
 ICLOUD_DIR="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
 
 cd "$ROOT_DIR"
-swift build -c release
+swift build -c release --arch arm64 --arch x86_64
 
-BIN_DIR="$(swift build -c release --show-bin-path)"
+BIN_DIR="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)"
 MAIN_BIN="$BIN_DIR/VoltGuard"
 HELPER_BIN="$BIN_DIR/voltguard-helper"
 
@@ -78,9 +78,12 @@ if [ "${CI:-false}" != "true" ]; then
         echo "Uploaded to iCloud Drive: $ICLOUD_DIR/VoltGuard.dmg"
     fi
 
+    pkill -x VoltGuard 2>/dev/null || true
+    sleep 1
     rm -rf "/Applications/$APP_NAME"
     cp -R "$APP_DIR" "/Applications/$APP_NAME"
     echo "Installed to /Applications/$APP_NAME"
+    open "/Applications/$APP_NAME" || true
 else
     echo "CI mode enabled: packaged $DMG_PATH (skipped /Applications and iCloud copy)"
 fi

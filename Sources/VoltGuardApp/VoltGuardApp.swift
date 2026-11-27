@@ -27,14 +27,32 @@ final class VoltGuardAppDelegate: NSObject, NSApplicationDelegate, AppRouterProt
     private var reopenObserver: NSObjectProtocol?
     private var hotKeyRef: EventHotKeyRef?
     private var hotKeyHandlerRef: EventHandlerRef?
+    private var sigTermSource: DispatchSourceSignal?
+    private var activeInstanceGuard: SingleInstanceGuard = .shared
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        let isDevIsolated = CommandLine.arguments.contains("--dev-isolated")
+        if isDevIsolated {
+            let isolatedCrashURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("voltguard-dev-crashes-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
+            CrashReporter.shared.configureDirectory(isolatedCrashURL)
+
+            let isolatedURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("voltguard-dev-\(ProcessInfo.processInfo.processIdentifier).lock")
+            activeInstanceGuard = SingleInstanceGuard(lockFileURL: isolatedURL)
+            _ = activeInstanceGuard.acquireLock()
+            return
+        }
+
         let currentPID = ProcessInfo.processInfo.processIdentifier
         let existingApps = NSRunningApplication.runningApplications(withBundleIdentifier: AppLayoutConstants.brandBundleID)
             .filter { $0.processIdentifier != currentPID }
 
-        let gotLock = SingleInstanceGuard.shared.acquireLock()
+        let gotLock = activeInstanceGuard.acquireLock()
         if !gotLock || !existingApps.isEmpty {
+            let pids = existingApps.map { String($0.processIdentifier) }.joined(separator: ", ")
+            let msg = "[VoltGuard] Another instance is active (lock=\(gotLock), pids=[\(pids)]). Forwarding reopen; pass --dev-isolated for isolated dev launch.\n"
+            FileHandle.standardError.write(Data(msg.utf8))
             DistributedNotificationCenter.default().postNotificationName(
                 Notification.Name(DataConstants.Storage.reopenNotificationName),
                 object: nil,
@@ -47,6 +65,15 @@ final class VoltGuardAppDelegate: NSObject, NSApplicationDelegate, AppRouterProt
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        CrashReporter.shared.install()
+        signal(SIGTERM, SIG_IGN)
+        let termSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        termSource.setEventHandler {
+            NSApp.terminate(nil)
+        }
+        termSource.resume()
+        sigTermSource = termSource
+
         NSApp.setActivationPolicy(.accessory)
 
         reopenObserver = DistributedNotificationCenter.default().addObserver(
@@ -299,7 +326,10 @@ final class VoltGuardAppDelegate: NSObject, NSApplicationDelegate, AppRouterProt
         if let hotKeyHandlerRef {
             RemoveEventHandler(hotKeyHandlerRef)
         }
-        SingleInstanceGuard.shared.releaseLock()
+        sigTermSource?.cancel()
+        sigTermSource = nil
+        CrashReporter.shared.markCleanExit()
+        activeInstanceGuard.releaseLock()
     }
 
     private func registerGlobalHotKey() {

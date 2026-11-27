@@ -63,6 +63,35 @@
 
 ---
 
+## Kompatibilitas MacBook, Chip & Versi macOS
+
+VoltGuard dirancang sebagai **Universal Binary** (`arm64` + `x86_64`) dengan target minimum **macOS 14.0 Sonoma**.
+
+### Dukungan Berdasarkan Versi macOS & Firmware
+| Versi macOS | Arsitektur / Chip | Mekanisme SMC | Status Dukungan | Catatan |
+| :--- | :--- | :--- | :--- | :--- |
+| **macOS 14 Sonoma** | Apple Silicon M1/M2/M3 & Intel | `CH0B`/`CH0C`/`CH0I` (`BCLM`/`CH0K` Intel) | **Didukung Penuh** | Kontrol pengisian & discharge penuh lewat key SMC standar |
+| **macOS 15 Sequoia (< 15.8)** | Apple Silicon M1–M4 & Intel | `CH0B`/`CH0C`/`CH0I` (`BCLM`/`CH0K` Intel) | **Didukung Penuh** | Kontrol pengisian & discharge penuh + Bypass Charging murni |
+| **macOS 15.8 / 26 Tahoe** | Apple Silicon M1–M4 / M5 & Intel | `CHTE` + `CHIE` / `bfF0` | **Didukung Penuh** | Mendukung kunci Tahoe (`CHTE`) & cut adapter (`CHIE`) |
+| **macOS 27 Beta 1–3 (`20356`–`20457.0.77`)** | Apple Silicon | `bfF0`/`bfD0`/`bfE0` + `CHIE` | **Didukung Penuh** | Mode Firmware Limit bawaan SMC |
+| **macOS 27 Beta 4+ / 27.x (`20457.0.125.0.2+`, termasuk 27.2.1)** | Apple Silicon M4 / M5 | **Adapter Mode (`CHIE=0x08`)** | **Didukung (Adapter Mode)** | Apple mengunci `CH0B`/`CH0C`/`CHTE`/`bfF0` (`kIOReturnNotPrivileged`). VoltGuard otomatis memakai Adapter Mode (`CHIE`) saat Mac terjaga dengan band hysteresis 3% agar baterai tidak penuh ke 100% |
+| **macOS 11–13 (Big Sur, Monterey, Ventura)** | Apple Silicon / Intel | - | **Tidak Didukung** | Aplikasi membutuhkan SwiftUI macOS 14.0+ |
+
+### Dukungan Per-Fitur Berdasarkan Perangkat
+| Fitur VoltGuard | Apple Silicon (macOS 14–26) | Apple Silicon (macOS 27.x Adapter Mode) | Intel MacBook (2016–2020, macOS 14+) |
+| :--- | :---: | :---: | :---: |
+| **Charge Limit (`20%–100%`)** | ✅ Bypass Charging | ✅ Adapter-Cut Hysteresis (`CHIE`) | ✅ `BCLM` / `CH0B` |
+| **Mode Sailing & Pelindung Panas** | ✅ | ✅ | ✅ |
+| **Discharge Manual & Otomatis** | ✅ (`CH0I` / `CHIE`) | ✅ (`CHIE=0x08`) | ✅ (`CH0I` / `CH0K`) |
+| **Kalibrasi Baterai 5-Tahap** | ✅ | ✅ (saat Mac terjaga) | ✅ |
+| **Kontrol Lampu MagSafe 3 LED** | ✅ (`ACLC`) | ✅ (`ACLC`) | ⚠️ Tidak ada MagSafe 3 |
+| **Aliran Daya, ETA, Health & Energy Monitor** | ✅ (`IOKit`) | ✅ (`IOKit`) | ✅ (`IOKit`) |
+| **Crash & Signal Guard + Diagnostik Mandiri** | ✅ | ✅ | ✅ |
+
+> **Catatan macOS 27.x**: Pada **Adapter Mode (`CHIE`)**, memutus adaptor saat tutup layar tertutup (*Clamshell Mode*) dapat membuat macOS tertidur kecuali opsi cegah tidur diaktifkan. Selain itu, setiap pembaruan app tetap memerlukan satu kali klik **Perbarui Helper** di menu bar / Sistem & Panduan jika versi daemon root lama masih aktif.
+
+---
+
 ## Cara Menggunakan
 
 1. Buka **VoltGuard** dari ikon di menu bar kanan atas atau tekan pintasan keyboard `Cmd+Option+V`.

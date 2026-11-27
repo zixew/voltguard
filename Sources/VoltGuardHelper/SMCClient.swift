@@ -43,6 +43,7 @@ struct SMCKeyData {
 
 final class SMCClient {
     private var connection: io_connect_t = 0
+    private var cachedWritable: [String: Bool] = [:]
 
     func open() -> Bool {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleSMC"))
@@ -56,15 +57,45 @@ final class SMCClient {
             IOServiceClose(connection)
             connection = 0
         }
+        cachedWritable.removeAll()
     }
 
     deinit {
         close()
     }
 
+    func isKeyWritable(_ key: String) -> Bool {
+        if let cached = cachedWritable[key] {
+            return cached
+        }
+        guard connection != 0, key.utf8.count == 4 else { return false }
+        var input = SMCKeyData()
+        var output = SMCKeyData()
+        input.key = fourCharCode(key)
+        input.data8 = 9 // kSMCGetKeyInfo
+        let infoRes = callSMC(input: &input, output: &output)
+        let ok = infoRes == kIOReturnSuccess
+            && output.result == 0
+            && output.keyInfo.dataSize > 0
+            && (output.keyInfo.dataAttributes & 0x40) != 0
+        cachedWritable[key] = ok
+        return ok
+    }
+
     @discardableResult
     func writeByte(key: String, value: UInt8) -> Bool {
         writeBytes(key: key, values: [value])
+    }
+
+    @discardableResult
+    func writeUInt32BigEndian(key: String, value: UInt32) -> Bool {
+        let bytes: [UInt8] = [
+            UInt8((value >> 24) & 0xFF),
+            UInt8((value >> 16) & 0xFF),
+            UInt8((value >> 8) & 0xFF),
+            UInt8(value & 0xFF)
+        ]
+        return writeBytes(key: key, values: bytes)
     }
 
     @discardableResult

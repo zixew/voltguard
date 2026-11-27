@@ -13,13 +13,19 @@ permissions:
 
 jobs:
   build-test-package:
-    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Show Swift and Xcode version
+      - name: Show macOS, Swift and Xcode version
         run: |
+          sw_vers
+          uname -m
           swift --version
           xcodebuild -version
 
@@ -29,12 +35,16 @@ jobs:
       - name: Run Unit Tests
         run: swift test
 
-      - name: Package App and DMG
+      - name: Package Universal App and DMG
+        if: matrix.os == 'macos-15'
         env:
           CI: "true"
-        run: bash scripts/package_dmg.sh
+        run: |
+          bash scripts/package_dmg.sh
+          lipo -info dist/VoltGuard.app/Contents/MacOS/VoltGuard dist/VoltGuard.app/Contents/Helpers/voltguard-helper
 
       - name: Upload VoltGuard DMG Artifact
+        if: matrix.os == 'macos-15'
         uses: actions/upload-artifact@v4
         with:
           name: VoltGuard-macOS-DMG
@@ -42,7 +52,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub Release on Tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: matrix.os == 'macos-15' && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

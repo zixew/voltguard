@@ -365,16 +365,20 @@ final class VoltGuardTests: XCTestCase {
         XCTAssertFalse(router.menuBarIconVisible)
 
         // Verify immediate 0ms sync and immunity to stale background tick overwrite.
+        presenter.dispatch(.setChargeLimit(85))
+        presenter.dispatch(.toggleManualDischarge)
+        XCTAssertTrue(presenter.state.settings.policy.manualDischarge)
         await interactor.tick(settings: presenter.state.settings, calibration: presenter.state.calibration, generation: 0)
         try? await Task.sleep(nanoseconds: 50_000_000)
         let staleSettings = presenter.state.settings
         presenter.dispatch(.toggleManualDischarge)
+        presenter.dispatch(.setChargeLimit(60))
         XCTAssertFalse(presenter.state.settings.policy.manualDischarge)
-        XCTAssertEqual(presenter.state.lastReason, .topUpActive)
+        XCTAssertEqual(presenter.state.settings.policy.limitPercent, 60)
         await interactor.tick(settings: staleSettings, calibration: CalibrationSession(), generation: 0)
         try? await Task.sleep(nanoseconds: 50_000_000)
         XCTAssertFalse(presenter.state.settings.policy.manualDischarge, "Stale background tick must not revert toolbar state change")
-        XCTAssertEqual(presenter.state.lastReason, .topUpActive)
+        XCTAssertEqual(presenter.state.settings.policy.limitPercent, 60)
     }
 
     func testRecommendProfileUseCaseAllConditions() {
@@ -517,7 +521,7 @@ final class VoltGuardTests: XCTestCase {
     }
 
     @MainActor
-    func testPopoverModuleReorderAndDiagnostics() {
+    func testPopoverModuleReorderAndDiagnostics() async {
         let interactor = makeIsolatedInteractor()
         let presenter = VoltGuardPresenter(interactor: interactor)
 
@@ -528,6 +532,8 @@ final class VoltGuardTests: XCTestCase {
         XCTAssertEqual(presenter.state.settings.popoverLayout.orderedModules[1], initialFirst)
 
         presenter.dispatch(.runDiagnostics)
+        XCTAssertTrue(presenter.state.isRunningDiagnostics)
+        try? await Task.sleep(nanoseconds: 850_000_000)
         XCTAssertNotNil(presenter.state.diagnostics)
     }
 
@@ -748,9 +754,30 @@ final class VoltGuardTests: XCTestCase {
         XCTAssertEqual(degraded.batteryCondition, .serviceRecommended)
     }
 
+    private struct CIStubBatteryReader: BatteryReadingGateway {
+        func readTelemetry() throws -> BatteryTelemetry {
+            BatteryTelemetry(
+                percentage: 75,
+                isCharging: true,
+                isPluggedIn: true,
+                temperatureCelsius: 30.0,
+                voltageVolts: 12.4,
+                amperageAmps: 1.5,
+                adapterWatts: 67.0,
+                cycleCount: 42,
+                currentCapacityMah: 3600,
+                maxCapacityMah: 4800,
+                designCapacityMah: 5000,
+                isClamshellClosed: false
+            )
+        }
+    }
+
     private func makeIsolatedInteractor() -> VoltGuardInteractor {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("VoltGuardTest-\(UUID().uuidString)", isDirectory: true)
         return VoltGuardInteractor(
+            batteryReader: CIStubBatteryReader(),
+            smcGateway: DualModeSMCGateway(socketPath: "/tmp/nonexistent-ci-\(UUID().uuidString).sock"),
             settingsRepo: JSONSettingsRepository(fileURL: dir.appendingPathComponent("settings.json")),
             healthHistoryRepo: JSONHealthHistoryRepository(fileURL: dir.appendingPathComponent("health.json"))
         )
@@ -1185,5 +1212,211 @@ final class VoltGuardTests: XCTestCase {
             throw NSError(domain: "ShowcaseRenderer", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to encode PNG"])
         }
         try pngData.write(to: url, options: .atomic)
+    }
+}
+
+final class VoltGuardStabilityTests: XCTestCase {
+    func testCrashReporterExceptionAndUncleanExitLifecycle() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("voltguard-crash-tests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let reporter = CrashReporter(crashesDirectoryURL: tempDir)
+        reporter.install(registerProcessHandlers: false)
+        XCTAssertTrue(reporter.loadReports().isEmpty)
+
+        // Simulate unclean exit by installing again without markCleanExit()
+        reporter.install(registerProcessHandlers: false)
+        let afterUnclean = reporter.loadReports()
+        XCTAssertEqual(afterUnclean.count, 1)
+        XCTAssertEqual(afterUnclean.first?.type, "unclean_exit")
+
+        // Record an exception report
+        reporter.recordException(
+            name: "NSInvalidArgumentException",
+            reason: "Simulated crash",
+            callStack: ["0 VoltGuard 0x00000001 test"]
+        )
+        let reports = reporter.loadReports()
+        XCTAssertEqual(reports.count, 2)
+        XCTAssertTrue(reports.contains { $0.type == "exception" && $0.name == "NSInvalidArgumentException" })
+
+        reporter.clearReports()
+        XCTAssertTrue(reporter.loadReports().isEmpty)
+        reporter.markCleanExit()
+    }
+
+    @MainActor
+    func testWeakDeallocationOfInteractorGatewaysAndCrashReporter() {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("voltguard-leak-tests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        weak var weakInteractor: VoltGuardInteractor?
+        weak var weakPowerGateway: SystemPowerGateway?
+        weak var weakSMC: DualModeSMCGateway?
+        weak var weakCrashReporter: CrashReporter?
+
+        autoreleasepool {
+            let smc = DualModeSMCGateway(socketPath: "/tmp/nonexistent-voltguard-\(UUID().uuidString).sock")
+            let power = SystemPowerGateway()
+            let crash = CrashReporter(crashesDirectoryURL: tempDir)
+            let settingsRepo = JSONSettingsRepository(fileURL: tempDir.appendingPathComponent("settings.json"))
+            let historyRepo = JSONHealthHistoryRepository(fileURL: tempDir.appendingPathComponent("history.json"))
+            let interactor = VoltGuardInteractor(
+                batteryReader: IOKitBatteryReader(),
+                smcGateway: smc,
+                powerGateway: power,
+                energyMonitor: SystemEnergyMonitor(),
+                settingsRepo: settingsRepo,
+                healthHistoryRepo: historyRepo,
+                launchAtLoginGateway: SystemLaunchAtLoginGateway(),
+                alertGateway: SystemAlertNotificationGateway()
+            )
+            _ = interactor.runDiagnostics(alertsEnabled: false)
+            weakInteractor = interactor
+            weakPowerGateway = power
+            weakSMC = smc
+            weakCrashReporter = crash
+        }
+
+        XCTAssertNil(weakInteractor, "VoltGuardInteractor must not retain-cycle")
+        XCTAssertNil(weakPowerGateway, "SystemPowerGateway must not retain-cycle")
+        XCTAssertNil(weakSMC, "DualModeSMCGateway must not retain-cycle")
+        XCTAssertNil(weakCrashReporter, "CrashReporter must not retain-cycle")
+    }
+
+    func testDualModeSMCGatewaySocketProbeFailsCleanlyWithoutSIGPIPE() {
+        let nonexistentSocket = "/tmp/voltguard-missing-\(UUID().uuidString).sock"
+        let gateway = DualModeSMCGateway(socketPath: nonexistentSocket)
+        XCTAssertFalse(gateway.probeLiveConnection())
+    }
+
+    @MainActor
+    func testAnimatedDiagnosticsSelfTestLifecycle() async {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("voltguard-diag-tests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let interactor = VoltGuardInteractor(
+            batteryReader: IOKitBatteryReader(),
+            smcGateway: DualModeSMCGateway(socketPath: "/tmp/nonexistent-diag-\(UUID().uuidString).sock"),
+            powerGateway: SystemPowerGateway(),
+            energyMonitor: SystemEnergyMonitor(),
+            settingsRepo: JSONSettingsRepository(fileURL: tempDir.appendingPathComponent("settings.json")),
+            healthHistoryRepo: JSONHealthHistoryRepository(fileURL: tempDir.appendingPathComponent("history.json")),
+            launchAtLoginGateway: SystemLaunchAtLoginGateway(),
+            alertGateway: SystemAlertNotificationGateway()
+        )
+        let presenter = VoltGuardPresenter(interactor: interactor)
+        presenter.dispatch(.runDiagnostics)
+        XCTAssertTrue(presenter.state.isRunningDiagnostics)
+
+        try? await Task.sleep(nanoseconds: 850_000_000)
+        XCTAssertFalse(presenter.state.isRunningDiagnostics)
+        XCTAssertEqual(presenter.state.diagnosticsScanStep, 7)
+        XCTAssertNotNil(presenter.state.diagnostics)
+    }
+
+    func testAutoDischargeHysteresisReachesTargetLimit() {
+        let useCase = EvaluateChargePolicyUseCase()
+        var policy = ChargePolicy(limitPercent: 80)
+        policy.automaticDischarge = true
+        policy.sailingModeEnabled = false
+
+        func telemetry(_ pct: Int) -> BatteryTelemetry {
+            BatteryTelemetry(
+                percentage: pct,
+                isCharging: false,
+                isPluggedIn: true,
+                temperatureCelsius: 30,
+                voltageVolts: 12.2,
+                amperageAmps: 0.0,
+                adapterWatts: 30,
+                cycleCount: 100,
+                currentCapacityMah: pct * 40,
+                maxCapacityMah: 4000,
+                designCapacityMah: 4500
+            )
+        }
+
+        // Above 82% triggers auto discharge
+        let r1 = useCase.execute(telemetry: telemetry(85), policy: policy, calibration: CalibrationSession(), context: PolicyEvaluationContext())
+        XCTAssertTrue(r1.command.forceDischarge)
+        XCTAssertEqual(r1.command.statusReason, .automaticDischarge)
+
+        // Still keeps discharging at 81% (previously stopped prematurely at 82%)
+        let r2 = useCase.execute(telemetry: telemetry(81), policy: policy, calibration: CalibrationSession(), context: r1.updatedContext)
+        XCTAssertTrue(r2.command.forceDischarge)
+        XCTAssertEqual(r2.command.statusReason, .automaticDischarge)
+
+        // Stops once it reaches target limit 80%
+        let r3 = useCase.execute(telemetry: telemetry(80), policy: policy, calibration: CalibrationSession(), context: r2.updatedContext)
+        XCTAssertFalse(r3.command.forceDischarge)
+        XCTAssertFalse(r3.command.allowCharging)
+    }
+
+    func testAdapterModeMinHysteresisBandPreventsPingPong() {
+        let useCase = EvaluateChargePolicyUseCase()
+        var policy = ChargePolicy(limitPercent: 80)
+        policy.sailingModeEnabled = false
+
+        func telemetry(_ pct: Int) -> BatteryTelemetry {
+            BatteryTelemetry(
+                percentage: pct,
+                isCharging: true,
+                isPluggedIn: true,
+                temperatureCelsius: 30,
+                voltageVolts: 12.2,
+                amperageAmps: 1.0,
+                adapterWatts: 30,
+                cycleCount: 100,
+                currentCapacityMah: pct * 40,
+                maxCapacityMah: 4000,
+                designCapacityMah: 4500
+            )
+        }
+
+        let atLimit = useCase.execute(telemetry: telemetry(80), policy: policy, calibration: CalibrationSession(), context: PolicyEvaluationContext(), adapterCutMode: true)
+        XCTAssertFalse(atLimit.command.allowCharging)
+        XCTAssertEqual(atLimit.command.statusReason, .limitReached)
+
+        // Stays paused at 79% and 78% inside 3% adapter-mode hysteresis band
+        let at79 = useCase.execute(telemetry: telemetry(79), policy: policy, calibration: CalibrationSession(), context: atLimit.updatedContext, adapterCutMode: true)
+        XCTAssertFalse(at79.command.allowCharging)
+
+        // Resumes charging at 77% (80 - 3)
+        let at77 = useCase.execute(telemetry: telemetry(77), policy: policy, calibration: CalibrationSession(), context: at79.updatedContext, adapterCutMode: true)
+        XCTAssertTrue(at77.command.allowCharging)
+        XCTAssertEqual(at77.command.statusReason, .normalCharging)
+    }
+
+    @MainActor
+    func testTopUpAndManualDischargeMutualExclusion() {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("voltguard-excl-tests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let interactor = VoltGuardInteractor(
+            batteryReader: IOKitBatteryReader(),
+            smcGateway: DualModeSMCGateway(socketPath: "/tmp/nonexistent-excl-\(UUID().uuidString).sock"),
+            powerGateway: SystemPowerGateway(),
+            energyMonitor: SystemEnergyMonitor(),
+            settingsRepo: JSONSettingsRepository(fileURL: tempDir.appendingPathComponent("settings.json")),
+            healthHistoryRepo: JSONHealthHistoryRepository(fileURL: tempDir.appendingPathComponent("history.json")),
+            launchAtLoginGateway: SystemLaunchAtLoginGateway(),
+            alertGateway: SystemAlertNotificationGateway()
+        )
+        let presenter = VoltGuardPresenter(interactor: interactor)
+        presenter.dispatch(.toggleManualDischarge)
+        XCTAssertTrue(presenter.state.settings.policy.manualDischarge)
+
+        presenter.dispatch(.toggleTopUp)
+        XCTAssertTrue(presenter.state.settings.policy.topUpActive)
+        XCTAssertFalse(presenter.state.settings.policy.manualDischarge)
+
+        presenter.dispatch(.toggleManualDischarge)
+        XCTAssertTrue(presenter.state.settings.policy.manualDischarge)
+        XCTAssertFalse(presenter.state.settings.policy.topUpActive)
     }
 }
