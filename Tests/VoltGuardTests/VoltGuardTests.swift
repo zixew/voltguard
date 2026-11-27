@@ -991,7 +991,7 @@ final class VoltGuardTests: XCTestCase {
         initialSettings.policy.sailingDeltaPercent = 5
         initialSettings.launchAtLogin = true
         initialSettings.alertsEnabled = true
-        initialSettings.theme = ThemeConfig(preset: .nordicMist, customAccentHex: "#2A82C9", batteryColorStyle: .themeAccent)
+        initialSettings.theme = ThemeConfig(preset: .nordicMist, customAccentHex: "#3898EC", batteryColorStyle: .themeAccent)
         initialSettings.popoverLayout.hiddenModules = [.batteryHealth]
         initialSettings.menuBarIcon = MenuBarIconConfig(
             style: .shieldBattery,
@@ -1068,8 +1068,8 @@ final class VoltGuardTests: XCTestCase {
         let diagEnergyCanvas = Self.buildDiagnosticsAndEnergyCanvas(presenter: presenter)
         try Self.saveViewAsPNG(diagEnergyCanvas, size: CGSize(width: 1760, height: 1020), to: outDir.appendingPathComponent("voltguard-diagnostics-energy.png"))
 
-        // Render real live motion GIFs directly from SwiftUI views in Soft Sky Blue Daylight.
-        let palette = ThemePalette.resolve(ThemeConfig(preset: .paperLight, customAccentHex: "#2A82C9", batteryColorStyle: .themeAccent))
+        // Render real live motion GIFs matching VoltGuard's native Nordic Slate + Sky Blue look.
+        let palette = ThemePalette.resolve(ThemeConfig(preset: .nordicMist, customAccentHex: "#3898EC", batteryColorStyle: .themeAccent))
         let motionFrames: [AnyView] = (0..<16).map { idx in
             let progress = Double(idx) / 15.0
             let pct = idx < 11 ? (74 + (idx / 2)) : 80
@@ -1096,20 +1096,20 @@ final class VoltGuardTests: XCTestCase {
             let flow = PowerFlowMetrics(adapterInputWatts: watts, batteryNetWatts: netWatts, systemLoadWatts: 18.4)
             return AnyView(
                 ZStack {
-                    Color(hex: "#E5EFF8")
+                    Color(hex: "#161B22")
                     VStack(spacing: 16) {
                         HStack {
                             BrandLogoView(size: 30, accentColor: palette.accent)
                             Text("VoltGuard Live Charging & Thermal Motion")
                                 .font(.system(size: 17, weight: .semibold, design: .rounded))
-                                .foregroundStyle(Color(hex: "#1D2C3F"))
+                                .foregroundStyle(Color(hex: "#E6EDF5"))
                             Spacer()
                             Text(holdingAtLimit ? "80% Target Hold" : "Charging \(pct)%")
                                 .font(.system(size: 12, weight: .semibold))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
-                                .background(palette.accent.opacity(0.14))
-                                .foregroundStyle(Color(hex: "#1B66A6"))
+                                .background(palette.accent.opacity(0.18))
+                                .foregroundStyle(Color(hex: "#7CC0FA"))
                                 .clipShape(Capsule())
                         }
 
@@ -1129,13 +1129,13 @@ final class VoltGuardTests: XCTestCase {
                                 )
                                 Text(holdingAtLimit ? "Hold Active" : "Charging to 80%")
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(Color(hex: "#4B627D"))
+                                    .foregroundStyle(Color(hex: "#9AA7B8"))
                             }
                             .frame(width: 200, height: 290)
-                            .background(Color(hex: "#F4F9FD"))
+                            .background(Color(hex: "#212832"))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .stroke(Color(hex: "#C5D9EC"), lineWidth: 1)
+                                    .stroke(Color(hex: "#35404F"), lineWidth: 1)
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
@@ -1164,7 +1164,7 @@ final class VoltGuardTests: XCTestCase {
                     .padding(24)
                 }
                 .frame(width: 920, height: 540)
-                .environment(\.colorScheme, .light)
+                .environment(\.colorScheme, .dark)
             )
         }
         try Self.saveFramesAsGIF(
@@ -1195,20 +1195,20 @@ final class VoltGuardTests: XCTestCase {
             )
             return AnyView(
                 ZStack {
-                    Color(hex: "#E5EFF8")
+                    Color(hex: "#161B22")
                     VStack(alignment: .leading, spacing: 18) {
                         HStack {
                             BrandLogoView(size: 28, accentColor: palette.accent)
                             Text("Guided 5-Stage Battery Calibration")
                                 .font(.system(size: 17, weight: .semibold, design: .rounded))
-                                .foregroundStyle(Color(hex: "#1D2C3F"))
+                                .foregroundStyle(Color(hex: "#E6EDF5"))
                             Spacer()
                             Text(caption)
                                 .font(.system(size: 12, weight: .semibold))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
-                                .background(palette.accent.opacity(0.14))
-                                .foregroundStyle(Color(hex: "#1B66A6"))
+                                .background(palette.accent.opacity(0.18))
+                                .foregroundStyle(Color(hex: "#7CC0FA"))
                                 .clipShape(Capsule())
                         }
 
@@ -1225,17 +1225,17 @@ final class VoltGuardTests: XCTestCase {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Before Calibration")
                                     .font(.caption)
-                                    .foregroundStyle(Color(hex: "#526A84"))
+                                    .foregroundStyle(Color(hex: "#9AA7B8"))
                                 Text("4180 mAh (90%)")
                                     .font(.headline.monospacedDigit())
-                                    .foregroundStyle(Color(hex: "#1D2C3F"))
+                                    .foregroundStyle(Color(hex: "#E6EDF5"))
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(12)
-                            .background(Color(hex: "#F4F9FD"))
+                            .background(Color(hex: "#212832"))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(Color(hex: "#C5D9EC"), lineWidth: 1)
+                                    .stroke(Color(hex: "#35404F"), lineWidth: 1)
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
@@ -1246,17 +1246,17 @@ final class VoltGuardTests: XCTestCase {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(stage == .completed ? "After Calibration" : "Target Outcome")
                                     .font(.caption)
-                                    .foregroundStyle(Color(hex: "#526A84"))
+                                    .foregroundStyle(Color(hex: "#9AA7B8"))
                                 Text(stage == .completed ? "4295 mAh (93%) · +115 mAh" : "Accurate % & Full mAh Log")
                                     .font(.headline.monospacedDigit())
-                                    .foregroundStyle(Color(hex: "#1B66A6"))
+                                    .foregroundStyle(Color(hex: "#7CC0FA"))
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(12)
-                            .background(Color(hex: "#F4F9FD"))
+                            .background(Color(hex: "#212832"))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(Color(hex: "#C5D9EC"), lineWidth: 1)
+                                    .stroke(Color(hex: "#35404F"), lineWidth: 1)
                             )
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
@@ -1264,7 +1264,7 @@ final class VoltGuardTests: XCTestCase {
                     .padding(24)
                 }
                 .frame(width: 920, height: 540)
-                .environment(\.colorScheme, .light)
+                .environment(\.colorScheme, .dark)
             )
         }
         try Self.saveFramesAsGIF(
