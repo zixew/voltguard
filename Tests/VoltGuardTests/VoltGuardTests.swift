@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import XCTest
 @testable import VoltGuardDomain
 @testable import VoltGuardData
@@ -759,5 +761,356 @@ final class VoltGuardTests: XCTestCase {
         XCTAssertEqual(presenter.state.settings.theme.customBackgroundPath, "/tmp/sample-bg.jpg")
         XCTAssertEqual(presenter.state.settings.theme.backgroundScrimOpacity, 0.65, accuracy: 0.001)
         XCTAssertEqual(presenter.state.settings.theme.backgroundBlurRadius, 8.0, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testGenerateReadmeShowcaseAssets() async throws {
+        guard ProcessInfo.processInfo.environment["GENERATE_SHOWCASE"] == "1" else { return }
+
+        final class ShowcaseBatteryReader: BatteryReadingGateway, @unchecked Sendable {
+            func readTelemetry() throws -> BatteryTelemetry {
+                BatteryTelemetry(
+                    percentage: 76,
+                    isCharging: true,
+                    isPluggedIn: true,
+                    temperatureCelsius: 30.8,
+                    voltageVolts: 12.64,
+                    amperageAmps: 1.48,
+                    adapterWatts: 67,
+                    cycleCount: 210,
+                    designCycleCount: 1000,
+                    currentCapacityMah: 3264,
+                    maxCapacityMah: 4295,
+                    designCapacityMah: 4629,
+                    isClamshellClosed: false,
+                    timeRemainingMinutes: 18,
+                    adapterName: "67W USB-C Power Adapter",
+                    deviceName: "bq40z651"
+                )
+            }
+        }
+        final class ShowcaseSMC: SMCControlGateway, @unchecked Sendable {
+            var isPrivilegedHelperConnected: Bool { true }
+            func applyCommand(_ command: SMCCommandState) async throws {}
+            func installHelper() async throws {}
+            func uninstallHelper() async throws {}
+        }
+        final class ShowcasePower: PowerManagementGateway, @unchecked Sendable {
+            func setPreventSleep(_ prevent: Bool, reason: String) {}
+            func setLowPowerMode(_ enabled: Bool) async {}
+        }
+
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("VoltGuardShowcase-\(UUID().uuidString)", isDirectory: true)
+        let settingsRepo = JSONSettingsRepository(fileURL: dir.appendingPathComponent("settings.json"))
+        let healthRepo = JSONHealthHistoryRepository(fileURL: dir.appendingPathComponent("health.json"))
+
+        let now = Date()
+        for dayOffset in (0..<14).reversed() {
+            let date = now.addingTimeInterval(-Double(dayOffset) * 86400)
+            let cap = 4295 + (dayOffset / 4) * 5
+            let t = BatteryTelemetry(
+                percentage: 76,
+                isCharging: true,
+                isPluggedIn: true,
+                temperatureCelsius: 30.2 + Double(dayOffset % 3) * 0.4,
+                voltageVolts: 12.6,
+                amperageAmps: 1.4,
+                adapterWatts: 67,
+                cycleCount: 210 - (dayOffset / 3),
+                currentCapacityMah: 3264,
+                maxCapacityMah: cap,
+                designCapacityMah: 4629,
+                timestamp: date
+            )
+            _ = healthRepo.recordSnapshot(from: t)
+        }
+
+        var initialSettings = AppSettings()
+        initialSettings.policy.limitPercent = 80
+        initialSettings.policy.heatProtectionEnabled = true
+        initialSettings.policy.sailingModeEnabled = true
+        initialSettings.policy.sailingDeltaPercent = 5
+        initialSettings.menuBarIcon = MenuBarIconConfig(
+            style: .shieldBattery,
+            showPercentage: true,
+            showWattage: true,
+            showTemperature: true,
+            showTimeRemaining: true
+        )
+        initialSettings.schedules = [
+            ScheduleRule(title: "Weekday Office 80%", hour: 8, minute: 30, weekdays: [2, 3, 4, 5, 6], action: .setLimit80),
+            ScheduleRule(title: "Friday Travel Top Up", hour: 17, minute: 0, weekdays: [6], action: .topUp100)
+        ]
+        settingsRepo.save(initialSettings)
+
+        let interactor = VoltGuardInteractor(
+            batteryReader: ShowcaseBatteryReader(),
+            smcGateway: ShowcaseSMC(),
+            powerGateway: ShowcasePower(),
+            settingsRepo: settingsRepo,
+            healthHistoryRepo: healthRepo
+        )
+        let presenter = VoltGuardPresenter(interactor: interactor)
+        for idx in 0..<16 {
+            await interactor.tick(settings: presenter.state.settings, calibration: presenter.state.calibration)
+            _ = idx
+        }
+        try? await Task.sleep(nanoseconds: 150_000_000)
+
+        let outDir = URL(fileURLWithPath: "/Users/a2299/Documents/Projects/VoltGuard/docs/assets", isDirectory: true)
+        try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+
+        let heroCanvas = Self.buildHeroShowcaseCanvas(presenter: presenter)
+        try Self.saveViewAsPNG(heroCanvas, size: CGSize(width: 1400, height: 860), to: outDir.appendingPathComponent("voltguard-hero-showcase.png"))
+
+        var calSettings = presenter.state.settings
+        let calSession = CalibrationSession(
+            stage: .dischargingToLow,
+            stageStartedAt: Date().addingTimeInterval(-1200),
+            targetLowPercent: 15,
+            holdDurationSeconds: 3600
+        )
+        calSettings.calibrationSession = calSession
+        settingsRepo.save(calSettings)
+        await interactor.tick(settings: calSettings, calibration: calSession)
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        let dualCanvas = Self.buildThemesAndCalibrationCanvas(presenter: presenter)
+        try Self.saveViewAsPNG(dualCanvas, size: CGSize(width: 1760, height: 820), to: outDir.appendingPathComponent("voltguard-themes-calibration.png"))
+    }
+
+    @MainActor
+    private static func buildHeroShowcaseCanvas(presenter: VoltGuardPresenter) -> some View {
+        let palette = presenter.state.palette
+        return ZStack {
+            LinearGradient(
+                colors: [
+                    Color(hex: "#0A0E14"),
+                    Color(hex: "#111923"),
+                    Color(hex: "#0D131A")
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(spacing: 20) {
+                // Header banner
+                HStack(alignment: .center) {
+                    HStack(spacing: 12) {
+                        BrandLogoView(size: 38, accentColor: palette.accent)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("VoltGuard for macOS")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundStyle(Color(hex: "#F2F4F8"))
+                            Text("AppleSMC Charge Limiter  |  Time-Aware Battery ETA  |  Live Power Topology")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color(hex: "#9AA7B8"))
+                        }
+                    }
+                    Spacer()
+                    // Simulated macOS Menu Bar strip
+                    HStack(spacing: 10) {
+                        Text("Menu Bar Live Pill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(hex: "#9AA7B8"))
+                        MenuBarIconView(presenter: presenter)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(Color(hex: "#1B2028"))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.accent.opacity(0.6), lineWidth: 1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .environment(\.colorScheme, .dark)
+                    }
+                }
+                .padding(.horizontal, 36)
+
+                HStack(alignment: .top, spacing: 24) {
+                    // Main Dashboard Window Frame
+                    VStack(spacing: 0) {
+                        HStack(spacing: 8) {
+                            Circle().fill(Color(hex: "#FF5F56")).frame(width: 11, height: 11)
+                            Circle().fill(Color(hex: "#FFBD2E")).frame(width: 11, height: 11)
+                            Circle().fill(Color(hex: "#27C93F")).frame(width: 11, height: 11)
+                            Spacer()
+                            Text("VoltGuard : Overview & Battery Diagnostics")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color(hex: "#9AA7B8"))
+                            Spacer()
+                            Text("0.0% Idle CPU")
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(palette.accent.opacity(0.18))
+                                .foregroundStyle(palette.accent)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(Color(hex: "#161B22"))
+
+                        Rectangle().fill(palette.border).frame(height: 1)
+
+                        FullDashboardView(presenter: presenter, initialSection: .overview)
+                            .frame(width: 960, height: 710)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.14), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.55), radius: 24, y: 12)
+
+                    // Floating Menu Bar Popover Frame
+                    VStack(spacing: 10) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "menubar.rectangle")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(palette.accent)
+                            Text("Quick Menu Bar Popover (Cmd+Option+V)")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color(hex: "#F2F4F8"))
+                            Spacer()
+                        }
+                        .padding(.horizontal, 4)
+
+                        PopoverView(presenter: presenter)
+                            .frame(width: 340, height: 540)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(palette.accent.opacity(0.45), lineWidth: 1.2))
+                            .shadow(color: Color.black.opacity(0.55), radius: 24, y: 12)
+                    }
+                }
+                .padding(.horizontal, 36)
+            }
+            .padding(.vertical, 24)
+        }
+        .frame(width: 1400, height: 860)
+        .environment(\.colorScheme, .dark)
+    }
+
+    @MainActor
+    private static func buildThemesAndCalibrationCanvas(presenter: VoltGuardPresenter) -> some View {
+        let palette = presenter.state.palette
+        return ZStack {
+            LinearGradient(
+                colors: [
+                    Color(hex: "#0A0E14"),
+                    Color(hex: "#121A24"),
+                    Color(hex: "#0D1218")
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(spacing: 18) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Theme Studio, Custom Background & 5-Stage Battery Calibration")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundStyle(Color(hex: "#F2F4F8"))
+                        Text("4 WCAG AA Theme Presets  |  Custom Image Background with Scrim & Blur  |  Persistent Guided Calibration & Automation Schedule")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color(hex: "#9AA7B8"))
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 36)
+
+                HStack(alignment: .top, spacing: 24) {
+                    // Left panel: Appearance & Custom Background Studio
+                    VStack(spacing: 0) {
+                        HStack(spacing: 8) {
+                            Circle().fill(Color(hex: "#FF5F56")).frame(width: 10, height: 10)
+                            Circle().fill(Color(hex: "#FFBD2E")).frame(width: 10, height: 10)
+                            Circle().fill(Color(hex: "#27C93F")).frame(width: 10, height: 10)
+                            Spacer()
+                            Text("Appearance, Custom Background & Menu Bar Layout")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color(hex: "#9AA7B8"))
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color(hex: "#161B22"))
+
+                        Rectangle().fill(palette.border).frame(height: 1)
+
+                        FullDashboardView(presenter: presenter, initialSection: .appearance)
+                            .frame(width: 820, height: 675)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.14), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.5), radius: 20, y: 10)
+
+                    // Right panel: 5-Stage Calibration & Schedule
+                    VStack(spacing: 0) {
+                        HStack(spacing: 8) {
+                            Circle().fill(Color(hex: "#FF5F56")).frame(width: 10, height: 10)
+                            Circle().fill(Color(hex: "#FFBD2E")).frame(width: 10, height: 10)
+                            Circle().fill(Color(hex: "#27C93F")).frame(width: 10, height: 10)
+                            Spacer()
+                            Text("5-Stage Persistent Calibration & Weekday Automation")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color(hex: "#9AA7B8"))
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color(hex: "#161B22"))
+
+                        Rectangle().fill(palette.border).frame(height: 1)
+
+                        FullDashboardView(presenter: presenter, initialSection: .schedule)
+                            .frame(width: 820, height: 675)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.14), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.5), radius: 20, y: 10)
+                }
+                .padding(.horizontal, 36)
+            }
+            .padding(.vertical, 22)
+        }
+        .frame(width: 1760, height: 820)
+        .environment(\.colorScheme, .dark)
+    }
+
+    @MainActor
+    private static func saveViewAsPNG<V: View>(_ view: V, size: CGSize, to url: URL) throws {
+        let hostingView = NSHostingView(rootView: view.frame(width: size.width, height: size.height))
+        hostingView.frame = NSRect(origin: .zero, size: size)
+
+        let window = NSWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.contentView = hostingView
+        hostingView.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.15))
+        hostingView.layoutSubtreeIfNeeded()
+
+        let pixelWidth = Int(size.width * 2)
+        let pixelHeight = Int(size.height * 2)
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pixelWidth,
+            pixelsHigh: pixelHeight,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
+            throw NSError(domain: "ShowcaseRenderer", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to allocate bitmap"])
+        }
+        rep.size = size
+        hostingView.cacheDisplay(in: hostingView.bounds, to: rep)
+
+        guard let pngData = rep.representation(using: .png, properties: [:]) else {
+            throw NSError(domain: "ShowcaseRenderer", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to encode PNG"])
+        }
+        try pngData.write(to: url, options: .atomic)
     }
 }

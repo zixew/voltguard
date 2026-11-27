@@ -4,6 +4,10 @@
 
 Native macOS 14+ menu bar battery and power management utility built with Swift 5.9, SwiftUI, AppKit, IOKit, and AppleSMC. Structured around Clean Architecture, VIPER presentation, and unidirectional state flow.
 
+![VoltGuard Hero Showcase -- Main Dashboard, Live Power Flow, and Menu Bar Popover](docs/assets/voltguard-hero-showcase.png)
+
+![VoltGuard Theme Studio, Custom Background, and 5-Stage Battery Calibration](docs/assets/voltguard-themes-calibration.png)
+
 ---
 
 ## Core Capabilities

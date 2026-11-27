@@ -46,8 +46,9 @@ public struct FullDashboardView: View {
     @State private var newRuleAction: ScheduleAction = .setLimit80
     @State private var customHexInput: String = ""
 
-    public init(presenter: VoltGuardPresenter) {
+    public init(presenter: VoltGuardPresenter, initialSection: DashboardSection = .overview) {
         self.presenter = presenter
+        self._selectedSection = State(initialValue: initialSection)
     }
 
     public var body: some View {
