@@ -253,8 +253,7 @@ final class VoltGuardTests: XCTestCase {
     func testPresenterWeakDeallocationNoMemoryLeak() {
         weak var weakPresenter: VoltGuardPresenter?
         autoreleasepool {
-            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("voltguard-test-\(UUID().uuidString).json")
-            let interactor = VoltGuardInteractor(settingsRepo: JSONSettingsRepository(fileURL: tempURL))
+            let interactor = makeIsolatedInteractor()
             let presenter = VoltGuardPresenter(interactor: interactor)
             weakPresenter = presenter
             XCTAssertNotNil(weakPresenter)
@@ -304,8 +303,7 @@ final class VoltGuardTests: XCTestCase {
             func setMenuBarIconVisible(_ visible: Bool) { menuBarIconVisible = visible }
         }
 
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("voltguard-full-\(UUID().uuidString).json")
-        let interactor = VoltGuardInteractor(settingsRepo: JSONSettingsRepository(fileURL: tempURL))
+        let interactor = makeIsolatedInteractor()
         let presenter = VoltGuardPresenter(interactor: interactor)
         let router = MockRouter()
         presenter.router = router
@@ -463,8 +461,7 @@ final class VoltGuardTests: XCTestCase {
 
     @MainActor
     func testPopoverModuleReorderAndDiagnostics() {
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("voltguard-reorder-\(UUID().uuidString).json")
-        let interactor = VoltGuardInteractor(settingsRepo: JSONSettingsRepository(fileURL: tempURL))
+        let interactor = makeIsolatedInteractor()
         let presenter = VoltGuardPresenter(interactor: interactor)
 
         let initialFirst = presenter.state.settings.popoverLayout.orderedModules[0]

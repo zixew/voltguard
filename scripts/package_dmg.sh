@@ -72,11 +72,15 @@ ln -s /Applications "$DMG_STAGE/Applications"
 hdiutil create -volname "VoltGuard" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG_PATH"
 rm -rf "$DMG_STAGE"
 
-if [ -d "$ICLOUD_DIR" ]; then
-    cp "$DMG_PATH" "$ICLOUD_DIR/VoltGuard.dmg"
-    echo "Uploaded to iCloud Drive: $ICLOUD_DIR/VoltGuard.dmg"
-fi
+if [ "${CI:-false}" != "true" ]; then
+    if [ -d "$ICLOUD_DIR" ]; then
+        cp "$DMG_PATH" "$ICLOUD_DIR/VoltGuard.dmg"
+        echo "Uploaded to iCloud Drive: $ICLOUD_DIR/VoltGuard.dmg"
+    fi
 
-rm -rf "/Applications/$APP_NAME"
-cp -R "$APP_DIR" "/Applications/$APP_NAME"
-echo "Installed to /Applications/$APP_NAME"
+    rm -rf "/Applications/$APP_NAME"
+    cp -R "$APP_DIR" "/Applications/$APP_NAME"
+    echo "Installed to /Applications/$APP_NAME"
+else
+    echo "CI mode enabled: packaged $DMG_PATH (skipped /Applications and iCloud copy)"
+fi

@@ -1,0 +1,50 @@
+name: macOS CI
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-test-package:
+    runs-on: macos-15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show Swift and Xcode version
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Build Debug Targets
+        run: swift build
+
+      - name: Run Unit Tests
+        run: swift test
+
+      - name: Package App and DMG
+        env:
+          CI: "true"
+        run: bash scripts/package_dmg.sh
+
+      - name: Upload VoltGuard DMG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoltGuard-macOS-DMG
+          path: dist/VoltGuard.dmg
+          if-no-files-found: error
+
+      - name: Publish GitHub Release on Tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          gh release view "$TAG_NAME" >/dev/null 2>&1 || gh release create "$TAG_NAME" dist/VoltGuard.dmg --title "VoltGuard $TAG_NAME" --generate-notes
