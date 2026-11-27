@@ -208,6 +208,14 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case iconStyleBolt
     case densityDetailed
     case densityCompact
+    case calPurposeTitle
+    case calPurposeBody
+    case calStage1Duration
+    case calStage2Duration
+    case calStage3Duration
+    case calStage4Duration
+    case calStage5Duration
+    case calTotalDurationBadge
 }
 
 public struct L10n {
@@ -247,7 +255,7 @@ public struct L10n {
         .calibrationMode: "Calibration",
         .startCalibration: "Start Calibration",
         .stopCalibration: "Stop Calibration",
-        .calibrationActiveHint: "Guided 4-stage cycle in progress",
+        .calibrationActiveHint: "Guided 5-stage cycle in progress",
         .schedule: "Schedule",
         .addSchedule: "Add Rule",
         .noSchedulesHint: "No schedule rules yet. Add one to automate Top Up or 80% limits.",
@@ -424,7 +432,15 @@ public struct L10n {
         .iconStylePill: "Percentage Pill",
         .iconStyleBolt: "Minimal Bolt",
         .densityDetailed: "Detailed",
-        .densityCompact: "Compact"
+        .densityCompact: "Compact",
+        .calPurposeTitle: "Purpose & Estimated Duration",
+        .calPurposeBody: "Keeping a battery capped at 60%-80% slows chemical aging, but over time the fuel-gauge controller (bq40z651) drifts. A full 100% -> 15% -> Limit cycle recalibrates the upper and lower voltage anchor points so macOS reports accurate percentage and Maximum Capacity. Run once every 1-3 months.",
+        .calStage1Duration: "~30-90 min",
+        .calStage2Duration: "60 min hold",
+        .calStage3Duration: "~1-3 hours",
+        .calStage4Duration: "60 min hold",
+        .calStage5Duration: "~30-60 min",
+        .calTotalDurationBadge: "Total: ~3.5 - 6 Hours"
     ]
 
     public static let id: [L10nKey: String] = [
@@ -456,7 +472,7 @@ public struct L10n {
         .calibrationMode: "Kalibrasi",
         .startCalibration: "Mulai Kalibrasi",
         .stopCalibration: "Hentikan Kalibrasi",
-        .calibrationActiveHint: "Siklus terpandu 4 tahap sedang berjalan",
+        .calibrationActiveHint: "Siklus terpandu 5 tahap sedang berjalan",
         .schedule: "Jadwal",
         .addSchedule: "Tambah Aturan",
         .noSchedulesHint: "Belum ada jadwal. Tambahkan aturan untuk Top Up atau batas 80% otomatis.",
@@ -633,7 +649,15 @@ public struct L10n {
         .iconStylePill: "Kapsul Persen",
         .iconStyleBolt: "Petir Minimal",
         .densityDetailed: "Detail",
-        .densityCompact: "Ringkas"
+        .densityCompact: "Ringkas",
+        .calPurposeTitle: "Tujuan & Estimasi Durasi",
+        .calPurposeBody: "Membatasi baterai di 60%-80% memperlambat penuaan kimia, namun seiring waktu pembacaan chip sensor (bq40z651) dapat bergeser. Siklus penuh 100% -> 15% -> Batas memulihkan titik acuan tegangan atas dan bawah agar persentase serta Kapasitas Maksimum akurat. Cukup jalankan 1-3 bulan sekali.",
+        .calStage1Duration: "~30-90 mnt",
+        .calStage2Duration: "Tahan 60 mnt",
+        .calStage3Duration: "~1-3 jam",
+        .calStage4Duration: "Tahan 60 mnt",
+        .calStage5Duration: "~30-60 mnt",
+        .calTotalDurationBadge: "Total: ~3,5 - 6 Jam"
     ]
 }
 

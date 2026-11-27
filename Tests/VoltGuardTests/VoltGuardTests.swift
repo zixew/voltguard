@@ -173,20 +173,44 @@ final class VoltGuardTests: XCTestCase {
 
     func testCalibrationStages() {
         let machine = CalibrationMachineUseCase()
+        let policyUseCase = EvaluateChargePolicyUseCase()
+        let policy = ChargePolicy(limitPercent: 80, sleepControlEnabled: true)
         let start = Date(timeIntervalSince1970: 1000)
         var session = CalibrationSession(stage: .chargingToFull, stageStartedAt: start, targetLowPercent: 15, holdDurationSeconds: 60)
 
+        let stage1Eval = policyUseCase.execute(telemetry: sampleTelemetry(pct: 90), policy: policy, calibration: session, context: PolicyEvaluationContext())
+        XCTAssertTrue(stage1Eval.command.allowCharging)
+        XCTAssertFalse(stage1Eval.command.forceDischarge)
+        XCTAssertTrue(stage1Eval.command.preventSleepAssertion)
+
         session = machine.advance(session: session, telemetry: sampleTelemetry(pct: 100), targetLimit: 80, now: start.addingTimeInterval(10))
         XCTAssertEqual(session.stage, .holdingFull)
+        let stage2Eval = policyUseCase.execute(telemetry: sampleTelemetry(pct: 100), policy: policy, calibration: session, context: PolicyEvaluationContext())
+        XCTAssertTrue(stage2Eval.command.allowCharging)
+        XCTAssertFalse(stage2Eval.command.forceDischarge)
+        XCTAssertTrue(stage2Eval.command.preventSleepAssertion)
 
         session = machine.advance(session: session, telemetry: sampleTelemetry(pct: 100), targetLimit: 80, now: start.addingTimeInterval(80))
         XCTAssertEqual(session.stage, .dischargingToLow)
+        let stage3Eval = policyUseCase.execute(telemetry: sampleTelemetry(pct: 50), policy: policy, calibration: session, context: PolicyEvaluationContext())
+        XCTAssertFalse(stage3Eval.command.allowCharging)
+        XCTAssertTrue(stage3Eval.command.forceDischarge)
+        XCTAssertTrue(stage3Eval.command.preventSleepAssertion)
 
         session = machine.advance(session: session, telemetry: sampleTelemetry(pct: 15), targetLimit: 80, now: start.addingTimeInterval(200))
         XCTAssertEqual(session.stage, .holdingLow)
+        let stage4Eval = policyUseCase.execute(telemetry: sampleTelemetry(pct: 15), policy: policy, calibration: session, context: PolicyEvaluationContext())
+        XCTAssertFalse(stage4Eval.command.allowCharging)
+        XCTAssertFalse(stage4Eval.command.forceDischarge)
+        XCTAssertTrue(stage4Eval.command.preventSleepAssertion)
 
         session = machine.advance(session: session, telemetry: sampleTelemetry(pct: 15), targetLimit: 80, now: start.addingTimeInterval(270))
         XCTAssertEqual(session.stage, .restoringLimit)
+        let stage5Eval = policyUseCase.execute(telemetry: sampleTelemetry(pct: 40), policy: policy, calibration: session, context: PolicyEvaluationContext())
+        XCTAssertTrue(stage5Eval.command.allowCharging)
+        XCTAssertFalse(stage5Eval.command.forceDischarge)
+        XCTAssertEqual(stage5Eval.command.targetLimitPercent, 80)
+        XCTAssertTrue(stage5Eval.command.preventSleepAssertion)
 
         session = machine.advance(session: session, telemetry: sampleTelemetry(pct: 80), targetLimit: 80, now: start.addingTimeInterval(400))
         XCTAssertEqual(session.stage, .completed)

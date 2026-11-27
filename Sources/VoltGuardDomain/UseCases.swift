@@ -61,10 +61,14 @@ public struct EvaluateChargePolicyUseCase: Sendable {
 
         // Calibration overrides normal limit and sailing rules.
         if calibration.isActive {
-            let allowCharge = calibration.stage == .chargingToFull || calibration.stage == .holdingFull || calibration.stage == .restoringLimit
+            let isRestoring = calibration.stage == .restoringLimit
+            let allowCharge = calibration.stage == .chargingToFull
+                || calibration.stage == .holdingFull
+                || (isRestoring && telemetry.percentage < policy.limitPercent)
             let forceDischarge = calibration.stage == .dischargingToLow
-            let limit = calibration.stage == .restoringLimit ? policy.limitPercent : 100
-            let preventSleep = policy.sleepControlEnabled && (forceDischarge || calibration.stage == .chargingToFull)
+                && telemetry.percentage > calibration.targetLowPercent
+            let limit = isRestoring ? policy.limitPercent : 100
+            let preventSleep = policy.sleepControlEnabled
             let cmd = SMCCommandState(
                 targetLimitPercent: limit,
                 allowCharging: allowCharge,

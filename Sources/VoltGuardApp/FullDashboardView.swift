@@ -735,6 +735,15 @@ public struct FullDashboardView: View {
                 .foregroundStyle(palette.primaryText)
 
             themedCard(title: L10n.text(.calibrationMode, locale: locale), palette: palette) {
+                let pct: Int? = {
+                    if case .loaded(let t, _) = presenter.state.telemetryState { return t.percentage }
+                    return nil
+                }()
+                let isPluggedIn: Bool = {
+                    if case .loaded(let t, _) = presenter.state.telemetryState { return t.isPluggedIn }
+                    return true
+                }()
+
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
@@ -754,24 +763,12 @@ public struct FullDashboardView: View {
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(palette.accent)
+                            .disabled(!isPluggedIn)
                         }
                     }
 
-                    if presenter.state.calibration.isActive || presenter.state.calibration.stage == .completed {
-                        let pct: Int? = {
-                            if case .loaded(let t, _) = presenter.state.telemetryState { return t.percentage }
-                            return nil
-                        }()
-                        CalibrationProgressView(
-                            session: presenter.state.calibration,
-                            currentPercentage: pct,
-                            palette: palette,
-                            locale: locale,
-                            compact: false,
-                            isVisible: presenter.state.isUIVisible
-                        )
-                    } else if case .loaded(let t, _) = presenter.state.telemetryState {
-                        if !t.isPluggedIn {
+                    if !presenter.state.calibration.isActive {
+                        if !isPluggedIn {
                             Text(L10n.text(.calNeedsCharger, locale: locale))
                                 .font(.caption)
                                 .foregroundStyle(palette.warning)
@@ -781,6 +778,15 @@ public struct FullDashboardView: View {
                                 .foregroundStyle(palette.warning)
                         }
                     }
+
+                    CalibrationProgressView(
+                        session: presenter.state.calibration,
+                        currentPercentage: pct,
+                        palette: palette,
+                        locale: locale,
+                        compact: false,
+                        isVisible: presenter.state.isUIVisible
+                    )
                 }
             }
 

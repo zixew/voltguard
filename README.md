@@ -23,8 +23,17 @@ Native macOS 14+ menu bar battery and power management utility built with Swift 
 - **MagSafe LED Control**: Switch LED behavior between `System`, `Off`, `Green`, `Amber`, or `Sync with Limit`.
 
 ### 2. Persistent 5-Stage Battery Calibration
-- Guided cycle (`1. Charge to 100%` -> `2. Hold at 100%` -> `3. Discharge to 15%` -> `4. Hold at 15%` -> `5. Restore Limit`) with animated progress steps, hold countdown timer, and disk persistence across app restarts.
-- Prerequisite checks warn if the power adapter is unplugged or if the SMC Helper is not yet installed.
+- **Why Calibrate**: Keeping a battery capped at `60%` to `80%` slows chemical aging, but over time the fuel-gauge controller (`bq40z651`) drifts. Running a calibration cycle once every `1 to 3 months` re-anchors the upper (`100%`) and lower (`15%`) voltage reference points so macOS reports accurate state-of-charge (`%`) and Maximum Capacity (`mAh`).
+- **Estimated Total Duration**: **`~3.5 to 6 hours`** (persisted across app restarts, with active sleep prevention across all 5 stages).
+- **Stage Breakdown**:
+
+| Stage | Name | SMC Hardware Action | Estimated Duration | Technical Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| **1** | **Charging to 100%** | `BCLM=100`, `CH0B=0`, `CH0I=0` | `~30 - 90 min` | Charges cells to full capacity before upper voltage soak. |
+| **2** | **Holding at 100%** | `BCLM=100`, `CH0B=0`, `CH0I=0` | **`60 min` hold** (`60:00`) | Holds full charge so saturation current tapers and upper cell voltage stabilizes. |
+| **3** | **Discharging to 15%** | `CH0I=1`, `CH0B=2`, `CHTE=01000000` | `~1 - 3 hours` | Controlled discharge on AC power to reach the lower calibration reference point. |
+| **4** | **Holding at 15%** | `CH0I=0`, `CH0B=2` (Charge paused) | **`60 min` hold** (`60:00`) | Rests cells at low voltage with zero charge current so the fuel gauge locks its low-end baseline. |
+| **5** | **Restoring Limit** | `BCLM=<limit>`, `CH0B=0`, `CH0I=0` | `~30 - 60 min` | Recharges battery back to your saved daily limit (e.g., `80%`) and resumes normal protection. |
 
 ### 3. Stabilized Time-Aware ETA & Live Power Flow
 - **Time-Aware EMA Estimator**: Calculates time until empty and time to target charge limit using a 60-second time-aware exponential moving average (`alpha = 1 - exp(-dt / 60)`), `AppleRawCurrentCapacity` coulomb readings, initial `AvgTimeToEmpty` seeding, and upward hysteresis rate limiting (`±1 min` per step).

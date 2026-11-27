@@ -558,62 +558,156 @@ public struct CalibrationProgressView: View {
     }
 
     public var body: some View {
-        let activeIdx = Self.stages.firstIndex(of: session.stage) ?? 0
+        let activeIdx = Self.stages.firstIndex(of: session.stage)
         let shouldAnimate = isVisible && !reduceMotion && session.isActive
-        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
-            TimelineView(.animation(minimumInterval: LiquidBatteryConstants.calmFlowFrameInterval, paused: !shouldAnimate)) { context in
-                let phase = !shouldAnimate
-                    ? 0.5
-                    : (context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8) / 1.8)
+        VStack(alignment: .leading, spacing: compact ? 6 : 10) {
+            if session.isActive || session.stage == .completed {
+                TimelineView(.animation(minimumInterval: LiquidBatteryConstants.calmFlowFrameInterval, paused: !shouldAnimate)) { context in
+                    let phase = !shouldAnimate
+                        ? 0.5
+                        : (context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8) / 1.8)
 
-                HStack(spacing: 4) {
-                    ForEach(Array(Self.stages.enumerated()), id: \.element) { idx, _ in
-                        GeometryReader { geo in
-                            let isCompleted = session.stage == .completed || idx < activeIdx
-                            let isCurrent = session.stage != .completed && idx == activeIdx
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(palette.border.opacity(0.45))
-                                if isCompleted {
+                    HStack(spacing: 4) {
+                        ForEach(Array(Self.stages.enumerated()), id: \.element) { idx, _ in
+                            GeometryReader { geo in
+                                let isCompleted = session.stage == .completed || (activeIdx != nil && idx < activeIdx!)
+                                let isCurrent = session.stage != .completed && activeIdx == idx
+                                ZStack(alignment: .leading) {
                                     RoundedRectangle(cornerRadius: 3)
-                                        .fill(palette.accent)
-                                } else if isCurrent {
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(palette.warning.opacity(0.35))
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(palette.warning)
-                                        .frame(width: max(geo.size.width * (reduceMotion ? 0.6 : (0.25 + 0.75 * phase)), 6))
+                                        .fill(palette.border.opacity(0.45))
+                                    if isCompleted {
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(palette.accent)
+                                    } else if isCurrent {
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(palette.warning.opacity(0.35))
+                                        RoundedRectangle(cornerRadius: 3)
+                                            .fill(palette.warning)
+                                            .frame(width: max(geo.size.width * (reduceMotion ? 0.6 : (0.25 + 0.75 * phase)), 6))
+                                    }
                                 }
                             }
+                            .frame(height: 5)
                         }
-                        .frame(height: 5)
                     }
                 }
-            }
 
-            HStack {
-                Text(stageTitle(session.stage))
-                    .font(.system(size: compact ? 11 : 12, weight: .semibold))
-                    .foregroundStyle(session.stage == .completed ? palette.accent : palette.warning)
-                Spacer()
-                if let remaining = session.remainingHoldSeconds() {
-                    let mins = Int(remaining) / 60
-                    let secs = Int(remaining) % 60
-                    Text(String(format: "%02d:%02d", mins, secs))
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(palette.warning)
-                } else if let pct = currentPercentage, session.isActive {
-                    Text("\(pct)%")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                HStack {
+                    Text(stageTitle(session.stage))
+                        .font(.system(size: compact ? 11 : 12, weight: .semibold))
+                        .foregroundStyle(session.stage == .completed ? palette.accent : palette.warning)
+                    Spacer()
+                    if let remaining = session.remainingHoldSeconds() {
+                        let mins = Int(remaining) / 60
+                        let secs = Int(remaining) % 60
+                        Text(String(format: "%02d:%02d", mins, secs))
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(palette.warning)
+                    } else if let pct = currentPercentage, session.isActive {
+                        Text("\(pct)%")
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(palette.secondaryText)
+                    }
+                }
+
+                if compact, let desc = stageDescription(session.stage) {
+                    Text(desc)
+                        .font(.system(size: 10))
                         .foregroundStyle(palette.secondaryText)
                 }
             }
 
-            if !compact, let desc = stageDescription(session.stage) {
-                Text(desc)
-                    .font(.caption)
-                    .foregroundStyle(palette.secondaryText)
+            if !compact {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label(L10n.text(.calPurposeTitle, locale: locale), systemImage: "info.circle.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(palette.primaryText)
+                        Spacer()
+                        Text(L10n.text(.calTotalDurationBadge, locale: locale))
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(palette.accent.opacity(0.16))
+                            .foregroundStyle(palette.accent)
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                    }
+                    Text(L10n.text(.calPurposeBody, locale: locale))
+                        .font(.system(size: 11))
+                        .foregroundStyle(palette.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(10)
+                .background(palette.background.opacity(0.65))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.border.opacity(0.8), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(spacing: 6) {
+                    ForEach(Array(Self.stages.enumerated()), id: \.element) { idx, stage in
+                        let isDone = session.stage == .completed || (activeIdx != nil && idx < activeIdx!)
+                        let isCurrent = session.stage != .completed && activeIdx == idx
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: isDone ? "checkmark.circle.fill" : (isCurrent ? "clock.fill" : "\(idx + 1).circle"))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(isDone ? palette.accent : (isCurrent ? palette.warning : palette.secondaryText))
+                                .frame(width: 18, alignment: .center)
+                                .padding(.top, 1)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack {
+                                    Text(stageTitle(stage))
+                                        .font(.system(size: 12, weight: isCurrent ? .bold : .semibold))
+                                        .foregroundStyle(isCurrent ? palette.warning : (isDone ? palette.primaryText : palette.secondaryText))
+                                    Spacer()
+                                    if isCurrent, let remaining = session.remainingHoldSeconds() {
+                                        let mins = Int(remaining) / 60
+                                        let secs = Int(remaining) % 60
+                                        Text(String(format: "%02d:%02d", mins, secs))
+                                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(palette.warning.opacity(0.2))
+                                            .foregroundStyle(palette.warning)
+                                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                                    } else {
+                                        Text(stageDuration(stage))
+                                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(palette.surface)
+                                            .foregroundStyle(palette.secondaryText)
+                                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                                    }
+                                }
+                                if let desc = stageDescription(stage) {
+                                    Text(desc)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(palette.secondaryText)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(isCurrent ? palette.warning.opacity(0.10) : palette.background.opacity(0.45))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(isCurrent ? palette.warning.opacity(0.6) : palette.border.opacity(0.5), lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
             }
+        }
+    }
+
+    private func stageDuration(_ stage: CalibrationStage) -> String {
+        switch stage {
+        case .chargingToFull: return L10n.text(.calStage1Duration, locale: locale)
+        case .holdingFull: return L10n.text(.calStage2Duration, locale: locale)
+        case .dischargingToLow: return L10n.text(.calStage3Duration, locale: locale)
+        case .holdingLow: return L10n.text(.calStage4Duration, locale: locale)
+        case .restoringLimit: return L10n.text(.calStage5Duration, locale: locale)
+        case .idle, .completed: return ""
         }
     }
 
