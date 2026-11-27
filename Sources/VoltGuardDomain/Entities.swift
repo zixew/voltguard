@@ -616,8 +616,12 @@ public struct MacHardwareProfile: Codable, Equatable, Sendable {
         self.supportsLowPowerMode = supportsLowPowerMode
     }
 
-    public static func detectCurrent(writableKeys: [String] = [], hasBatteryService: Bool = true) -> MacHardwareProfile {
-        let model = readSysctlString("hw.model") ?? "Mac"
+    public static func detectCurrent(
+        writableKeys: [String] = [],
+        hasBatteryService: Bool = true,
+        modelOverride: String? = nil
+    ) -> MacHardwareProfile {
+        let model = modelOverride ?? readSysctlString("hw.model") ?? "Mac"
         #if arch(arm64)
         let arch = "arm64"
         let appleSilicon = true

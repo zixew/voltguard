@@ -780,11 +780,33 @@ final class VoltGuardTests: XCTestCase {
 
     private func makeIsolatedInteractor() -> VoltGuardInteractor {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("VoltGuardTest-\(UUID().uuidString)", isDirectory: true)
+        let repo = JSONSettingsRepository(fileURL: dir.appendingPathComponent("settings.json"))
+        repo.save(AppSettings(cachedCompatibility: Self.sharedLaptopReport))
         return VoltGuardInteractor(
             batteryReader: CIStubBatteryReader(),
             smcGateway: DualModeSMCGateway(socketPath: "/tmp/nonexistent-ci-\(UUID().uuidString).sock"),
-            settingsRepo: JSONSettingsRepository(fileURL: dir.appendingPathComponent("settings.json")),
+            settingsRepo: repo,
             healthHistoryRepo: JSONHealthHistoryRepository(fileURL: dir.appendingPathComponent("health.json"))
+        )
+    }
+
+    static var sharedLaptopReport: CachedCompatibilityReport {
+        let laptopProfile = MacHardwareProfile(
+            modelIdentifier: "MacBookPro18,1",
+            architecture: "arm64",
+            macOSVersionString: "15.0.0",
+            macOSMajorVersion: 15,
+            isDesktopMac: false,
+            isAppleSilicon: true,
+            supportsMagSafeLED: true,
+            supportsLowPowerMode: true
+        )
+        return CachedCompatibilityReport.evaluateOnce(
+            profile: laptopProfile,
+            backendMode: .legacy,
+            writableKeys: ["CHTE", "CH0C", "CH0I", "ACLC"],
+            helperConnected: true,
+            helperSignature: "test"
         )
     }
 
@@ -1565,12 +1587,14 @@ final class VoltGuardStabilityTests: XCTestCase {
             .appendingPathComponent("voltguard-excl-tests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: tempDir) }
 
+        let repo = JSONSettingsRepository(fileURL: tempDir.appendingPathComponent("settings.json"))
+        repo.save(AppSettings(cachedCompatibility: VoltGuardTests.sharedLaptopReport))
         let interactor = VoltGuardInteractor(
             batteryReader: IOKitBatteryReader(),
             smcGateway: DualModeSMCGateway(socketPath: "/tmp/nonexistent-excl-\(UUID().uuidString).sock"),
             powerGateway: SystemPowerGateway(),
             energyMonitor: SystemEnergyMonitor(),
-            settingsRepo: JSONSettingsRepository(fileURL: tempDir.appendingPathComponent("settings.json")),
+            settingsRepo: repo,
             healthHistoryRepo: JSONHealthHistoryRepository(fileURL: tempDir.appendingPathComponent("history.json")),
             launchAtLoginGateway: SystemLaunchAtLoginGateway(),
             alertGateway: SystemAlertNotificationGateway()
@@ -1734,15 +1758,27 @@ final class VoltGuardStabilityTests: XCTestCase {
     }
 
     func testMacHardwareProfileCapabilitiesAndWritableKeys() {
-        let profileWithMagSafe = MacHardwareProfile.detectCurrent(writableKeys: ["CHIE", "ACLC"], hasBatteryService: true)
+        let profileWithMagSafe = MacHardwareProfile.detectCurrent(
+            writableKeys: ["CHIE", "ACLC"],
+            hasBatteryService: true,
+            modelOverride: "MacBookPro18,1"
+        )
         XCTAssertFalse(profileWithMagSafe.isDesktopMac)
         XCTAssertTrue(profileWithMagSafe.supportsMagSafeLED)
 
-        let profileWithoutMagSafe = MacHardwareProfile.detectCurrent(writableKeys: ["CH0B", "CH0C", "CH0I"], hasBatteryService: true)
+        let profileWithoutMagSafe = MacHardwareProfile.detectCurrent(
+            writableKeys: ["CH0B", "CH0C", "CH0I"],
+            hasBatteryService: true,
+            modelOverride: "MacBookPro16,1"
+        )
         XCTAssertFalse(profileWithoutMagSafe.isDesktopMac)
         XCTAssertFalse(profileWithoutMagSafe.supportsMagSafeLED)
 
-        let desktopProfile = MacHardwareProfile.detectCurrent(writableKeys: [], hasBatteryService: false)
+        let desktopProfile = MacHardwareProfile.detectCurrent(
+            writableKeys: [],
+            hasBatteryService: false,
+            modelOverride: "Macmini9,1"
+        )
         XCTAssertTrue(desktopProfile.isDesktopMac)
         XCTAssertFalse(desktopProfile.supportsMagSafeLED)
         XCTAssertFalse(desktopProfile.supportsLowPowerMode)
