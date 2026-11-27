@@ -111,6 +111,7 @@ public struct VoltGuardViewState: Equatable {
     public var hardwareProfile: MacHardwareProfile = .detectCurrent()
     public var helperErrorMessage: String?
     public var updateResult: AppUpdateCheckResult?
+    public var updateStage: AppUpdateStage = .idle
     public var isCheckingUpdates: Bool = false
     public var isInstallingUpdate: Bool = false
     public var updateFeedbackMessage: String?
@@ -154,6 +155,7 @@ public enum VoltGuardAction {
     case toggleRestoreDefaultOnQuit
     case checkForUpdates
     case installUpdate
+    case openUpdatesTab
     case addScheduleRule(ScheduleRule)
     case toggleScheduleRule(UUID)
     case removeScheduleRule(UUID)
@@ -507,8 +509,11 @@ public final class VoltGuardInteractor {
         try await updateService.checkLatestRelease()
     }
 
-    public func installUpdate(dmgURL: String) async throws {
-        try await updateService.downloadAndInstall(dmgURLString: dmgURL)
+    public func installUpdate(
+        dmgURL: String,
+        onStage: @escaping @Sendable (AppUpdateStage) -> Void
+    ) async throws {
+        try await updateService.downloadAndInstall(dmgURLString: dmgURL, onStage: onStage)
     }
 
     public func restoreHardwareOnQuit(calibration: CalibrationSession, policy: ChargePolicy = ChargePolicy()) {
@@ -1019,13 +1024,16 @@ public final class VoltGuardPresenter: ObservableObject {
             persistAndSync()
         case .checkForUpdates:
             state.isCheckingUpdates = true
+            state.updateStage = .checking
             state.updateFeedbackMessage = nil
             Task { [weak self] in
                 guard let self else { return }
                 do {
                     let result = try await self.interactor.checkLatestUpdate()
                     self.state.updateResult = result
+                    self.state.updateStage = result.isUpdateAvailable ? .available : .upToDate
                 } catch {
+                    self.state.updateStage = .failed(error.localizedDescription)
                     self.state.updateFeedbackMessage = error.localizedDescription
                 }
                 self.state.isCheckingUpdates = false
@@ -1033,18 +1041,30 @@ public final class VoltGuardPresenter: ObservableObject {
         case .installUpdate:
             guard let dmgURL = state.updateResult?.dmgDownloadURL else { return }
             state.isInstallingUpdate = true
+            state.updateStage = .downloading(0.02)
             state.updateFeedbackMessage = nil
             Task { [weak self] in
                 guard let self else { return }
                 do {
-                    try await self.interactor.installUpdate(dmgURL: dmgURL)
+                    try await self.interactor.installUpdate(dmgURL: dmgURL) { stage in
+                        Task { @MainActor [weak self] in
+                            self?.state.updateStage = stage
+                        }
+                    }
+                    self.state.updateStage = .completed
                     self.state.isInstallingUpdate = false
                     NSApp.terminate(nil)
                 } catch {
+                    self.state.updateStage = .failed(error.localizedDescription)
                     self.state.isInstallingUpdate = false
                     self.state.updateFeedbackMessage = error.localizedDescription
                 }
             }
+        case .openUpdatesTab:
+            if let updatesIdx = DashboardSection.allCases.firstIndex(of: .updates) {
+                state.requestedDashboardTab = updatesIdx
+            }
+            router?.openFullAppWindow()
         case .addScheduleRule(let rule):
             state.settings.schedules.append(rule)
             persistAndSync()

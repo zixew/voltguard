@@ -10,10 +10,10 @@ public enum AppUpdateError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidResponse: return "Unable to parse GitHub Releases response."
-        case .downloadFailed: return "Failed to download VoltGuard.dmg update."
-        case .dmgMountFailed: return "Failed to mount update DMG image."
-        case .appNotFoundInDMG: return "VoltGuard.app was not found inside the downloaded DMG."
+        case .invalidResponse: return "Unable to verify update server response."
+        case .downloadFailed: return "Failed to download the latest VoltGuard installer."
+        case .dmgMountFailed: return "Failed to open the downloaded installer package."
+        case .appNotFoundInDMG: return "VoltGuard.app was not found inside the downloaded installer."
         case .installFailed(let msg): return "Update installation failed: \(msg)"
         }
     }
@@ -23,11 +23,11 @@ public final class AppUpdateService: Sendable {
     public init() {}
 
     public func checkLatestRelease() async throws -> AppUpdateCheckResult {
-        guard let url = URL(string: AppReleaseInfo.latestReleaseAPI) else {
+        guard let url = URL(string: AppReleaseInfo.feedURL) else {
             throw AppUpdateError.invalidResponse
         }
-        var request = URLRequest(url: url)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("VoltGuard/\(AppReleaseInfo.currentVersion)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 12
 
@@ -35,38 +35,52 @@ public final class AppUpdateService: Sendable {
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw AppUpdateError.invalidResponse
         }
+        return try Self.decodeAppcast(data: data)
+    }
 
-        let payload = try JSONDecoder().decode(GitHubReleaseDTO.self, from: data)
-        let latest = payload.tagName.trimmingCharacters(in: CharacterSet(charactersIn: "vV "))
-        let dmgURL = payload.assets.first { $0.name.lowercased().hasSuffix(".dmg") }?.browserDownloadURL
+    public static func decodeAppcast(data: Data) throws -> AppUpdateCheckResult {
+        let payload = try JSONDecoder().decode(AppcastFeedDTO.self, from: data)
+        let latest = payload.version.trimmingCharacters(in: CharacterSet(charactersIn: "vV "))
         let hasUpdate = AppReleaseInfo.isNewerVersion(latest, than: AppReleaseInfo.currentVersion)
 
         return AppUpdateCheckResult(
             currentVersion: AppReleaseInfo.currentVersion,
             latestVersion: latest,
+            latestBuild: payload.build,
+            publishedAt: payload.publishedAt,
             isUpdateAvailable: hasUpdate,
-            releaseURL: payload.htmlURL,
-            dmgDownloadURL: dmgURL,
-            releaseNotes: payload.body ?? ""
+            dmgDownloadURL: payload.dmgURL,
+            latestChangesEN: payload.changesEN,
+            latestFixesEN: payload.fixesEN,
+            latestChangesID: payload.changesID,
+            latestFixesID: payload.fixesID
         )
     }
 
-    public func downloadAndInstall(dmgURLString: String) async throws {
+    public func downloadAndInstall(
+        dmgURLString: String,
+        onStage: @escaping @Sendable (AppUpdateStage) -> Void
+    ) async throws {
         guard let url = URL(string: dmgURLString) else {
             throw AppUpdateError.downloadFailed
         }
-        let (tempDMG, response) = try await URLSession.shared.download(from: url)
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw AppUpdateError.downloadFailed
-        }
 
-        let stagedDMG = FileManager.default.temporaryDirectory.appendingPathComponent("VoltGuard-Update-\(UUID().uuidString).dmg")
+        await MainActor.run { onStage(.downloading(0.02)) }
+        let tempDMG = try await downloadWithProgress(url: url, onProgress: { fraction in
+            Task { @MainActor in onStage(.downloading(fraction)) }
+        })
+
+        let stagedDMG = FileManager.default.temporaryDirectory
+            .appendingPathComponent("VoltGuard-Update-\(UUID().uuidString).dmg")
         try? FileManager.default.removeItem(at: stagedDMG)
         try FileManager.default.moveItem(at: tempDMG, to: stagedDMG)
-        defer { try? FileManager.default.removeItem(at: stagedDMG) }
+        defer { Self.cleanupDMGArtifacts(at: [stagedDMG]) }
 
-        let mountPoint = FileManager.default.temporaryDirectory.appendingPathComponent("voltguard-mount-\(UUID().uuidString)", isDirectory: true)
+        let mountPoint = FileManager.default.temporaryDirectory
+            .appendingPathComponent("voltguard-mount-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: mountPoint, withIntermediateDirectories: true)
+
+        await MainActor.run { onStage(.installing) }
         let useDiskUtil = Self.supportsModernDiskUtilImage()
         defer {
             let detach = Process()
@@ -124,10 +138,109 @@ public final class AppUpdateService: Sendable {
             }
         }
 
+        await MainActor.run { onStage(.cleaningUp) }
+        Self.cleanupDMGArtifacts(at: [stagedDMG])
+        Self.cleanupDownloadedVoltGuardDMGs()
+        await MainActor.run { onStage(.completed) }
+
         let relaunch = Process()
         relaunch.executableURL = URL(fileURLWithPath: "/usr/bin/open")
         relaunch.arguments = ["-n", destinationApp.path]
         try? relaunch.run()
+    }
+
+    public static func cleanupDMGArtifacts(at urls: [URL]) {
+        for url in urls where FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    private static func cleanupDownloadedVoltGuardDMGs() {
+        guard let downloadsDir = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first,
+              let entries = try? FileManager.default.contentsOfDirectory(at: downloadsDir, includingPropertiesForKeys: nil) else {
+            return
+        }
+        let matching = entries.filter {
+            let name = $0.lastPathComponent.lowercased()
+            return name.hasPrefix("voltguard") && name.hasSuffix(".dmg")
+        }
+        cleanupDMGArtifacts(at: matching)
+    }
+
+    private func downloadWithProgress(
+        url: URL,
+        onProgress: @escaping @Sendable (Double) -> Void
+    ) async throws -> URL {
+        final class ProgressDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+            let onProgress: @Sendable (Double) -> Void
+            private let lock = NSLock()
+            private var continuation: CheckedContinuation<(URL, URLResponse), Error>?
+
+            init(onProgress: @escaping @Sendable (Double) -> Void) {
+                self.onProgress = onProgress
+            }
+
+            func setContinuation(_ cont: CheckedContinuation<(URL, URLResponse), Error>) {
+                lock.lock()
+                continuation = cont
+                lock.unlock()
+            }
+
+            private func takeContinuation() -> CheckedContinuation<(URL, URLResponse), Error>? {
+                lock.lock()
+                let cont = continuation
+                continuation = nil
+                lock.unlock()
+                return cont
+            }
+
+            func urlSession(
+                _ session: URLSession,
+                downloadTask: URLSessionDownloadTask,
+                didWriteData bytesWritten: Int64,
+                totalBytesWritten: Int64,
+                totalBytesExpectedToWrite: Int64
+            ) {
+                guard totalBytesExpectedToWrite > 0 else { return }
+                let ratio = min(max(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite), 0.02), 0.99)
+                onProgress(ratio)
+            }
+
+            func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+                guard let cont = takeContinuation() else { return }
+                let copyURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("voltguard-dl-\(UUID().uuidString).dmg")
+                do {
+                    try? FileManager.default.removeItem(at: copyURL)
+                    try FileManager.default.copyItem(at: location, to: copyURL)
+                    let resp = downloadTask.response ?? URLResponse()
+                    cont.resume(returning: (copyURL, resp))
+                } catch {
+                    cont.resume(throwing: error)
+                }
+            }
+
+            func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+                if let error, let cont = takeContinuation() {
+                    cont.resume(throwing: error)
+                }
+            }
+        }
+
+        let delegate = ProgressDelegate(onProgress: onProgress)
+        let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+
+        let (tempFile, response): (URL, URLResponse) = try await withCheckedThrowingContinuation { cont in
+            delegate.setContinuation(cont)
+            let task = session.downloadTask(with: url)
+            task.resume()
+        }
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            try? FileManager.default.removeItem(at: tempFile)
+            throw AppUpdateError.downloadFailed
+        }
+        return tempFile
     }
 
     private static func supportsModernDiskUtilImage() -> Bool {
@@ -146,26 +259,13 @@ public final class AppUpdateService: Sendable {
     }
 }
 
-private struct GitHubReleaseDTO: Decodable {
-    let tagName: String
-    let htmlURL: String
-    let body: String?
-    let assets: [GitHubAssetDTO]
-
-    enum CodingKeys: String, CodingKey {
-        case tagName = "tag_name"
-        case htmlURL = "html_url"
-        case body
-        case assets
-    }
-}
-
-private struct GitHubAssetDTO: Decodable {
-    let name: String
-    let browserDownloadURL: String
-
-    enum CodingKeys: String, CodingKey {
-        case name
-        case browserDownloadURL = "browser_download_url"
-    }
+private struct AppcastFeedDTO: Decodable {
+    let version: String
+    let build: String
+    let publishedAt: String
+    let dmgURL: String
+    let changesEN: [String]
+    let fixesEN: [String]
+    let changesID: [String]
+    let fixesID: [String]
 }

@@ -10,6 +10,7 @@ public enum DashboardSection: String, CaseIterable, Identifiable {
     case schedule
     case appearance
     case system
+    case updates
 
     public var id: String { rawValue }
 
@@ -21,6 +22,7 @@ public enum DashboardSection: String, CaseIterable, Identifiable {
         case .schedule: return "calendar.badge.clock"
         case .appearance: return "paintpalette"
         case .system: return "gearshape.2"
+        case .updates: return "arrow.down.circle"
         }
     }
 
@@ -32,6 +34,7 @@ public enum DashboardSection: String, CaseIterable, Identifiable {
         case .schedule: return L10n.text(.tabSchedule, locale: locale)
         case .appearance: return L10n.text(.tabTheme, locale: locale)
         case .system: return L10n.text(.tabGuide, locale: locale)
+        case .updates: return L10n.text(.tabUpdates, locale: locale)
         }
     }
 }
@@ -103,6 +106,11 @@ public struct FullDashboardView: View {
         .compatOnChange(of: presenter.state.requestedDashboardTab) { tabIdx in
             guard let tabIdx, DashboardSection.allCases.indices.contains(tabIdx) else { return }
             selectedSection = DashboardSection.allCases[tabIdx]
+        }
+        .onAppear {
+            if presenter.state.updateResult == nil && !presenter.state.isCheckingUpdates {
+                presenter.dispatch(.checkForUpdates)
+            }
         }
     }
 
@@ -212,6 +220,11 @@ public struct FullDashboardView: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.9)
                             Spacer()
+                            if section == .updates && presenter.state.updateResult?.isUpdateAvailable == true {
+                                Circle()
+                                    .fill(palette.warning)
+                                    .frame(width: 7, height: 7)
+                            }
                             if isSelected {
                                 Capsule()
                                     .fill(palette.accent)
@@ -348,6 +361,8 @@ public struct FullDashboardView: View {
             appearanceAndLayoutSection(locale: locale, palette: palette)
         case .system:
             systemAndGuideSection(locale: locale, palette: palette)
+        case .updates:
+            updatesSection(locale: locale, palette: palette)
         }
     }
 
@@ -2570,49 +2585,85 @@ public struct FullDashboardView: View {
                 }
             }
 
-            themedCard(title: L10n.text(.appUpdatesTitle, locale: locale), palette: palette) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        HStack(spacing: 8) {
-                            Image(systemName: "shippingbox.circle.fill")
-                                .font(.title3)
-                                .foregroundStyle(palette.accent)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("VoltGuard v\(AppReleaseInfo.currentVersion) (Build \(AppReleaseInfo.buildNumber))")
-                                    .font(.headline.monospacedDigit())
-                                    .foregroundStyle(palette.primaryText)
-                                Text(AppReleaseInfo.githubRepo)
-                                    .font(.caption.monospaced())
-                                    .foregroundStyle(palette.secondaryText)
-                            }
+            themedCard(title: L10n.text(.appTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(L10n.text(.userGuideSummary, locale: locale))
+                    Divider()
+                    Text("Apple Shortcuts: Set VoltGuard Charge Limit, Toggle VoltGuard Discharge, Top Up Battery to 100%, Get VoltGuard Battery Telemetry")
+                        .font(.callout)
+                        .foregroundStyle(palette.secondaryText)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func updatesSection(locale: AppLocale, palette: ThemePalette) -> some View {
+        let update = presenter.state.updateResult
+        let activeVersion = update?.latestVersion ?? AppReleaseInfo.currentVersion
+        let activeDate = update?.publishedAt ?? AppReleaseInfo.latestPublishedDate
+        let changes = locale == .id
+            ? (update?.latestChangesID ?? AppReleaseInfo.latestChangesID)
+            : (update?.latestChangesEN ?? AppReleaseInfo.latestChangesEN)
+        let fixes = locale == .id
+            ? (update?.latestFixesID ?? AppReleaseInfo.latestFixesID)
+            : (update?.latestFixesEN ?? AppReleaseInfo.latestFixesEN)
+
+        VStack(alignment: .leading, spacing: 18) {
+            Text(L10n.text(.appUpdatesTitle, locale: locale))
+                .font(.title2.bold())
+                .foregroundStyle(palette.primaryText)
+
+            themedCard(palette: palette) {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 12) {
+                        BrandLogoView(size: 42, accentColor: palette.accent)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("VoltGuard v\(AppReleaseInfo.currentVersion) (Build \(AppReleaseInfo.buildNumber))")
+                                .font(.headline.monospacedDigit())
+                                .foregroundStyle(palette.primaryText)
+                            Text(L10n.text(.updatesCleanHint, locale: locale))
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
 
                         Spacer()
+
+                        if let update, update.isUpdateAvailable, update.dmgDownloadURL != nil {
+                            Button {
+                                presenter.dispatch(.installUpdate)
+                            } label: {
+                                HStack(spacing: 6) {
+                                    if presenter.state.isInstallingUpdate {
+                                        ProgressView().controlSize(.small)
+                                    }
+                                    Text(L10n.text(presenter.state.isInstallingUpdate ? .installingUpdate : .installUpdateButton, locale: locale))
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(palette.warning)
+                            .disabled(presenter.state.isInstallingUpdate)
+                        }
 
                         Button {
                             presenter.dispatch(.checkForUpdates)
                         } label: {
                             HStack(spacing: 6) {
                                 if presenter.state.isCheckingUpdates {
-                                    ProgressView()
-                                        .controlSize(.small)
+                                    ProgressView().controlSize(.small)
                                 }
                                 Text(L10n.text(presenter.state.isCheckingUpdates ? .checkingUpdates : .checkUpdatesButton, locale: locale))
                             }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(palette.accent)
-                        .disabled(presenter.state.isCheckingUpdates || presenter.state.isInstallingUpdate)
-
-                        Button(L10n.text(.openReleasesPage, locale: locale)) {
-                            if let url = URL(string: presenter.state.updateResult?.releaseURL ?? AppReleaseInfo.releasesWebURL) {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
                         .buttonStyle(.bordered)
+                        .disabled(presenter.state.isCheckingUpdates || presenter.state.isInstallingUpdate)
                     }
 
-                    if let update = presenter.state.updateResult {
+                    if presenter.state.isInstallingUpdate || presenter.state.updateStage == .completed {
+                        updateInstallProgressBanner(stage: presenter.state.updateStage, locale: locale, palette: palette)
+                    } else if let update {
                         HStack(spacing: 10) {
                             Image(systemName: update.isUpdateAvailable ? "arrow.down.circle.fill" : "checkmark.circle.fill")
                                 .foregroundStyle(update.isUpdateAvailable ? palette.warning : palette.accent)
@@ -2625,21 +2676,9 @@ public struct FullDashboardView: View {
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(palette.primaryText)
                             Spacer()
-                            if update.isUpdateAvailable, update.dmgDownloadURL != nil {
-                                Button {
-                                    presenter.dispatch(.installUpdate)
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        if presenter.state.isInstallingUpdate {
-                                            ProgressView().controlSize(.small)
-                                        }
-                                        Text(L10n.text(presenter.state.isInstallingUpdate ? .installingUpdate : .installUpdateButton, locale: locale))
-                                    }
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(palette.warning)
-                                .disabled(presenter.state.isInstallingUpdate)
-                            }
+                            Text(update.checkedAt.formatted(date: .omitted, time: .shortened))
+                                .font(.caption2.monospaced())
+                                .foregroundStyle(palette.secondaryText)
                         }
                         .padding(10)
                         .background((update.isUpdateAvailable ? palette.warning : palette.accent).opacity(0.12))
@@ -2653,62 +2692,107 @@ public struct FullDashboardView: View {
                     if let updateFeedback = presenter.state.updateFeedbackMessage {
                         Text(updateFeedback)
                             .font(.caption)
+                            .foregroundStyle(palette.danger)
+                    }
+                }
+            }
+
+            themedCard(palette: palette) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text(String(format: L10n.text(.updatesWhatsNewSection, locale: locale), activeVersion))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(palette.primaryText)
+                        Spacer()
+                        Text(activeDate)
+                            .font(.caption2.monospaced())
                             .foregroundStyle(palette.secondaryText)
                     }
 
-                    Divider()
+                    VStack(alignment: .leading, spacing: 7) {
+                        ForEach(Array(changes.enumerated()), id: \.offset) { _, line in
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(palette.accent)
+                                    .padding(.top, 2)
+                                Text(line)
+                                    .font(.callout)
+                                    .foregroundStyle(palette.primaryText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
 
-                    Text(L10n.text(.changelogLogTitle, locale: locale))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(palette.secondaryText)
+                    if !fixes.isEmpty {
+                        Divider()
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(AppReleaseInfo.changelog) { entry in
-                            let isCurrent = entry.version == AppReleaseInfo.currentVersion
-                            let title = locale == .id ? entry.titleID : entry.titleEN
-                            let highlights = locale == .id ? entry.highlightsID : entry.highlightsEN
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text("v\(entry.version)")
-                                        .font(.caption.bold().monospacedDigit())
-                                        .padding(.horizontal, 7)
-                                        .padding(.vertical, 2)
-                                        .background((isCurrent ? palette.accent : palette.secondaryText).opacity(0.16))
-                                        .foregroundStyle(isCurrent ? palette.accent : palette.secondaryText)
-                                        .clipShape(Capsule())
-                                    Text(title)
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(palette.primaryText)
-                                    Spacer()
-                                    Text(entry.date)
-                                        .font(.caption2.monospaced())
-                                        .foregroundStyle(palette.secondaryText)
-                                }
-                                ForEach(Array(highlights.enumerated()), id: \.offset) { _, line in
-                                    Text("* \(line)")
+                        Text(String(format: L10n.text(.updatesFixesSection, locale: locale), activeVersion))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(palette.primaryText)
+
+                        VStack(alignment: .leading, spacing: 7) {
+                            ForEach(Array(fixes.enumerated()), id: \.offset) { _, line in
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "wrench.and.screwdriver.fill")
                                         .font(.caption)
+                                        .foregroundStyle(palette.warning)
+                                        .padding(.top, 2)
+                                    Text(line)
+                                        .font(.callout)
                                         .foregroundStyle(palette.secondaryText)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
-                            .padding(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(palette.background.opacity(0.45))
-                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                         }
                     }
                 }
             }
-
-            themedCard(title: L10n.text(.appTitle, locale: locale), palette: palette) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(L10n.text(.userGuideSummary, locale: locale))
-                    Divider()
-                    Text("Apple Shortcuts: Set VoltGuard Charge Limit, Toggle VoltGuard Discharge, Top Up Battery to 100%, Get VoltGuard Battery Telemetry")
-                        .font(.callout)
-                        .foregroundStyle(palette.secondaryText)
-                }
+        }
+        .onAppear {
+            if presenter.state.updateResult == nil && !presenter.state.isCheckingUpdates {
+                presenter.dispatch(.checkForUpdates)
             }
         }
+    }
+
+    @ViewBuilder
+    private func updateInstallProgressBanner(stage: AppUpdateStage, locale: AppLocale, palette: ThemePalette) -> some View {
+        let (label, fraction): (String, Double?) = {
+            switch stage {
+            case .downloading(let pct):
+                return (String(format: L10n.text(.updatesStageDownloading, locale: locale), Int((pct * 100).rounded())), pct)
+            case .installing:
+                return (L10n.text(.updatesStageInstalling, locale: locale), 0.90)
+            case .cleaningUp:
+                return (L10n.text(.updatesStageCleaningUp, locale: locale), 0.97)
+            case .completed:
+                return (L10n.text(.updatesStageCompleted, locale: locale), 1.0)
+            default:
+                return (L10n.text(.installingUpdate, locale: locale), nil)
+            }
+        }()
+
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.accent)
+            if let fraction {
+                ProgressView(value: fraction, total: 1.0)
+                    .tint(palette.accent)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(palette.accent.opacity(0.10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(palette.accent.opacity(0.35), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     @ViewBuilder

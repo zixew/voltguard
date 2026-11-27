@@ -317,6 +317,7 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case calResultEmptyHint
     case restoreDefaultOnQuit
     case restoreDefaultOnQuitDesc
+    case tabUpdates
     case appUpdatesTitle
     case checkUpdatesButton
     case checkingUpdates
@@ -324,8 +325,13 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case upToDateBanner
     case installUpdateButton
     case installingUpdate
-    case changelogLogTitle
-    case openReleasesPage
+    case updatesWhatsNewSection
+    case updatesFixesSection
+    case updatesStageDownloading
+    case updatesStageInstalling
+    case updatesStageCleaningUp
+    case updatesStageCompleted
+    case updatesCleanHint
 }
 
 public struct L10n {
@@ -652,15 +658,21 @@ public struct L10n {
         .calResultEmptyHint: "Run a calibration cycle once every 1-3 months to record Before vs After capacity changes.",
         .restoreDefaultOnQuit: "Restore System Charging on Quit",
         .restoreDefaultOnQuitDesc: "Reset charge limit to 100% cleanly when quitting VoltGuard so your Mac charges normally while the app is closed.",
-        .appUpdatesTitle: "Version, Auto-Update & Changelog",
-        .checkUpdatesButton: "Check Updates",
-        .checkingUpdates: "Checking GitHub...",
-        .updateAvailableBanner: "New version available: v%@",
-        .upToDateBanner: "Up to date (v%@)",
-        .installUpdateButton: "Download & Install Update",
-        .installingUpdate: "Installing DMG...",
-        .changelogLogTitle: "Release Changelog",
-        .openReleasesPage: "GitHub Releases"
+        .tabUpdates: "Updates",
+        .appUpdatesTitle: "Software Update",
+        .checkUpdatesButton: "Check for Updates",
+        .checkingUpdates: "Checking for updates...",
+        .updateAvailableBanner: "Update Ready: VoltGuard v%@",
+        .upToDateBanner: "VoltGuard is up to date (v%@)",
+        .installUpdateButton: "Update & Relaunch",
+        .installingUpdate: "Updating...",
+        .updatesWhatsNewSection: "Changes in v%@",
+        .updatesFixesSection: "Fixes in v%@",
+        .updatesStageDownloading: "Downloading update (%d%%)...",
+        .updatesStageInstalling: "Installing VoltGuard to Applications...",
+        .updatesStageCleaningUp: "Cleaning up installer DMG...",
+        .updatesStageCompleted: "Update installed! Relaunching...",
+        .updatesCleanHint: "VoltGuard automatically installs the latest app bundle and deletes temporary DMG files once finished."
     ]
 
     public static let id: [L10nKey: String] = [
@@ -979,15 +991,21 @@ public struct L10n {
         .calResultEmptyHint: "Jalankan kalibrasi 1-3 bulan sekali untuk melihat perbandingan kapasitas mAh & Health % sebelum vs sesudah.",
         .restoreDefaultOnQuit: "Pulihkan Pengisian Standar Saat Keluar",
         .restoreDefaultOnQuitDesc: "Kembalikan batas pengisian ke 100% saat VoltGuard ditutup agar Mac tetap bisa mengisi normal.",
-        .appUpdatesTitle: "Versi, Auto-Update & Log Perubahan",
-        .checkUpdatesButton: "Cek Update",
-        .checkingUpdates: "Mengecek GitHub...",
-        .updateAvailableBanner: "Versi baru tersedia: v%@",
-        .upToDateBanner: "Versi terbaru terpasang (v%@)",
-        .installUpdateButton: "Unduh & Pasang Update",
-        .installingUpdate: "Memasang DMG...",
-        .changelogLogTitle: "Catatan Log Pembaruan",
-        .openReleasesPage: "Buka GitHub Releases"
+        .tabUpdates: "Pembaruan",
+        .appUpdatesTitle: "Pembaruan Aplikasi",
+        .checkUpdatesButton: "Cek Pembaruan",
+        .checkingUpdates: "Memeriksa pembaruan...",
+        .updateAvailableBanner: "Pembaruan Siap: VoltGuard v%@",
+        .upToDateBanner: "VoltGuard versi terbaru (v%@)",
+        .installUpdateButton: "Perbarui & Buka Ulang",
+        .installingUpdate: "Memperbarui...",
+        .updatesWhatsNewSection: "Perubahan di v%@",
+        .updatesFixesSection: "Perbaikan di v%@",
+        .updatesStageDownloading: "Mengunduh pembaruan (%d%%)...",
+        .updatesStageInstalling: "Memasang VoltGuard ke Applications...",
+        .updatesStageCleaningUp: "Menghapus installer DMG...",
+        .updatesStageCompleted: "Terpasang! Membuka ulang aplikasi...",
+        .updatesCleanHint: "VoltGuard otomatis memasang aplikasi terbaru dan langsung menghapus berkas DMG setelah pemasangan selesai."
     ]
 }
 

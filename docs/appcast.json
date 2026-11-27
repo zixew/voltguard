@@ -1,0 +1,26 @@
+{
+  "version": "1.2.0",
+  "build": "3",
+  "publishedAt": "2026-11-27",
+  "dmgURL": "https://voltguard-mocha.vercel.app/downloads/VoltGuard.dmg",
+  "changesEN": [
+    "Interactive animated Thermal Zone card with multi-sensor thermistor drawer (TB0T, TB1T, TB2T, Ts0P)",
+    "Before vs After calibration fuel-gauge capacity comparison card and expected outcome guide",
+    "Restore System Charging on Quit option to return Mac charging limit to 100% when exiting VoltGuard",
+    "Dedicated Software Update panel with one-click download, install, and automatic DMG cleanup"
+  ],
+  "fixesEN": [
+    "Fixed battery temperature stuck at 21.9 C fallback on macOS 27 and Apple Silicon M4 by reading AppleSMC thermistors directly",
+    "Replaced deprecated hdiutil packaging and SwiftUI single-parameter modifiers for clean macOS 26/27 compatibility"
+  ],
+  "changesID": [
+    "Kartu Thermal Zone interaktif beranimasi dengan rincian multi-sensor (TB0T, TB1T, TB2T, Ts0P)",
+    "Kartu perbandingan kapasitas Before vs After kalibrasi serta penjelasan hasil akhir yang dicapai",
+    "Opsi Restore System Charging on Quit untuk mengembalikan batas pengisian ke 100% saat VoltGuard ditutup",
+    "Halaman Pembaruan Aplikasi tersendiri dengan unduh otomatis, pasang ke Applications, dan hapus file DMG"
+  ],
+  "fixesID": [
+    "Memperbaiki pembacaan suhu baterai yang macet di fallback 21.9 C pada macOS 27 dan Apple Silicon M4 lewat pembacaan AppleSMC langsung",
+    "Memperbarui skrip DMG diskutil dan API SwiftUI modern agar bebas warning deprecated di macOS 26/27"
+  ]
+}

@@ -105,6 +105,33 @@ public struct PopoverView: View {
             Spacer()
 
             Button {
+                presenter.dispatch(.openUpdatesTab)
+            } label: {
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(5)
+                        .background(palette.surface)
+                        .foregroundStyle(state.updateResult?.isUpdateAvailable == true ? palette.warning : palette.primaryText)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(palette.border, lineWidth: 1)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                    if state.updateResult?.isUpdateAvailable == true {
+                        Circle()
+                            .fill(palette.warning)
+                            .frame(width: 7, height: 7)
+                            .offset(x: 2, y: -2)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .compatFocusEffectDisabled()
+            .accessibilityLabel(Text(L10n.text(.tabUpdates, locale: locale)))
+
+            Button {
                 let nextLocale: AppLocale = locale == .en ? .id : .en
                 presenter.dispatch(.updateLocale(nextLocale))
             } label: {

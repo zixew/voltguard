@@ -463,30 +463,54 @@ public struct AppReleaseChangelogEntry: Codable, Equatable, Identifiable, Sendab
     }
 }
 
+public enum AppUpdateStage: Equatable, Sendable {
+    case idle
+    case checking
+    case available
+    case upToDate
+    case downloading(Double)
+    case installing
+    case cleaningUp
+    case completed
+    case failed(String)
+}
+
 public struct AppUpdateCheckResult: Equatable, Sendable {
     public let currentVersion: String
     public let latestVersion: String
+    public let latestBuild: String
+    public let publishedAt: String
     public let isUpdateAvailable: Bool
-    public let releaseURL: String
     public let dmgDownloadURL: String?
-    public let releaseNotes: String
+    public let latestChangesEN: [String]
+    public let latestFixesEN: [String]
+    public let latestChangesID: [String]
+    public let latestFixesID: [String]
     public let checkedAt: Date
 
     public init(
         currentVersion: String,
         latestVersion: String,
+        latestBuild: String = AppReleaseInfo.buildNumber,
+        publishedAt: String = AppReleaseInfo.latestPublishedDate,
         isUpdateAvailable: Bool,
-        releaseURL: String,
         dmgDownloadURL: String?,
-        releaseNotes: String,
+        latestChangesEN: [String] = AppReleaseInfo.latestChangesEN,
+        latestFixesEN: [String] = AppReleaseInfo.latestFixesEN,
+        latestChangesID: [String] = AppReleaseInfo.latestChangesID,
+        latestFixesID: [String] = AppReleaseInfo.latestFixesID,
         checkedAt: Date = Date()
     ) {
         self.currentVersion = currentVersion
         self.latestVersion = latestVersion
+        self.latestBuild = latestBuild
+        self.publishedAt = publishedAt
         self.isUpdateAvailable = isUpdateAvailable
-        self.releaseURL = releaseURL
         self.dmgDownloadURL = dmgDownloadURL
-        self.releaseNotes = releaseNotes
+        self.latestChangesEN = latestChangesEN
+        self.latestFixesEN = latestFixesEN
+        self.latestChangesID = latestChangesID
+        self.latestFixesID = latestFixesID
         self.checkedAt = checkedAt
     }
 }
@@ -494,55 +518,43 @@ public struct AppUpdateCheckResult: Equatable, Sendable {
 public enum AppReleaseInfo {
     public static let currentVersion = "1.2.0"
     public static let buildNumber = "3"
-    public static let githubRepo = "zixew/voltguard"
-    public static let latestReleaseAPI = "https://api.github.com/repos/zixew/voltguard/releases/latest"
-    public static let releasesWebURL = "https://github.com/zixew/voltguard/releases"
+    public static let latestPublishedDate = "2026-11-27"
     public static let websiteURL = "https://voltguard-mocha.vercel.app"
+    public static let feedURL = "https://voltguard-mocha.vercel.app/appcast.json"
+    public static let dmgURL = "https://voltguard-mocha.vercel.app/downloads/VoltGuard.dmg"
+
+    public static let latestChangesEN: [String] = [
+        "Interactive animated Thermal Zone card with multi-sensor thermistor drawer (TB0T, TB1T, TB2T, Ts0P)",
+        "Before vs After calibration fuel-gauge capacity comparison card and expected outcome guide",
+        "Restore System Charging on Quit option to return Mac charging limit to 100% when exiting VoltGuard",
+        "Dedicated Software Update panel with one-click download, install, and automatic DMG cleanup"
+    ]
+
+    public static let latestFixesEN: [String] = [
+        "Fixed battery temperature stuck at 21.9 C fallback on macOS 27 and Apple Silicon M4 by reading AppleSMC thermistors directly",
+        "Replaced deprecated hdiutil packaging and SwiftUI single-parameter modifiers for clean macOS 26/27 compatibility"
+    ]
+
+    public static let latestChangesID: [String] = [
+        "Kartu Thermal Zone interaktif beranimasi dengan rincian multi-sensor (TB0T, TB1T, TB2T, Ts0P)",
+        "Kartu perbandingan kapasitas Before vs After kalibrasi serta penjelasan hasil akhir yang dicapai",
+        "Opsi Restore System Charging on Quit untuk mengembalikan batas pengisian ke 100% saat VoltGuard ditutup",
+        "Halaman Pembaruan Aplikasi tersendiri dengan unduh otomatis, pasang ke Applications, dan hapus file DMG"
+    ]
+
+    public static let latestFixesID: [String] = [
+        "Memperbaiki pembacaan suhu baterai yang macet di fallback 21.9 C pada macOS 27 dan Apple Silicon M4 lewat pembacaan AppleSMC langsung",
+        "Memperbarui skrip DMG diskutil dan API SwiftUI modern agar bebas warning deprecated di macOS 26/27"
+    ]
 
     public static let changelog: [AppReleaseChangelogEntry] = [
         AppReleaseChangelogEntry(
             version: "1.2.0",
             date: "2026-11-27",
-            titleEN: "Live SMC Thermals, Calibration Outcome & Auto-Updater",
-            titleID: "Sensor Suhu SMC Nyata, Hasil Kalibrasi & Auto-Updater",
-            highlightsEN: [
-                "Fixed stuck 21.9 C battery temp on macOS 27 / M4 using AppleSMC TB0T/TB1T/TB2T live probes",
-                "Added interactive animated Thermal Zone card with inline limit controls and multi-sensor breakdown",
-                "Added Before/After Calibration Result card, Restore-on-Quit toggle, Auto-Updater & Update Log UI"
-            ],
-            highlightsID: [
-                "Perbaikan suhu macet 21.9 C di macOS 27 / M4 lewat pembacaan AppleSMC TB0T/TB1T/TB2T nyata",
-                "Kartu Thermal Zone interaktif beranimasi dengan atur batas suhu langsung & rincian multi-sensor",
-                "Kartu Hasil Kalibrasi Before -> After, opsi Restore on Quit, Auto-Updater & UI Log Update"
-            ]
-        ),
-        AppReleaseChangelogEntry(
-            version: "1.1.0",
-            date: "2026-11-27",
-            titleEN: "Universal Mac (macOS 13 - 27), Sailing Step-Down & PD Verifier",
-            titleID: "Kompatibilitas Mac Universal (macOS 13 - 27), Sailing & PD Verifier",
-            highlightsEN: [
-                "Lowered minimum target to macOS 13.0 Ventura and Intel Pre-T2 / T2 + Apple Silicon M1-M5",
-                "Added one-time cached Auto Compatibility Check with automatic unsupported control disabling",
-                "Added USB-C PD Verifier, Sailing auto step-down, and interactive Bypass Shield flow"
-            ],
-            highlightsID: [
-                "Dukungan resmi macOS 13.0 Ventura hingga 27.x untuk Intel & Apple Silicon M1-M5",
-                "Fitur Auto-Cek Kompatibilitas 1-kali tersimpan dengan auto-disable kontrol non-support",
-                "USB-C PD Verifier, Sailing step-down otomatis, dan animasi Bypass Shield interaktif"
-            ]
-        ),
-        AppReleaseChangelogEntry(
-            version: "1.0.0",
-            date: "2026-11-26",
-            titleEN: "Initial Release",
-            titleID: "Rilis Perdana",
-            highlightsEN: [
-                "Charge limiter (20%-100%), Bypass Charging / Adapter Mode CHIE, 5-stage Calibration, and 4 Themes"
-            ],
-            highlightsID: [
-                "Charge Limit (20%-100%), Bypass Charging / Adapter Mode CHIE, Kalibrasi 5-tahap, dan 4 Tema"
-            ]
+            titleEN: "What's New & Fixes in v1.2.0",
+            titleID: "Perubahan & Perbaikan Versi 1.2.0",
+            highlightsEN: latestChangesEN + latestFixesEN,
+            highlightsID: latestChangesID + latestFixesID
         )
     ]
 

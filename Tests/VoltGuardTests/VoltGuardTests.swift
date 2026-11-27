@@ -1922,4 +1922,41 @@ final class VoltGuardStabilityTests: XCTestCase {
         let decoded = try JSONDecoder().decode(ChargePolicy.self, from: legacyJSON)
         XCTAssertTrue(decoded.restoreDefaultOnQuit)
     }
+
+    func testAppcastDecodingLatestChangesAndFixesOnly() throws {
+        let json = """
+        {
+          "version": "1.3.0",
+          "build": "4",
+          "publishedAt": "2026-12-01",
+          "dmgURL": "https://voltguard-mocha.vercel.app/downloads/VoltGuard.dmg",
+          "changesEN": ["Dedicated Software Update tab"],
+          "fixesEN": ["Auto-deletes temporary DMG after install"],
+          "changesID": ["Tab Pembaruan tersendiri"],
+          "fixesID": ["Hapus DMG sementara otomatis setelah terpasang"]
+        }
+        """.data(using: .utf8)!
+        let decoded = try AppUpdateService.decodeAppcast(data: json)
+        XCTAssertTrue(decoded.isUpdateAvailable)
+        XCTAssertEqual(decoded.latestVersion, "1.3.0")
+        XCTAssertEqual(decoded.latestBuild, "4")
+        XCTAssertEqual(decoded.latestChangesEN, ["Dedicated Software Update tab"])
+        XCTAssertEqual(decoded.latestFixesEN, ["Auto-deletes temporary DMG after install"])
+        XCTAssertEqual(decoded.latestChangesID, ["Tab Pembaruan tersendiri"])
+        XCTAssertEqual(decoded.latestFixesID, ["Hapus DMG sementara otomatis setelah terpasang"])
+    }
+
+    func testUpdateDMGCleanupRemovesStagedArtifacts() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("voltguard-dmg-cleanup-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let dmgURL = dir.appendingPathComponent("VoltGuard-Update-Test.dmg")
+        try Data([0x01, 0x02, 0x03]).write(to: dmgURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: dmgURL.path))
+
+        AppUpdateService.cleanupDMGArtifacts(at: [dmgURL])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dmgURL.path))
+    }
 }
