@@ -230,6 +230,7 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case stopChargingOnSleepDesc
     case lowPowerOnBatteryDesc
     case lowPowerAlwaysDesc
+    case magSafeSyncLegend
 }
 
 public struct L10n {
@@ -468,7 +469,8 @@ public struct L10n {
         .sleepControlDesc: "Prevent macOS from sleeping while active discharge or calibration is running.",
         .stopChargingOnSleepDesc: "Block battery charging whenever your Mac enters sleep mode.",
         .lowPowerOnBatteryDesc: "Enable macOS Low Power Mode automatically whenever unplugged.",
-        .lowPowerAlwaysDesc: "Keep macOS Low Power Mode active on both battery and power adapter."
+        .lowPowerAlwaysDesc: "Keep macOS Low Power Mode active on both battery and power adapter.",
+        .magSafeSyncLegend: "Sync Mode: Charging = Amber  |  Limit Reached (Bypass) = Green  |  Discharging = LED Off"
     ]
 
     public static let id: [L10nKey: String] = [
@@ -699,7 +701,8 @@ public struct L10n {
         .sleepControlDesc: "Cegah macOS tidur saat pengosongan baterai atau kalibrasi sedang berjalan.",
         .stopChargingOnSleepDesc: "Hentikan pengisian daya baterai setiap kali Mac masuk mode tidur.",
         .lowPowerOnBatteryDesc: "Aktifkan Mode Hemat Daya macOS otomatis saat menggunakan baterai.",
-        .lowPowerAlwaysDesc: "Pertahankan Mode Hemat Daya macOS baik di baterai maupun adaptor."
+        .lowPowerAlwaysDesc: "Pertahankan Mode Hemat Daya macOS baik di baterai maupun adaptor.",
+        .magSafeSyncLegend: "Mode Sinkron: Mengisi = Amber  |  Batas Tercapai (Bypass) = Hijau  |  Discharge = LED Mati"
     ]
 }
 

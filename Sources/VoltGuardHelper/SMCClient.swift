@@ -28,6 +28,7 @@ struct SMCKeyData {
     var vers = Version()
     var pLimitData = PLimitData()
     var keyInfo = KeyInfoData()
+    var padding: UInt16 = 0
     var result: UInt8 = 0
     var status: UInt8 = 0
     var data8: UInt8 = 0
@@ -75,18 +76,22 @@ final class SMCClient {
         input.key = fourCharCode(key)
         input.data8 = 9 // kSMCGetKeyInfo
         let infoRes = callSMC(input: &input, output: &output)
-        guard infoRes == kIOReturnSuccess, output.keyInfo.dataSize >= 1 else {
+        guard infoRes == kIOReturnSuccess, output.result == 0, output.keyInfo.dataSize >= 1 else {
             return false
         }
 
-        input.keyInfo.dataSize = output.keyInfo.dataSize
-        input.data8 = 6 // kSMCWriteKey
-        withUnsafeMutableBytes(of: &input.bytes) { rawBuf in
-            for (index, byte) in values.prefix(32).enumerated() {
+        var writeInput = SMCKeyData()
+        var writeOutput = SMCKeyData()
+        writeInput.key = fourCharCode(key)
+        writeInput.keyInfo.dataSize = output.keyInfo.dataSize
+        writeInput.data8 = 6 // kSMCWriteKey
+        withUnsafeMutableBytes(of: &writeInput.bytes) { rawBuf in
+            for (index, byte) in values.prefix(Int(output.keyInfo.dataSize)).enumerated() {
                 rawBuf[index] = byte
             }
         }
-        return callSMC(input: &input, output: &output) == kIOReturnSuccess
+        let writeRes = callSMC(input: &writeInput, output: &writeOutput)
+        return writeRes == kIOReturnSuccess && writeOutput.result == 0
     }
 
     private func callSMC(input: inout SMCKeyData, output: inout SMCKeyData) -> kern_return_t {

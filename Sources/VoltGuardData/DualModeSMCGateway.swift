@@ -25,6 +25,7 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
     private let lock = NSLock()
     private var lastAppliedCommand: SMCCommandState?
     private var lastSocketReachable: Bool?
+    private var skippedIdenticalCount: Int = 0
 
     public init() {}
 
@@ -38,14 +39,23 @@ public final class DualModeSMCGateway: SMCControlGateway, @unchecked Sendable {
             lock.withLock {
                 lastAppliedCommand = nil
                 lastSocketReachable = false
+                skippedIdenticalCount = 0
             }
             return
         }
 
-        let unchanged = lock.withLock {
-            lastSocketReachable == true && lastAppliedCommand == command
+        // Re-assert SMC/ACLC every 3rd poll even when command is unchanged so macOS powerd cannot silently reset LED color.
+        let shouldSkip = lock.withLock { () -> Bool in
+            if lastSocketReachable == true && lastAppliedCommand == command {
+                skippedIdenticalCount += 1
+                if skippedIdenticalCount < 3 {
+                    return true
+                }
+            }
+            skippedIdenticalCount = 0
+            return false
         }
-        if unchanged { return }
+        if shouldSkip { return }
 
         let payload = HelperPayload(
             limitPercent: command.targetLimitPercent,

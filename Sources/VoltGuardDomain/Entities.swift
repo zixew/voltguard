@@ -260,7 +260,7 @@ public struct ChargePolicy: Codable, Equatable, Sendable {
         maxTemperatureCelsius: Double = VoltGuardLimits.defaultMaxTemperatureCelsius,
         sailingModeEnabled: Bool = false,
         sailingDeltaPercent: Int = VoltGuardLimits.defaultSailingDeltaPercent,
-        magSafeLEDMode: MagSafeLEDMode = .system,
+        magSafeLEDMode: MagSafeLEDMode = .syncWithLimit,
         topUpActive: Bool = false,
         sleepControlEnabled: Bool = true,
         stopChargingWhenSleeping: Bool = false,

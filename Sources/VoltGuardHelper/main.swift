@@ -23,23 +23,33 @@ func applyLowPowerModeIfNeeded(_ enabled: Bool?) {
 }
 
 func applySMC(_ cmd: HelperCommand, client: SMCClient) {
-    // Apple Silicon & Intel SMC keys: BCLM/CHTE for limit, CH0B/CH0C/CH0I for inhibit/discharge, ACLC for MagSafe LED.
+    // Apple Silicon (M1/M2/M3/M4) & Intel SMC keys:
+    // BCLM/CHWA for charge limit, CH0B/CH0C/CH0I/CHTE & CHIE/CH0J for inhibit/discharge, ACLC for MagSafe LED.
     let clamped = UInt8(min(max(cmd.limitPercent, 20), 100))
     _ = client.writeByte(key: "BCLM", value: clamped)
 
     if cmd.forceDischarge {
         _ = client.writeByte(key: "CH0I", value: 1)
+        _ = client.writeByte(key: "CH0J", value: 1)
         _ = client.writeByte(key: "CH0B", value: 2)
+        _ = client.writeByte(key: "CH0C", value: 2)
+        _ = client.writeByte(key: "CHIE", value: 0x08)
         _ = client.writeBytes(key: "CHTE", values: [0x01, 0x00, 0x00, 0x00])
     } else if !cmd.allowCharging {
         _ = client.writeByte(key: "CH0I", value: 0)
+        _ = client.writeByte(key: "CH0J", value: 0)
         _ = client.writeByte(key: "CH0B", value: 2)
         _ = client.writeByte(key: "CH0C", value: 2)
+        _ = client.writeByte(key: "CHIE", value: 0x00)
+        _ = client.writeByte(key: "CHCC", value: 0)
         _ = client.writeBytes(key: "CHTE", values: [0x01, 0x00, 0x00, 0x00])
     } else {
         _ = client.writeByte(key: "CH0I", value: 0)
+        _ = client.writeByte(key: "CH0J", value: 0)
         _ = client.writeByte(key: "CH0B", value: 0)
         _ = client.writeByte(key: "CH0C", value: 0)
+        _ = client.writeByte(key: "CHIE", value: 0x00)
+        _ = client.writeByte(key: "CHCC", value: 1)
         _ = client.writeBytes(key: "CHTE", values: [0x00, 0x00, 0x00, 0x00])
     }
 

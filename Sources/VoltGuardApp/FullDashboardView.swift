@@ -824,6 +824,10 @@ public struct FullDashboardView: View {
                                 .focusEffectDisabled()
                             }
                         }
+
+                        Text(L10n.text(.magSafeSyncLegend, locale: locale))
+                            .font(.system(size: 11))
+                            .foregroundStyle(palette.secondaryText)
                     }
                 }
             }

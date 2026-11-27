@@ -130,6 +130,7 @@ final class VoltGuardTests: XCTestCase {
         )
         XCTAssertTrue(allowedInClamshell.command.forceDischarge)
         XCTAssertEqual(allowedInClamshell.command.statusReason, .manualDischarge)
+        XCTAssertEqual(allowedInClamshell.command.magSafeLED, .off)
     }
 
     func testTopUpRevertsAtFull() {
