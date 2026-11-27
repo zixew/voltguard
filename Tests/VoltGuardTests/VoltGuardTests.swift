@@ -363,6 +363,18 @@ final class VoltGuardTests: XCTestCase {
 
         presenter.dispatch(.hideMenuBarIcon)
         XCTAssertFalse(router.menuBarIconVisible)
+
+        // Verify immediate 0ms sync and immunity to stale background tick overwrite.
+        await interactor.tick(settings: presenter.state.settings, calibration: presenter.state.calibration, generation: 0)
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        let staleSettings = presenter.state.settings
+        presenter.dispatch(.toggleManualDischarge)
+        XCTAssertTrue(presenter.state.settings.policy.manualDischarge)
+        XCTAssertEqual(presenter.state.lastReason, .manualDischarge)
+        await interactor.tick(settings: staleSettings, calibration: CalibrationSession(), generation: 0)
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertTrue(presenter.state.settings.policy.manualDischarge, "Stale background tick must not revert toolbar state change")
+        XCTAssertEqual(presenter.state.lastReason, .manualDischarge)
     }
 
     func testRecommendProfileUseCaseAllConditions() {

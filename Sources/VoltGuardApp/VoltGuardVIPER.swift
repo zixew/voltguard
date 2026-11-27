@@ -184,7 +184,7 @@ public final class VoltGuardInteractor {
     private var wasDischargeAlerted: Bool = false
     private var lastAlertTargetLimit: Int?
 
-    public var onStateUpdate: ((BatteryTelemetry?, PowerFlowMetrics, AppSettings, CalibrationSession, PolicyReason, Bool, [BatteryHealthSnapshot]?, String?) -> Void)?
+    public var onStateUpdate: ((BatteryTelemetry?, PowerFlowMetrics, AppSettings, CalibrationSession, PolicyReason, Bool, [BatteryHealthSnapshot]?, String?, UInt64) -> Void)?
 
     public init(
         batteryReader: BatteryReadingGateway = IOKitBatteryReader(),
@@ -221,15 +221,15 @@ public final class VoltGuardInteractor {
         settingsRepo.save(settings)
     }
 
-    public func startPolling(intervalSeconds: TimeInterval, settingsProvider: @escaping () -> (AppSettings, CalibrationSession)) {
+    public func startPolling(intervalSeconds: TimeInterval, settingsProvider: @escaping @MainActor () -> (AppSettings, CalibrationSession, UInt64)) {
         stopPolling()
         let source = DispatchSource.makeTimerSource(queue: timerQueue)
         source.schedule(deadline: .now(), repeating: intervalSeconds, leeway: .milliseconds(AppLayoutConstants.telemetryLeewayMs))
         source.setEventHandler { [weak self] in
             guard let self else { return }
-            let (settings, calibration) = settingsProvider()
             Task { [weak self] in
-                await self?.tick(settings: settings, calibration: calibration)
+                let (settings, calibration, gen) = await MainActor.run { settingsProvider() }
+                await self?.tick(settings: settings, calibration: calibration, generation: gen)
             }
         }
         timer = source
@@ -250,7 +250,7 @@ public final class VoltGuardInteractor {
         energyMonitor.terminateApp(pid: pid)
     }
 
-    public func tick(settings: AppSettings, calibration: CalibrationSession) async {
+    public func tick(settings: AppSettings, calibration: CalibrationSession, generation: UInt64 = 0) async {
         do {
             let telemetry = try batteryReader.readTelemetry()
             var mutableSettings = settings
@@ -324,7 +324,8 @@ public final class VoltGuardInteractor {
                 eval.command.statusReason,
                 smcGateway.isPrivilegedHelperConnected,
                 snapshots,
-                nil
+                nil,
+                generation
             )
         } catch {
             onStateUpdate?(
@@ -335,7 +336,8 @@ public final class VoltGuardInteractor {
                 .normalCharging,
                 smcGateway.isPrivilegedHelperConnected,
                 nil,
-                error.localizedDescription
+                error.localizedDescription,
+                generation
             )
         }
     }
@@ -501,12 +503,14 @@ public final class VoltGuardPresenter: ObservableObject {
 
     private let interactor: VoltGuardInteractor
     private let recommendUseCase = RecommendProfileUseCase()
+    private let instantPolicyUseCase = EvaluateChargePolicyUseCase()
     private var etaCalculator = BatteryETACalculator()
     private var settingsObserver: NSObjectProtocol?
     private var systemAlertActionObserver: NSObjectProtocol?
     private var toastDismissTask: Task<Void, Never>?
     private var lastToolbarEventAtByTitle: [L10nKey: Date] = [:]
     private var hasReceivedFirstTelemetryTick = false
+    private var stateMutationGeneration: UInt64 = 0
     public weak var router: AppRouterProtocol?
 
     public init(interactor: VoltGuardInteractor = VoltGuardInteractor()) {
@@ -520,9 +524,12 @@ public final class VoltGuardPresenter: ObservableObject {
             interactor.requestAlertPermissions()
         }
 
-        interactor.onStateUpdate = { [weak self] telemetry, flow, settings, calibration, reason, helperConnected, snapshots, errMsg in
+        interactor.onStateUpdate = { [weak self] telemetry, flow, settings, calibration, reason, helperConnected, snapshots, errMsg, tickGen in
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                let isCurrentGeneration = (tickGen == self.stateMutationGeneration)
+                let effectiveSettings = isCurrentGeneration ? settings : self.state.settings
+                let effectiveCalibration = isCurrentGeneration ? calibration : self.state.calibration
                 let isFirstTick = !self.hasReceivedFirstTelemetryTick
                 self.hasReceivedFirstTelemetryTick = true
                 let prevReason = self.state.lastReason
@@ -532,21 +539,21 @@ public final class VoltGuardPresenter: ObservableObject {
                     self.state.telemetryState = .loaded(telemetry, flow)
                     self.state.liveRecommendation = self.recommendUseCase.recommend(
                         telemetry: telemetry,
-                        currentPolicy: settings.policy
+                        currentPolicy: effectiveSettings.policy
                     )
                     let displayWatts = flow.adapterInputWatts > 0 ? flow.adapterInputWatts : flow.systemLoadWatts
                     self.state.telemetryHistory = Self.appendSample(
                         TelemetrySample(watts: displayWatts, temperatureCelsius: telemetry.temperatureCelsius),
                         to: self.state.telemetryHistory
                     )
-                    let isCalibratingToFull = calibration.isActive && (calibration.stage == .chargingToFull || calibration.stage == .holdingFull)
-                    let targetLimit = (settings.policy.topUpActive || isCalibratingToFull)
+                    let isCalibratingToFull = effectiveCalibration.isActive && (effectiveCalibration.stage == .chargingToFull || effectiveCalibration.stage == .holdingFull)
+                    let targetLimit = (effectiveSettings.policy.topUpActive || isCalibratingToFull)
                         ? VoltGuardLimits.maxLimitPercent
-                        : settings.policy.limitPercent
-                    let calDischargeTarget = (calibration.isActive && (calibration.stage == .dischargingToLow || calibration.stage == .holdingLow))
-                        ? calibration.targetLowPercent
+                        : effectiveSettings.policy.limitPercent
+                    let calDischargeTarget = (effectiveCalibration.isActive && (effectiveCalibration.stage == .dischargingToLow || effectiveCalibration.stage == .holdingLow))
+                        ? effectiveCalibration.targetLowPercent
                         : 0
-                    let holdRemaining = calibration.remainingHoldSeconds()
+                    let holdRemaining = effectiveCalibration.remainingHoldSeconds()
                     self.state.batteryETA = self.etaCalculator.update(
                         telemetry: telemetry,
                         targetLimit: targetLimit,
@@ -555,7 +562,7 @@ public final class VoltGuardPresenter: ObservableObject {
                     )
 
                     // Suppress cold-start notifications on the initial telemetry sample so opening the app never spams.
-                    if !isFirstTick {
+                    if !isFirstTick && isCurrentGeneration {
                         if reason == .heatProtectionPaused && prevReason != .heatProtectionPaused {
                             self.appendActivity(.activityHeatPaused)
                             self.presentToolbarEvent(
@@ -651,11 +658,15 @@ public final class VoltGuardPresenter: ObservableObject {
                 } else if let errMsg {
                     self.state.telemetryState = .error(errMsg)
                 }
-                self.state.settings = settings
-                self.state.calibration = calibration
-                self.state.lastReason = reason
+                if isCurrentGeneration {
+                    self.state.settings = settings
+                    self.state.calibration = calibration
+                    self.state.lastReason = reason
+                    self.state.palette = ThemePalette.resolve(settings.theme)
+                } else {
+                    self.syncPolicyStatusImmediately()
+                }
                 self.state.helperConnected = helperConnected
-                self.state.palette = ThemePalette.resolve(settings.theme)
                 if let snapshots, snapshots != self.state.healthSnapshots {
                     self.state.healthSnapshots = snapshots
                 }
@@ -713,17 +724,20 @@ public final class VoltGuardPresenter: ObservableObject {
         state.isUIVisible = activePopover
         let interval = activePopover ? AppLayoutConstants.activePollingSeconds : AppLayoutConstants.backgroundPollingSeconds
         interactor.startPolling(intervalSeconds: interval) { [weak self] in
-            guard let self else { return (AppSettings(), CalibrationSession()) }
-            return (self.state.settings, self.state.calibration)
+            guard let self else { return (AppSettings(), CalibrationSession(), 0) }
+            return (self.state.settings, self.state.calibration, self.stateMutationGeneration)
         }
     }
 
     public func dispatch(_ action: VoltGuardAction) {
         switch action {
         case .refreshTelemetry:
+            let gen = stateMutationGeneration
+            let s = state.settings
+            let c = state.calibration
             Task { [weak self] in
                 guard let self else { return }
-                await self.interactor.tick(settings: self.state.settings, calibration: self.state.calibration)
+                await self.interactor.tick(settings: s, calibration: c, generation: gen)
             }
         case .refreshEnergyApps:
             state.energyState = .loading
@@ -818,16 +832,20 @@ public final class VoltGuardPresenter: ObservableObject {
             state.settings.schedules.removeAll { $0.id == id }
             persistAndSync()
         case .updateTheme(let theme):
+            stateMutationGeneration &+= 1
             state.settings.theme = theme
             state.palette = ThemePalette.resolve(theme)
             interactor.saveSettings(state.settings)
         case .updateLocale(let locale):
+            stateMutationGeneration &+= 1
             state.settings.locale = locale
             interactor.saveSettings(state.settings)
         case .updateMenuBarConfig(let cfg):
+            stateMutationGeneration &+= 1
             state.settings.menuBarIcon = cfg
             interactor.saveSettings(state.settings)
         case .updatePopoverLayout(let layout):
+            stateMutationGeneration &+= 1
             state.settings.popoverLayout = layout
             interactor.saveSettings(state.settings)
         case .movePopoverModule(let module, let offset):
@@ -835,6 +853,7 @@ public final class VoltGuardPresenter: ObservableObject {
             guard let idx = order.firstIndex(of: module) else { return }
             let target = idx + offset
             guard target >= 0 && target < order.count else { return }
+            stateMutationGeneration &+= 1
             order.swapAt(idx, target)
             state.settings.popoverLayout.orderedModules = order
             interactor.saveSettings(state.settings)
@@ -1016,11 +1035,31 @@ public final class VoltGuardPresenter: ObservableObject {
         }
     }
 
+    private func syncPolicyStatusImmediately() {
+        guard case .loaded(let telemetry, _) = state.telemetryState else { return }
+        let eval = instantPolicyUseCase.execute(
+            telemetry: telemetry,
+            policy: state.settings.policy,
+            calibration: state.calibration,
+            context: PolicyEvaluationContext()
+        )
+        state.lastReason = eval.command.statusReason
+        state.liveRecommendation = recommendUseCase.recommend(
+            telemetry: telemetry,
+            currentPolicy: state.settings.policy
+        )
+    }
+
     private func persistAndSync() {
-        interactor.saveSettings(state.settings)
+        stateMutationGeneration &+= 1
+        syncPolicyStatusImmediately()
+        let capturedGen = stateMutationGeneration
+        let capturedSettings = state.settings
+        let capturedCalibration = state.calibration
+        interactor.saveSettings(capturedSettings)
         Task { [weak self] in
             guard let self else { return }
-            await self.interactor.tick(settings: self.state.settings, calibration: self.state.calibration)
+            await self.interactor.tick(settings: capturedSettings, calibration: capturedCalibration, generation: capturedGen)
         }
     }
 

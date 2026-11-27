@@ -204,6 +204,7 @@ final class VoltGuardAppDelegate: NSObject, NSApplicationDelegate, AppRouterProt
         NSApp.activate(ignoringOtherApps: true)
         dashboardWindow?.makeKeyAndOrderFront(nil)
         presenter?.startPolling(activePopover: true)
+        presenter?.dispatch(.refreshTelemetry)
     }
 
     func minimizeToBackground() {
