@@ -2,6 +2,7 @@ import Foundation
 import VoltGuardDomain
 
 public enum AppUpdateError: Error, LocalizedError {
+    case serviceUnavailable(Int)
     case invalidResponse
     case downloadFailed
     case dmgMountFailed
@@ -10,7 +11,8 @@ public enum AppUpdateError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidResponse: return "Unable to verify update server response."
+        case .serviceUnavailable(let code): return "Update service unavailable (HTTP \(code))."
+        case .invalidResponse: return "Unable to verify update manifest."
         case .downloadFailed: return "Failed to download the latest VoltGuard installer."
         case .dmgMountFailed: return "Failed to open the downloaded installer package."
         case .appNotFoundInDMG: return "VoltGuard.app was not found inside the downloaded installer."
@@ -32,8 +34,11 @@ public final class AppUpdateService: Sendable {
         request.timeoutInterval = 12
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+        guard let http = response as? HTTPURLResponse else {
             throw AppUpdateError.invalidResponse
+        }
+        guard (200...299).contains(http.statusCode) else {
+            throw AppUpdateError.serviceUnavailable(http.statusCode)
         }
         return try Self.decodeAppcast(data: data)
     }

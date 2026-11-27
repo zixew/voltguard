@@ -3,52 +3,54 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VoltGuard: Mac and iOS Battery Guard</title>
-  <meta name="description" content="Hardware charge limiting, AppleSMC live thermals, 5-stage calibration with Before/After capacity tracking, and iOS companion monitor.">
+  <title>VoltGuard: Battery Care for Mac and iPhone</title>
+  <meta name="description" content="Keep your Mac and iPhone battery healthy with smart charge limits, cool charging protection, guided calibration, and automatic updates.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <header class="masthead">
     <div class="container masthead__inner">
       <a class="wordmark" href="#top">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 2.5L4.5 5.6V11.8C4.5 16.5 7.7 20.6 12 22C16.3 20.6 19.5 16.5 19.5 11.8V5.6L12 2.5Z" stroke="currentColor" stroke-width="1.6"/>
-          <path d="M13.2 6.8L8.9 12.6H12.2L10.8 17.2L15.1 11.4H11.8L13.2 6.8Z" fill="currentColor"/>
-        </svg>
+        <span class="wordmark__badge">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2.5L4.5 5.6V11.8C4.5 16.5 7.7 20.6 12 22C16.3 20.6 19.5 16.5 19.5 11.8V5.6L12 2.5Z" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M13.2 6.8L8.9 12.6H12.2L10.8 17.2L15.1 11.4H11.8L13.2 6.8Z" fill="currentColor"/>
+          </svg>
+        </span>
         <span>VoltGuard</span>
       </a>
       <nav class="masthead__links" aria-label="Primary navigation">
         <a href="#features">Features</a>
-        <a href="#diff">Calibration</a>
-        <a href="#compatibility">Compatibility</a>
+        <a href="#calibration">Calibration</a>
+        <a href="#compatibility">Devices</a>
         <a href="#download">Download</a>
-        <a class="btn btn--primary btn--sm" href="./downloads/VoltGuard.dmg">Download v1.2.0</a>
+        <a class="btn btn--primary btn--sm" href="./downloads/VoltGuard.dmg">Download Mac App</a>
       </nav>
     </div>
   </header>
 
   <main id="top">
     <section class="hero">
-      <div class="container">
-        <div class="hero__corridor">
-          <h1>Hardware battery protection for Mac and iPhone</h1>
-          <p class="lead">Limit Mac charging, read AppleSMC thermistors, and monitor iPhone cells.</p>
+      <div class="container hero__stage-grid">
+        <div class="hero__copy">
+          <span class="chip chip--emerald">VoltGuard 1.2 for macOS &amp; iPhone</span>
+          <h1>Protect your Mac battery lifespan</h1>
+          <p class="lead">Hold daily charging near 80%, pause during heat, and preserve capacity.</p>
           <div class="hero__actions">
-            <a class="btn btn--primary" href="./downloads/VoltGuard.dmg">Download DMG</a>
-            <a class="btn" href="https://github.com/zixew/voltguard">macOS Source</a>
-            <a class="btn" href="https://github.com/zixew/voltguard-ios">iOS Companion</a>
+            <a class="btn btn--primary" href="./downloads/VoltGuard.dmg">Download for macOS</a>
+            <a class="btn" href="#features">Explore Features</a>
           </div>
-          <p class="hero__meta">Universal binary for Apple Silicon and Intel Macs running macOS 13 to 27</p>
+          <p class="hero__meta">For Apple Silicon and Intel Macs (macOS 13 and newer), paired with iPhone and iPad.</p>
         </div>
 
-        <div class="hero__stage screen-frame">
-          <img src="./assets/voltguard-hero-showcase.png" alt="VoltGuard macOS Overview window displaying live percentage ring, animated thermal gauge, power flow metrics, and charge limit controls">
+        <div class="screen-frame">
+          <img src="./assets/voltguard-hero-showcase.png" alt="VoltGuard desktop dashboard displaying charge limit slider, thermal guard card, and real-time power flow">
           <div class="screen-frame__bar">
-            <span>Overview and Menu Bar Popover</span>
-            <span class="measured">v1.2.0 · tb0t-tb2t live</span>
+            <span>VoltGuard Desktop Overview</span>
+            <span class="measured">Smart Limit, Heat Guard, Power Flow</span>
           </div>
         </div>
       </div>
@@ -57,139 +59,116 @@
     <section class="section section--band" id="features">
       <div class="container">
         <div class="section__head">
-          <h2>Named moments inside the instrument</h2>
-          <p class="lead">Switch subsystems to inspect live thermal probes, five-stage calibration, and system diagnostics.</p>
+          <h2>Designed for long-term battery health</h2>
+          <p class="lead">Switch views to inspect daily protection, guided calibration, and automatic app updates.</p>
         </div>
 
-        <div class="switcher-controls" role="tablist" aria-label="VoltGuard subsystems">
-          <button class="switcher-tab" role="tab" id="tab-thermal" aria-selected="true" aria-controls="panel-thermal">Thermal Guard</button>
+        <div class="switcher-controls" role="tablist" aria-label="VoltGuard features">
+          <button class="switcher-tab" role="tab" id="tab-thermal" aria-selected="true" aria-controls="panel-thermal">Limit &amp; Cooling</button>
           <button class="switcher-tab" role="tab" id="tab-calibration" aria-selected="false" aria-controls="panel-calibration">Calibration &amp; Themes</button>
-          <button class="switcher-tab" role="tab" id="tab-diagnostics" aria-selected="false" aria-controls="panel-diagnostics">Diagnostics &amp; Update</button>
+          <button class="switcher-tab" role="tab" id="tab-diagnostics" aria-selected="false" aria-controls="panel-diagnostics">Safety &amp; Updates</button>
         </div>
 
         <div class="switcher-panel" role="tabpanel" id="panel-thermal" aria-labelledby="tab-thermal">
           <div class="switcher-panel__media">
-            <img src="./assets/voltguard-hero-showcase.png" alt="Live AppleSMC thermal readings, USB-C PD verifier, and charge limit controls">
+            <img src="./assets/voltguard-hero-showcase.png" alt="Charge limit slider, live temperature protection, and charger verifier inside VoltGuard">
           </div>
           <div class="switcher-panel__body">
             <div>
-              <h3>Direct AppleSMC thermistors and Bypass Charging</h3>
-              <p>On macOS 27 and M4 Macs, VoltGuard probes thermistor keys directly and enforces Heat Guard limits.</p>
+              <h3>Stay at 80% on desk days, charge cooler</h3>
+              <p>Keep desk-plugged MacBooks away from stressful 100% full states while automatically pausing charge when the battery gets warm.</p>
             </div>
             <ul class="spec-list">
-              <li><span class="spec-list__k">Charge limit range</span><span class="spec-list__v measured">20% to 100%</span></li>
-              <li><span class="spec-list__k">Thermal keys</span><span class="spec-list__v measured">tb0t tb1t tb2t ts0p</span></li>
-              <li><span class="spec-list__k">Sailing hysteresis</span><span class="spec-list__v measured">1% to 15%</span></li>
-              <li><span class="spec-list__k">MagSafe 3 indicator</span><span class="spec-list__v measured">aclc system green amber</span></li>
+              <li><span class="spec-list__k">Daily charge limit</span><span class="spec-list__v measured">20% to 100%</span></li>
+              <li><span class="spec-list__k">Thermal protection</span><span class="spec-list__v">Auto-pause when warm</span></li>
+              <li><span class="spec-list__k">Charger check</span><span class="spec-list__v">Live fast-charge readout</span></li>
+              <li><span class="spec-list__k">Exit behavior</span><span class="spec-list__v">Restore 100% option</span></li>
             </ul>
           </div>
         </div>
 
         <div class="switcher-panel" role="tabpanel" id="panel-calibration" aria-labelledby="tab-calibration" hidden>
           <div class="switcher-panel__media">
-            <img src="./assets/voltguard-themes-calibration.png" alt="Five-stage battery calibration tracker and four synchronized Mac and iOS theme presets">
+            <img src="./assets/voltguard-themes-calibration.png" alt="Five-stage battery calibration tracker and four custom themes across Mac and iPhone">
           </div>
           <div class="switcher-panel__body">
             <div>
-              <h3>Calibration outcomes and shared themes</h3>
-              <p>Each cycle logs Before and After capacity in mAh, while sharing four themes between Mac and iPhone.</p>
+              <h3>Clear calibration results and synced themes</h3>
+              <p>Guided 5-stage calibration recalibrates battery percentage accuracy and compares Before vs After health capacity alongside four visual themes.</p>
             </div>
             <ul class="spec-list">
-              <li><span class="spec-list__k">Calibration pipeline</span><span class="spec-list__v measured">5 stages · 100% to 15%</span></li>
-              <li><span class="spec-list__k">Recorded delta</span><span class="spec-list__v measured">Before vs After mAh</span></li>
-              <li><span class="spec-list__k">Quit behavior</span><span class="spec-list__v measured">Restore 100% toggle</span></li>
-              <li><span class="spec-list__k">Languages</span><span class="spec-list__v measured">English and Indonesian</span></li>
+              <li><span class="spec-list__k">Guided calibration</span><span class="spec-list__v">5 automated stages</span></li>
+              <li><span class="spec-list__k">Clear outcome</span><span class="spec-list__v">Before vs After comparison</span></li>
+              <li><span class="spec-list__k">Visual themes</span><span class="spec-list__v">Obsidian, Light, Mist, Amber</span></li>
+              <li><span class="spec-list__k">Languages</span><span class="spec-list__v">English and Indonesian</span></li>
             </ul>
           </div>
         </div>
 
         <div class="switcher-panel" role="tabpanel" id="panel-diagnostics" aria-labelledby="tab-diagnostics" hidden>
           <div class="switcher-panel__media">
-            <img src="./assets/voltguard-diagnostics-energy.png" alt="Eight-point hardware self-diagnostic report and live Energy Monitor process table">
+            <img src="./assets/voltguard-diagnostics-energy.png" alt="Built-in system safety checks and energy monitor inside VoltGuard">
           </div>
           <div class="switcher-panel__body">
             <div>
-              <h3>Self-Diagnostics and Auto-Update</h3>
-              <p>Eight checks verify IOKit, AppleSMC, live sensors, and daemon health, with one-click GitHub DMG updates.</p>
+              <h3>Self-checks and quiet one-click updates</h3>
+              <p>VoltGuard checks sensor compatibility once per device, monitors high-drain apps, and installs app updates cleanly in the background.</p>
             </div>
             <ul class="spec-list">
-              <li><span class="spec-list__k">Self-test gates</span><span class="spec-list__v measured">8 hardware checks</span></li>
-              <li><span class="spec-list__k">Compatibility cache</span><span class="spec-list__v measured">Checked 1x per machine</span></li>
-              <li><span class="spec-list__k">Updater source</span><span class="spec-list__v measured">GitHub Releases DMG</span></li>
-              <li><span class="spec-list__k">Memory checks</span><span class="spec-list__v measured">Zero leaks verified</span></li>
+              <li><span class="spec-list__k">Compatibility check</span><span class="spec-list__v">Runs automatically once</span></li>
+              <li><span class="spec-list__k">Energy monitor</span><span class="spec-list__v">Spots battery-draining apps</span></li>
+              <li><span class="spec-list__k">Built-in updater</span><span class="spec-list__v">Downloads and replaces app</span></li>
+              <li><span class="spec-list__k">Auto cleanup</span><span class="spec-list__v">Removes installer after update</span></li>
             </ul>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section" id="diff">
+    <section class="section" id="calibration">
       <div class="container">
         <div class="section__head">
-          <h2>Measured calibration and release trail</h2>
-          <p class="lead">Track fuel-gauge shifts after calibration alongside hardware changelog entries.</p>
+          <h2>Visible results and what is new</h2>
+          <p class="lead">Track measurable differences in daily battery care alongside the latest version improvements.</p>
         </div>
 
         <div class="diff-layout">
-          <div class="diff-panel" aria-label="Before and after calibration and thermal sensor fix">
+          <div class="diff-panel" aria-label="Before and after using VoltGuard">
             <div class="diff-panel__header">
-              <span>#</span>
-              <span>Measurement</span>
-              <span>Before v1.2.0</span>
-              <span>After v1.2.0</span>
-            </div>
-            <div class="diff-row diff-row--issue">
-              <span class="diff-gutter">-</span>
-              <span>macOS 27 M4 battery sensor</span>
-              <span class="diff-old measured">21.9 c fallback</span>
-              <span class="diff-new measured">30.3 c live probe</span>
+              <span>Scenario</span>
+              <span>Without VoltGuard</span>
+              <span>With VoltGuard</span>
             </div>
             <div class="diff-row diff-row--changed">
-              <span class="diff-gutter">+</span>
-              <span>Thermal Guard card</span>
-              <span class="diff-old measured">Static bar</span>
-              <span class="diff-new measured">Animated drawer</span>
+              <span>All-day desk charging</span>
+              <span class="diff-old">Held constantly at 100%</span>
+              <span class="diff-new">Held safely around 80%</span>
             </div>
             <div class="diff-row diff-row--changed">
-              <span class="diff-gutter">+</span>
-              <span>Fuel gauge capacity log</span>
-              <span class="diff-old measured">No record</span>
-              <span class="diff-new measured">Before vs After mAh</span>
+              <span>Warm battery sessions</span>
+              <span class="diff-old">Charges through high heat</span>
+              <span class="diff-new">Pauses until cool again</span>
             </div>
             <div class="diff-row diff-row--changed">
-              <span class="diff-gutter">+</span>
-              <span>App quit limit handling</span>
-              <span class="diff-old measured">Fixed at 80%</span>
-              <span class="diff-new measured">Auto-restore 100%</span>
+              <span>Drifted battery percentage</span>
+              <span class="diff-old">Sudden shutdown near 15%</span>
+              <span class="diff-new">Calibrated Before &amp; After log</span>
+            </div>
+            <div class="diff-row diff-row--changed">
+              <span>Quitting the app</span>
+              <span class="diff-old">Stays capped at last limit</span>
+              <span class="diff-new">Optionally restores 100%</span>
             </div>
           </div>
 
-          <div class="trail" aria-label="Version release log">
+          <div class="trail" aria-label="Latest update highlights">
             <article class="trail__item">
               <div class="trail__meta">
-                <span class="chip chip--cool measured">v1.2.0</span>
+                <span class="chip chip--emerald measured">Version 1.2.0</span>
                 <span class="trail__date measured">2026-11-27</span>
               </div>
-              <h3 class="trail__title">Live SMC thermals, calibration delta and auto-updater</h3>
-              <p class="trail__note">Adds direct thermistor reads, interactive thermal drawer, calibration delta tracking, and in-app DMG updates.</p>
-            </article>
-
-            <article class="trail__item">
-              <div class="trail__meta">
-                <span class="chip measured">v1.1.0</span>
-                <span class="trail__date measured">2026-11-27</span>
-              </div>
-              <h3 class="trail__title">Universal Mac compatibility and iPhone companion</h3>
-              <p class="trail__note">Supports macOS 13 to 27 across Intel and Apple Silicon, plus iOS 16 to 26 companion alerts.</p>
-            </article>
-
-            <article class="trail__item">
-              <div class="trail__meta">
-                <span class="chip chip--amber measured">v1.0.0</span>
-                <span class="trail__date measured">2026-11-26</span>
-              </div>
-              <h3 class="trail__title">Charge limiter and 5-stage calibration</h3>
-              <p class="trail__note">Launched SMC charge limits, Bypass Adapter Mode, five-stage calibration, and four themes.</p>
+              <h3 class="trail__title">Interactive Thermal Card, Calibration Outcomes &amp; Built-in Updates</h3>
+              <p class="trail__note">Adds accurate temperature tracking on modern Macs, interactive thermal controls, Before vs After calibration records, Restore on Quit, and dedicated in-app updates.</p>
             </article>
           </div>
         </div>
@@ -199,44 +178,39 @@
     <section class="section section--band" id="compatibility">
       <div class="container">
         <div class="section__head">
-          <h2>Platforms and hardware matrix</h2>
-          <p class="lead">One cached audit detects machine capabilities once and hides unsupported controls.</p>
+          <h2>Works across Apple devices</h2>
+          <p class="lead">Unsupported features are automatically hidden based on your hardware so every control works cleanly.</p>
         </div>
 
         <div class="matrix-wrap">
           <table class="matrix-table">
             <thead>
               <tr>
-                <th>Platform &amp; Silicon</th>
-                <th>OS Range</th>
-                <th>Charge Control &amp; Telemetry</th>
-                <th>Auto-Disabled When Absent</th>
+                <th>Device</th>
+                <th>System Version</th>
+                <th>Included Features</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>Apple Silicon MacBooks</td>
-                <td class="measured">macOS 13.0 to 27.x</td>
-                <td class="status-ok">Charge limit, Adapter Mode, Live thermistors</td>
-                <td>MagSafe 3 light disabled if absent</td>
+                <td>MacBook Air &amp; MacBook Pro (Apple Silicon)</td>
+                <td class="measured">macOS 13 and newer</td>
+                <td class="status-ok">Charge Limit, Cool Guard, Calibration, MagSafe Indicator</td>
               </tr>
               <tr>
-                <td>Intel MacBooks (T2 and Pre-T2)</td>
-                <td class="measured">macOS 13.0 to 26.x</td>
-                <td class="status-ok">SMC limit, Discharge, Fixed-point thermals</td>
-                <td>Incompatible keys skipped automatically</td>
+                <td>MacBook (Intel)</td>
+                <td class="measured">macOS 13 through 26</td>
+                <td class="status-ok">Charge Limit, Controlled Discharge, Live Temperature</td>
               </tr>
               <tr>
-                <td>Desktop Macs (Mini, Studio, iMac)</td>
-                <td class="measured">macOS 13.0 to 27.x</td>
-                <td class="status-cool">Energy Monitor and 8-point Self-Test</td>
-                <td>Laptop battery controls disabled cleanly</td>
+                <td>Desktop Mac (Mac mini, Studio, iMac)</td>
+                <td class="measured">macOS 13 and newer</td>
+                <td class="status-cool">Energy Monitor, System Diagnostics, Safe Battery Skip</td>
               </tr>
               <tr>
-                <td>iPhone and iPad Companion</td>
-                <td class="measured">iOS 16.0 to 26.x</td>
-                <td class="status-cool">Live % / ETA, Animated Thermal, Smart Alerts</td>
-                <td>Kernel SMC writes omitted on iOS</td>
+                <td>iPhone &amp; iPad Companion</td>
+                <td class="measured">iOS 16 and newer</td>
+                <td class="status-cool">Live Percentage &amp; ETA, Heat Alerts, Custom Themes</td>
               </tr>
             </tbody>
           </table>
@@ -247,21 +221,20 @@
     <section class="section" id="download">
       <div class="container close-grid">
         <div class="close-copy">
-          <h2>Download VoltGuard for macOS and iOS</h2>
-          <p>Install the Universal DMG in Applications. Subsequent releases install directly inside the System tab.</p>
+          <h2>Ready for healthier battery cycles</h2>
+          <p>Download the macOS installer, drag VoltGuard to Applications, and set your daily limit in seconds. Future updates install cleanly right inside the app.</p>
           <div class="close-links">
-            <a class="btn btn--primary" href="./downloads/VoltGuard.dmg">Download v1.2.0 DMG</a>
-            <a class="btn" href="https://github.com/zixew/voltguard/releases">GitHub Releases</a>
-            <a class="btn" href="https://github.com/zixew/voltguard-ios">iOS Repository</a>
+            <a class="btn btn--primary" href="./downloads/VoltGuard.dmg">Download VoltGuard 1.2.0</a>
+            <a class="btn" href="#top">Back to Top</a>
           </div>
-          <p class="measured">arm64 + x86_64 universal | v1.2.0 build 3</p>
+          <p class="hero__meta">Version 1.2.0 for Mac and iPhone</p>
         </div>
 
         <div class="screen-frame">
-          <img src="./assets/voltguard-diagnostics-energy.png" alt="VoltGuard Diagnostics check list and System Energy Monitor panel">
+          <img src="./assets/voltguard-diagnostics-energy.png" alt="VoltGuard health diagnostics and background app energy monitor">
           <div class="screen-frame__bar">
-            <span>System Self-Test, Auto-Update and Changelog</span>
-            <span class="measured">zixew/voltguard</span>
+            <span>VoltGuard Self-Checks &amp; Energy Monitor</span>
+            <span class="measured">Version 1.2.0</span>
           </div>
         </div>
       </div>
@@ -271,13 +244,14 @@
   <footer class="letter-footer">
     <div class="container letter-footer__inner">
       <div class="letter-footer__sign">
-        <strong>VoltGuard Battery Architecture</strong>
-        <p>Open-source Swift and SwiftUI battery tooling verified through GitHub Actions CI/CD.</p>
+        <strong>VoltGuard</strong>
+        <p>Thoughtful battery protection and live health monitoring for Mac, iPhone, and iPad.</p>
       </div>
       <div class="letter-footer__links">
-        <a href="https://github.com/zixew/voltguard">Mac Repo</a>
-        <a href="https://github.com/zixew/voltguard-ios">iOS Repo</a>
-        <a href="https://github.com/zixew/voltguard/releases">Releases</a>
+        <a href="#features">Features</a>
+        <a href="#calibration">Calibration</a>
+        <a href="#compatibility">Devices</a>
+        <a href="./downloads/VoltGuard.dmg">Download</a>
       </div>
     </div>
   </footer>

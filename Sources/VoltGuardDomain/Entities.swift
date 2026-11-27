@@ -524,27 +524,27 @@ public enum AppReleaseInfo {
     public static let dmgURL = "https://voltguard-mocha.vercel.app/downloads/VoltGuard.dmg"
 
     public static let latestChangesEN: [String] = [
-        "Interactive animated Thermal Zone card with multi-sensor thermistor drawer (TB0T, TB1T, TB2T, Ts0P)",
-        "Before vs After calibration fuel-gauge capacity comparison card and expected outcome guide",
-        "Restore System Charging on Quit option to return Mac charging limit to 100% when exiting VoltGuard",
-        "Dedicated Software Update panel with one-click download, install, and automatic DMG cleanup"
+        "Interactive animated Thermal Zone card with inline limit controls and sensor breakdown",
+        "Before vs After calibration capacity comparison card with expected outcome guide",
+        "Restore System Charging on Quit toggle to resume normal 100% charging when closed",
+        "Dedicated Software Update tab with automatic install and DMG cleanup"
     ]
 
     public static let latestFixesEN: [String] = [
-        "Fixed battery temperature stuck at 21.9 C fallback on macOS 27 and Apple Silicon M4 by reading AppleSMC thermistors directly",
-        "Replaced deprecated hdiutil packaging and SwiftUI single-parameter modifiers for clean macOS 26/27 compatibility"
+        "Fixed battery temperature stuck at 21.9 C on macOS 27 and modern Apple Silicon Macs",
+        "Improved visual polish and modern macOS system compatibility"
     ]
 
     public static let latestChangesID: [String] = [
-        "Kartu Thermal Zone interaktif beranimasi dengan rincian multi-sensor (TB0T, TB1T, TB2T, Ts0P)",
-        "Kartu perbandingan kapasitas Before vs After kalibrasi serta penjelasan hasil akhir yang dicapai",
-        "Opsi Restore System Charging on Quit untuk mengembalikan batas pengisian ke 100% saat VoltGuard ditutup",
-        "Halaman Pembaruan Aplikasi tersendiri dengan unduh otomatis, pasang ke Applications, dan hapus file DMG"
+        "Kartu Thermal Zone interaktif beranimasi dengan atur batas suhu langsung",
+        "Kartu perbandingan kapasitas Before vs After kalibrasi beserta penjelasan hasilnya",
+        "Opsi Restore System Charging on Quit agar Mac mengisi normal 100% saat app ditutup",
+        "Halaman Pembaruan Aplikasi tersendiri dengan pasang otomatis dan hapus file DMG"
     ]
 
     public static let latestFixesID: [String] = [
-        "Memperbaiki pembacaan suhu baterai yang macet di fallback 21.9 C pada macOS 27 dan Apple Silicon M4 lewat pembacaan AppleSMC langsung",
-        "Memperbarui skrip DMG diskutil dan API SwiftUI modern agar bebas warning deprecated di macOS 26/27"
+        "Memperbaiki suhu baterai yang macet di 21.9 C pada macOS 27 dan Mac Apple Silicon terbaru",
+        "Peningkatan tampilan dan kompatibilitas penuh dengan macOS modern"
     ]
 
     public static let changelog: [AppReleaseChangelogEntry] = [
