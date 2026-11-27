@@ -1,29 +1,29 @@
 {
-  "version": "1.2.0",
-  "build": "3",
+  "version": "1.3.0",
+  "build": "4",
   "publishedAt": "2026-11-28",
   "installerURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard-Windows-Setup.exe",
-  "sha256": "190398d032e5a2261f36ce6ecde3fb8516cb92a2e06be31d85f92c4262776bca",
+  "sha256": "2a24f89136698f6643c53cd8f267a241d714199a89d4d4a8c3b3ffd969c23032",
   "binaryURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard.exe",
-  "binarySha256": "5739d05c4cce7685df7a6336562b8e14854dc7a40912b104f42bea6a61cdec98",
+  "binarySha256": "7f3c80ffcce2e3f227edb1f09da62b27230d466671c353a2a2f52f162c376c86",
   "changesEN": [
-    "Full macOS UI parity: 4 theme presets (Obsidian Slate, Paper Light, Nordic Mist, Midnight Amber), accent swatches, and corner radius",
-    "New BrandLogoView, animated LiquidBatteryCell, HealthGaugeRing, and Recommended Profiles on Overview",
-    "Taskbar-anchored Tray Quick Popover on left-click plus Windows 10/11 Dark/Light DWM Titlebar",
-    "True silent in-place binary auto-updater (no installer window opened during updates)"
+    "Animated 30fps sinusoidal liquid wave, rising charging bubbles, and vertical drag-to-set limit on LiquidBatteryCell",
+    "Interactive PowerTopologyCard with animated energy flow particles plus rolling 30-sample Wattage & Thermal sparklines",
+    "5-stage animated CalibrationProgressView pipeline and smooth tab fade+slide transitions",
+    "Mini-UI Theme Swatch preview cards and 1-click Sidebar Theme Switcher (Obsidian Slate, Paper Light, Nordic Mist, Midnight Amber)"
   ],
   "fixesEN": [
-    "Disambiguated WPF controls and verified 0 GDI handle leaks across 200 tray icon renders",
-    "Verified silent install/uninstall and v1.2.0.3 binary integrity on windows-latest"
+    "Verified zero GDI handle leaks across 200 tray icon renders and 300-tick rolling sparkline stability",
+    "Verified silent in-place binary swap updater and v1.3.0.4 installer integrity on windows-latest"
   ],
   "changesID": [
-    "Tampilan identik macOS: 4 preset tema (Obsidian Slate, Paper Light, Nordic Mist, Midnight Amber), pilihan warna aksen, dan radius kartu",
-    "BrandLogoView baru, LiquidBatteryCell animasi, HealthGaugeRing, serta profil rekomendasi di Overview",
-    "Tray Quick Popover di atas taskbar saat klik kiri ikon tray + Titlebar DWM Dark/Light Windows 10/11",
-    "Auto-updater silent in-place binary sejati tanpa membuka jendela installer saat pembaruan"
+    "Gelombang cair sinus 30fps, gelembung pengisian, dan drag vertikal langsung di LiquidBatteryCell untuk atur batas pengisian",
+    "PowerTopologyCard interaktif dengan partikel aliran daya animasi serta grafik tren Wattage & Suhu 30 sampel",
+    "Pipeline animasi kalibrasi 5 tahap CalibrationProgressView dan transisi perpindahan tab yang halus",
+    "Kartu mini-preview Theme Swatch dan tombol ganti tema 1-klik di sidebar (Obsidian Slate, Paper Light, Nordic Mist, Midnight Amber)"
   ],
   "fixesID": [
-    "Verifikasi bebas kebocoran handle GDI pada 200 render ikon tray",
-    "Verifikasi instalasi/uninstalasi senyap dan integritas biner v1.2.0.3 di windows-latest"
+    "Verifikasi bebas kebocoran handle GDI dan stabilitas riwayat grafik 300 tick",
+    "Verifikasi silent in-place binary updater dan integritas installer v1.3.0.4 di windows-latest"
   ]
 }
