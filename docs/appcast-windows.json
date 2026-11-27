@@ -1,29 +1,29 @@
 {
-  "version": "1.7.0",
-  "build": "8",
+  "version": "1.8.0",
+  "build": "9",
   "publishedAt": "2026-11-28",
   "installerURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard-Windows-Setup.exe",
-  "sha256": "3ded3744c9baa5fc59a6d9cfa4a226de160e8af1596f6c95edb90ef31ed6136a",
+  "sha256": "667e5efbbabf7221ab447ee0c3309f2e258a480f4f3b1b49bddadd2af2dd6fef",
   "binaryURL": "https://github.com/zixew/voltguard-windows/releases/latest/download/VoltGuard.exe",
-  "binarySha256": "625325629e3af67fe266056b9295de885d5a66c5149bbc3a0121bc1eaee9d71f",
+  "binarySha256": "589f50e9ed10caef2a615b2af128283609e4eef6a403b1cdceef9edc6afcc6fd",
   "changesEN": [
-    "Fixed Dark Mode black headings/labels caused by WPF TabControl foreground override so all text meets WCAG AA contrast",
-    "Added non-admin thermal zone temperature reading via Win32_PerfFormattedData_Counters_ThermalZoneInformation",
-    "Fixed 0px CornerRadius legacy settings migration, sidebar double focus border, and 0.0 W sparkline gridlines",
-    "Added interactive Schedule Rule Builder, 60%–100% quick limit presets, and human-readable status titles"
+    "Full live English / Bahasa Indonesia UI localization across all 7 tabs, cards, and Tray Popover",
+    "WCAG AA+ typography & contrast revamp across all 4 themes plus Windows 11 Mica backdrop",
+    "7-day rolling telemetry history persistence (24h/7d view + CSV export) & Windows Battery Report Analyzer (powercfg)",
+    "Smart-Plug / Home Assistant Webhook automation, gentle sound alerts, and Power Plan + Thermal Guard controls in Tray Popover"
   ],
   "fixesEN": [
-    "Unchecked Sailing Mode automatically when OEM EC write is unavailable and added 1-click OEM App button in Power & Limits",
-    "Verified silent installer/uninstaller and v1.7.0.8 binary integrity on windows-latest"
+    "Improved TextMutedBrush, ComboBox, and Segoe UI Variable typography legibility on dark and light themes",
+    "Verified silent installer/uninstaller and v1.8.0.9 binary integrity on windows-latest"
   ],
   "changesID": [
-    "Perbaikan judul/label hitam di Dark Mode akibat override foreground WPF TabControl sehingga seluruh teks tajam & kontras",
-    "Pembacaan suhu non-admin via Win32_PerfFormattedData_Counters_ThermalZoneInformation sehingga Live Thermal Trend aktif",
-    "Perbaikan migrasi CornerRadius 0px dari settings lama, hilangkan double border fokus di sidebar, dan tambah gridlines + dot di sparkline",
-    "Tambah form pembuat jadwal interaktif (nama, jam, limit), preset cepat 60%–100%, dan judul status yang mudah dibaca"
+    "Lokalisasi antarmuka penuh Bahasa Indonesia / Inggris secara langsung di seluruh 7 tab, kartu, dan Tray Popover",
+    "Peningkatan kontras warna WCAG & tipografi Segoe UI Variable di seluruh 4 tema + efek Windows 11 Mica",
+    "Penyimpanan riwayat telemetri 7 hari (grafik 24j/7h + ekspor CSV) & Analisis Laporan Baterai Windows (powercfg)",
+    "Otomasi Webhook Smart-Plug / Home Assistant, notifikasi suara lembut, serta kontrol cepat Power Plan & Thermal Guard di Tray Popover"
   ],
   "fixesID": [
-    "Otomatis uncheck Sailing Mode saat EC write OEM tidak tersedia beserta tombol 1-klik aplikasi OEM di Power & Limits",
-    "Verifikasi installer/uninstaller senyap dan integritas biner v1.7.0.8 di windows-latest"
+    "Perbaikan keterbacaan TextMutedBrush, ComboBox, dan kontras teks pada tema gelap maupun terang",
+    "Verifikasi installer/uninstaller senyap dan integritas biner v1.8.0.9 di windows-latest"
   ]
 }
