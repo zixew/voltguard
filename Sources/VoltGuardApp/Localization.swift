@@ -231,6 +231,15 @@ public enum L10nKey: String, CaseIterable, Sendable {
     case lowPowerOnBatteryDesc
     case lowPowerAlwaysDesc
     case magSafeSyncLegend
+    case toastDischargeTitle
+    case toastDischargeBody
+    case toastActionStopDischarge
+    case toastCalStageTitle
+    case toastCalStageBody
+    case toastActionViewProgress
+    case toastActionEnergyMonitor
+    case toastActionEnableLowPower
+    case testToolbarAlert
 }
 
 public struct L10n {
@@ -470,7 +479,16 @@ public struct L10n {
         .stopChargingOnSleepDesc: "Block battery charging whenever your Mac enters sleep mode.",
         .lowPowerOnBatteryDesc: "Enable macOS Low Power Mode automatically whenever unplugged.",
         .lowPowerAlwaysDesc: "Keep macOS Low Power Mode active on both battery and power adapter.",
-        .magSafeSyncLegend: "Sync Mode: Charging = Amber  |  Limit Reached (Bypass) = Green  |  Discharging = LED Off"
+        .magSafeSyncLegend: "Sync Mode: Charging = Amber  |  Limit Reached (Bypass) = Green  |  Discharging = LED Off",
+        .toastDischargeTitle: "Battery Discharge Active",
+        .toastDischargeBody: "Running on battery power while plugged in (MagSafe LED Off).",
+        .toastActionStopDischarge: "Stop Discharge",
+        .toastCalStageTitle: "Calibration Stage Updated",
+        .toastCalStageBody: "Guided 5-stage battery calibration advanced to the next stage.",
+        .toastActionViewProgress: "View Progress",
+        .toastActionEnergyMonitor: "Energy Monitor",
+        .toastActionEnableLowPower: "Low Power Mode",
+        .testToolbarAlert: "Test Toolbar Alert"
     ]
 
     public static let id: [L10nKey: String] = [
@@ -702,7 +720,16 @@ public struct L10n {
         .stopChargingOnSleepDesc: "Hentikan pengisian daya baterai setiap kali Mac masuk mode tidur.",
         .lowPowerOnBatteryDesc: "Aktifkan Mode Hemat Daya macOS otomatis saat menggunakan baterai.",
         .lowPowerAlwaysDesc: "Pertahankan Mode Hemat Daya macOS baik di baterai maupun adaptor.",
-        .magSafeSyncLegend: "Mode Sinkron: Mengisi = Amber  |  Batas Tercapai (Bypass) = Hijau  |  Discharge = LED Mati"
+        .magSafeSyncLegend: "Mode Sinkron: Mengisi = Amber  |  Batas Tercapai (Bypass) = Hijau  |  Discharge = LED Mati",
+        .toastDischargeTitle: "Pengosongan Baterai Aktif",
+        .toastDischargeBody: "Menggunakan daya baterai saat adaptor terpasang (LED MagSafe Mati).",
+        .toastActionStopDischarge: "Hentikan",
+        .toastCalStageTitle: "Tahap Kalibrasi Berlanjut",
+        .toastCalStageBody: "Siklus kalibrasi 5-tahap beralih ke tahap berikutnya.",
+        .toastActionViewProgress: "Lihat Progres",
+        .toastActionEnergyMonitor: "Monitor Energi",
+        .toastActionEnableLowPower: "Hemat Daya",
+        .testToolbarAlert: "Uji Notifikasi Toolbar"
     ]
 }
 

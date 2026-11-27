@@ -20,6 +20,7 @@ struct VoltGuardApplication: App {
 final class VoltGuardAppDelegate: NSObject, NSApplicationDelegate, AppRouterProtocol, NSPopoverDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
+    private var toastPanel: NSPanel?
     private var dashboardWindow: NSWindow?
     private var presenter: VoltGuardPresenter?
     private var cancellables = Set<AnyCancellable>()
@@ -215,6 +216,68 @@ final class VoltGuardAppDelegate: NSObject, NSApplicationDelegate, AppRouterProt
             minimizeToBackground()
         }
         statusItem?.isVisible = visible
+    }
+
+    func showToolbarEventToast() {
+        guard let presenter, presenter.state.activeToolbarEvent != nil else { return }
+        // If popover is already open, the interactive banner renders inline at the top of PopoverView.
+        if popover?.isShown == true {
+            hideToolbarEventToast()
+            return
+        }
+        let panelWidth: CGFloat = 340
+        let panelHeight: CGFloat = 78
+
+        if toastPanel == nil {
+            let panel = NSPanel(
+                contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: panelHeight),
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            panel.isFloatingPanel = true
+            panel.level = .statusBar
+            panel.backgroundColor = .clear
+            panel.isOpaque = false
+            panel.hasShadow = false
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+            panel.contentViewController = NSHostingController(rootView: ToolbarEventToastView(presenter: presenter))
+            self.toastPanel = panel
+        }
+
+        guard let panel = toastPanel else { return }
+        let targetOrigin: NSPoint = {
+            if let button = statusItem?.button, let btnWin = button.window {
+                let btnRectInWin = button.convert(button.bounds, to: nil)
+                let screenRect = btnWin.convertToScreen(btnRectInWin)
+                let x = min(max(screenRect.midX - (panelWidth / 2), 12), (NSScreen.main?.visibleFrame.maxX ?? 1400) - panelWidth - 12)
+                let y = screenRect.minY - panelHeight - 8
+                return NSPoint(x: x, y: y)
+            }
+            let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+            return NSPoint(x: screenFrame.maxX - panelWidth - 16, y: screenFrame.maxY - panelHeight - 10)
+        }()
+
+        panel.setFrameOrigin(NSPoint(x: targetOrigin.x, y: targetOrigin.y + 8))
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.22
+            panel.animator().alphaValue = 1
+            panel.animator().setFrameOrigin(targetOrigin)
+        }
+    }
+
+    func hideToolbarEventToast() {
+        guard let panel = toastPanel, panel.isVisible else { return }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.16
+            panel.animator().alphaValue = 0
+        }, completionHandler: { [weak panel] in
+            Task { @MainActor in
+                panel?.orderOut(nil)
+            }
+        })
     }
 
     func windowWillClose(_ notification: Notification) {

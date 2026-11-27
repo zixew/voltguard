@@ -39,12 +39,60 @@ public struct ActivityLogEntry: Equatable, Identifiable, Sendable {
     }
 }
 
+public enum ToolbarEventAction: Equatable, Sendable {
+    case topUp100
+    case stopDischarge
+    case enableLowPowerOnBattery
+    case openEnergyMonitor
+    case openCalibration
+    case openFullApp
+}
+
+public enum ToolbarEventSeverity: Equatable, Sendable {
+    case accent
+    case warning
+    case danger
+}
+
+public struct ToolbarNotificationEvent: Equatable, Identifiable, Sendable {
+    public let id: UUID
+    public let icon: String
+    public let titleKey: L10nKey
+    public let bodyKey: L10nKey
+    public let severity: ToolbarEventSeverity
+    public let actionTitleKey: L10nKey?
+    public let action: ToolbarEventAction?
+    public let createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        icon: String,
+        titleKey: L10nKey,
+        bodyKey: L10nKey,
+        severity: ToolbarEventSeverity,
+        actionTitleKey: L10nKey? = nil,
+        action: ToolbarEventAction? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.icon = icon
+        self.titleKey = titleKey
+        self.bodyKey = bodyKey
+        self.severity = severity
+        self.actionTitleKey = actionTitleKey
+        self.action = action
+        self.createdAt = createdAt
+    }
+}
+
 public struct VoltGuardViewState: Equatable {
     public var telemetryState: TelemetryLoadState = .loading
     public var telemetryHistory: [TelemetrySample] = []
     public var batteryETA: BatteryETA?
     public var healthSnapshots: [BatteryHealthSnapshot] = []
     public var activityLog: [ActivityLogEntry] = []
+    public var activeToolbarEvent: ToolbarNotificationEvent?
+    public var requestedDashboardTab: Int?
     public var diagnostics: DiagnosticsReport?
     public var csvExportFeedback: Bool = false
     public var settingsFeedbackMessage: String?
@@ -103,6 +151,9 @@ public enum VoltGuardAction {
     case openFullApp
     case minimizeToBackground
     case hideMenuBarIcon
+    case dismissToolbarEvent
+    case triggerToolbarEventAction(ToolbarEventAction)
+    case testToolbarEvent
     case quitApp
 }
 
@@ -393,6 +444,7 @@ public final class VoltGuardPresenter: ObservableObject {
     private let recommendUseCase = RecommendProfileUseCase()
     private var etaCalculator = BatteryETACalculator()
     private var settingsObserver: NSObjectProtocol?
+    private var toastDismissTask: Task<Void, Never>?
     public weak var router: AppRouterProtocol?
 
     public init(interactor: VoltGuardInteractor = VoltGuardInteractor()) {
@@ -428,18 +480,93 @@ public final class VoltGuardPresenter: ObservableObject {
 
                     if reason == .heatProtectionPaused && prevReason != .heatProtectionPaused {
                         self.appendActivity(.activityHeatPaused)
+                        self.presentToolbarEvent(
+                            ToolbarNotificationEvent(
+                                icon: "thermometer.sun.fill",
+                                titleKey: .alertHeatTitle,
+                                bodyKey: .alertHeatBody,
+                                severity: .danger,
+                                actionTitleKey: .toastActionEnergyMonitor,
+                                action: .openEnergyMonitor
+                            )
+                        )
                     } else if reason == .limitReached && prevReason == .normalCharging {
                         self.appendActivity(.activityLimitReached)
+                        self.presentToolbarEvent(
+                            ToolbarNotificationEvent(
+                                icon: "bolt.horizontal.circle.fill",
+                                titleKey: .statusLimitReached,
+                                bodyKey: .alertLimitReachedBody,
+                                severity: .accent,
+                                actionTitleKey: .topUp,
+                                action: .topUp100
+                            )
+                        )
+                    } else if (reason == .manualDischarge || reason == .automaticDischarge)
+                                && prevReason != .manualDischarge && prevReason != .automaticDischarge {
+                        self.presentToolbarEvent(
+                            ToolbarNotificationEvent(
+                                icon: "arrow.down.circle.fill",
+                                titleKey: .toastDischargeTitle,
+                                bodyKey: .toastDischargeBody,
+                                severity: .warning,
+                                actionTitleKey: .toastActionStopDischarge,
+                                action: .stopDischarge
+                            )
+                        )
                     }
                     if prevTopUp && !settings.policy.topUpActive {
                         self.appendActivity(.activityTopUpDone)
+                        self.presentToolbarEvent(
+                            ToolbarNotificationEvent(
+                                icon: "checkmark.seal.fill",
+                                titleKey: .alertTopUpTitle,
+                                bodyKey: .alertTopUpBody,
+                                severity: .accent,
+                                actionTitleKey: .openFullApp,
+                                action: .openFullApp
+                            )
+                        )
                     }
-                    if prevCalStage != .completed && calibration.stage == .completed {
-                        self.appendActivity(.activityCalibrationDone)
+                    if prevCalStage != calibration.stage && calibration.stage != .idle {
+                        if calibration.stage == .completed {
+                            self.appendActivity(.activityCalibrationDone)
+                            self.presentToolbarEvent(
+                                ToolbarNotificationEvent(
+                                    icon: "checkmark.seal.fill",
+                                    titleKey: .alertCalibrationTitle,
+                                    bodyKey: .alertCalibrationBody,
+                                    severity: .accent,
+                                    actionTitleKey: .toastActionViewProgress,
+                                    action: .openCalibration
+                                )
+                            )
+                        } else {
+                            self.presentToolbarEvent(
+                                ToolbarNotificationEvent(
+                                    icon: "gauge.with.dots.needle.67percent",
+                                    titleKey: .toastCalStageTitle,
+                                    bodyKey: .toastCalStageBody,
+                                    severity: .warning,
+                                    actionTitleKey: .toastActionViewProgress,
+                                    action: .openCalibration
+                                )
+                            )
+                        }
                     }
                     if !telemetry.isPluggedIn && telemetry.percentage < VoltGuardLimits.lowBatteryAlertThresholdPercent {
                         if self.state.activityLog.first?.messageKey != .activityLowBattery {
                             self.appendActivity(.activityLowBattery)
+                            self.presentToolbarEvent(
+                                ToolbarNotificationEvent(
+                                    icon: "battery.25",
+                                    titleKey: .alertLowBatteryTitle,
+                                    bodyKey: .alertLowBatteryBody,
+                                    severity: .danger,
+                                    actionTitleKey: .toastActionEnableLowPower,
+                                    action: .enableLowPowerOnBattery
+                                )
+                            )
                         }
                     }
                 } else if let errMsg {
@@ -703,8 +830,60 @@ public final class VoltGuardPresenter: ObservableObject {
             router?.minimizeToBackground()
         case .hideMenuBarIcon:
             router?.setMenuBarIconVisible(false)
+        case .dismissToolbarEvent:
+            toastDismissTask?.cancel()
+            state.activeToolbarEvent = nil
+            router?.hideToolbarEventToast()
+        case .triggerToolbarEventAction(let eventAction):
+            toastDismissTask?.cancel()
+            state.activeToolbarEvent = nil
+            router?.hideToolbarEventToast()
+            switch eventAction {
+            case .topUp100:
+                state.settings.policy.topUpActive = true
+                persistAndSync()
+            case .stopDischarge:
+                state.settings.policy.manualDischarge = false
+                state.settings.policy.automaticDischarge = false
+                persistAndSync()
+            case .enableLowPowerOnBattery:
+                state.settings.policy.lowPowerModeOnBattery = true
+                persistAndSync()
+            case .openEnergyMonitor:
+                state.requestedDashboardTab = 2
+                router?.openFullAppWindow()
+            case .openCalibration:
+                state.requestedDashboardTab = 3
+                router?.openFullAppWindow()
+            case .openFullApp:
+                router?.openFullAppWindow()
+            }
+        case .testToolbarEvent:
+            presentToolbarEvent(
+                ToolbarNotificationEvent(
+                    icon: "bolt.horizontal.circle.fill",
+                    titleKey: .statusLimitReached,
+                    bodyKey: .alertLimitReachedBody,
+                    severity: .accent,
+                    actionTitleKey: .topUp,
+                    action: .topUp100
+                )
+            )
         case .quitApp:
             NSApp.terminate(nil)
+        }
+    }
+
+    public func presentToolbarEvent(_ event: ToolbarNotificationEvent) {
+        guard state.settings.alertsEnabled else { return }
+        toastDismissTask?.cancel()
+        state.activeToolbarEvent = event
+        router?.showToolbarEventToast()
+        toastDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 7_000_000_000)
+            guard !Task.isCancelled, let self, self.state.activeToolbarEvent?.id == event.id else { return }
+            self.state.activeToolbarEvent = nil
+            self.router?.hideToolbarEventToast()
         }
     }
 
@@ -738,4 +917,11 @@ public protocol AppRouterProtocol: AnyObject {
     func openFullAppWindow()
     func minimizeToBackground()
     func setMenuBarIconVisible(_ visible: Bool)
+    func showToolbarEventToast()
+    func hideToolbarEventToast()
+}
+
+public extension AppRouterProtocol {
+    func showToolbarEventToast() {}
+    func hideToolbarEventToast() {}
 }

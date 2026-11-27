@@ -86,6 +86,10 @@ public struct FullDashboardView: View {
                 presenter.dispatch(.refreshEnergyApps)
             }
         }
+        .onChange(of: presenter.state.requestedDashboardTab) { _, tabIdx in
+            guard let tabIdx, DashboardSection.allCases.indices.contains(tabIdx) else { return }
+            selectedSection = DashboardSection.allCases[tabIdx]
+        }
     }
 
     @ViewBuilder
@@ -1470,6 +1474,18 @@ public struct FullDashboardView: View {
                         get: { presenter.state.settings.alertsEnabled },
                         set: { _ in presenter.dispatch(.toggleSmartAlerts) }
                     ))
+                    HStack {
+                        Spacer()
+                        Button {
+                            presenter.dispatch(.testToolbarEvent)
+                        } label: {
+                            Label(L10n.text(.testToolbarAlert, locale: locale), systemImage: "bell.badge.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(palette.accent)
+                        .controlSize(.small)
+                    }
                     Divider()
                     HStack {
                         Text(L10n.text(presenter.state.helperConnected ? .helperConnected : .helperDryRun, locale: locale))

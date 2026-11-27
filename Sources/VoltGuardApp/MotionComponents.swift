@@ -834,3 +834,91 @@ public struct CustomBackgroundLayer: View {
         .ignoresSafeArea()
     }
 }
+
+public struct ToolbarEventToastView: View {
+    @ObservedObject var presenter: VoltGuardPresenter
+
+    public init(presenter: VoltGuardPresenter) {
+        self.presenter = presenter
+    }
+
+    public var body: some View {
+        let state = presenter.state
+        let palette = state.palette
+        let locale = state.settings.locale
+
+        if let event = state.activeToolbarEvent {
+            let sevColor = severityColor(event.severity, palette: palette)
+            HStack(alignment: .center, spacing: 11) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(sevColor.opacity(0.18))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: event.icon)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(sevColor)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.text(event.titleKey, locale: locale))
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(palette.primaryText)
+                        .lineLimit(1)
+                    Text(L10n.text(event.bodyKey, locale: locale))
+                        .font(.system(size: 11))
+                        .foregroundStyle(palette.secondaryText)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 4)
+
+                if let actionTitleKey = event.actionTitleKey, let action = event.action {
+                    Button {
+                        presenter.dispatch(.triggerToolbarEventAction(action))
+                    } label: {
+                        Text(L10n.text(actionTitleKey, locale: locale))
+                            .font(.system(size: 11, weight: .semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(sevColor)
+                            .foregroundStyle(palette.isDark ? Color.black : Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 7))
+                    }
+                    .buttonStyle(.plain)
+                    .focusEffectDisabled()
+                }
+
+                Button {
+                    presenter.dispatch(.dismissToolbarEvent)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(palette.secondaryText)
+                        .frame(width: 22, height: 22)
+                        .background(palette.background.opacity(0.6))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .focusEffectDisabled()
+            }
+            .padding(12)
+            .frame(width: 340)
+            .background(palette.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(sevColor.opacity(0.65), lineWidth: 1.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .shadow(color: Color.black.opacity(0.45), radius: 14, y: 6)
+        }
+    }
+
+    private func severityColor(_ severity: ToolbarEventSeverity, palette: ThemePalette) -> Color {
+        switch severity {
+        case .accent: return palette.accent
+        case .warning: return palette.warning
+        case .danger: return palette.danger
+        }
+    }
+}

@@ -21,6 +21,11 @@ public struct PopoverView: View {
         VStack(spacing: compact ? 8 : 12) {
             headerBar(state: state, palette: palette, locale: locale)
 
+            if state.activeToolbarEvent != nil {
+                ToolbarEventToastView(presenter: presenter)
+                    .frame(maxWidth: .infinity)
+            }
+
             switch state.telemetryState {
             case .loading:
                 VStack(spacing: 8) {
