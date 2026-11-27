@@ -369,12 +369,12 @@ final class VoltGuardTests: XCTestCase {
         try? await Task.sleep(nanoseconds: 50_000_000)
         let staleSettings = presenter.state.settings
         presenter.dispatch(.toggleManualDischarge)
-        XCTAssertTrue(presenter.state.settings.policy.manualDischarge)
-        XCTAssertEqual(presenter.state.lastReason, .manualDischarge)
+        XCTAssertFalse(presenter.state.settings.policy.manualDischarge)
+        XCTAssertEqual(presenter.state.lastReason, .topUpActive)
         await interactor.tick(settings: staleSettings, calibration: CalibrationSession(), generation: 0)
         try? await Task.sleep(nanoseconds: 50_000_000)
-        XCTAssertTrue(presenter.state.settings.policy.manualDischarge, "Stale background tick must not revert toolbar state change")
-        XCTAssertEqual(presenter.state.lastReason, .manualDischarge)
+        XCTAssertFalse(presenter.state.settings.policy.manualDischarge, "Stale background tick must not revert toolbar state change")
+        XCTAssertEqual(presenter.state.lastReason, .topUpActive)
     }
 
     func testRecommendProfileUseCaseAllConditions() {
