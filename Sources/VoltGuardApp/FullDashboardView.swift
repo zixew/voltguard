@@ -1,0 +1,1672 @@
+import AppKit
+import SwiftUI
+import UniformTypeIdentifiers
+import VoltGuardDomain
+
+public enum DashboardSection: String, CaseIterable, Identifiable {
+    case overview
+    case charging
+    case energy
+    case schedule
+    case appearance
+    case system
+
+    public var id: String { rawValue }
+
+    public var icon: String {
+        switch self {
+        case .overview: return "gauge.with.dots.needle.67percent"
+        case .charging: return "bolt.batteryblock"
+        case .energy: return "cpu"
+        case .schedule: return "calendar.badge.clock"
+        case .appearance: return "paintpalette"
+        case .system: return "gearshape.2"
+        }
+    }
+
+    public func title(locale: AppLocale) -> String {
+        switch self {
+        case .overview: return L10n.text(.tabOverview, locale: locale)
+        case .charging: return L10n.text(.tabCharging, locale: locale)
+        case .energy: return L10n.text(.tabEnergy, locale: locale)
+        case .schedule: return L10n.text(.tabSchedule, locale: locale)
+        case .appearance: return L10n.text(.tabTheme, locale: locale)
+        case .system: return L10n.text(.tabGuide, locale: locale)
+        }
+    }
+}
+
+public struct FullDashboardView: View {
+    @ObservedObject var presenter: VoltGuardPresenter
+    @State private var selectedSection: DashboardSection = .overview
+    @State private var newRuleTitle: String = ""
+    @State private var newRuleHour: Int = 8
+    @State private var newRuleMinute: Int = 0
+    @State private var newRuleWeekdays: Set<Int> = [2, 3, 4, 5, 6]
+    @State private var newRuleAction: ScheduleAction = .setLimit80
+    @State private var customHexInput: String = ""
+
+    public init(presenter: VoltGuardPresenter) {
+        self.presenter = presenter
+    }
+
+    public var body: some View {
+        let locale = presenter.state.settings.locale
+        let palette = presenter.state.palette
+        let theme = presenter.state.settings.theme
+
+        ZStack {
+            CustomBackgroundLayer(theme: theme, palette: palette)
+
+            HStack(spacing: 0) {
+                sidebarRail(locale: locale, palette: palette)
+                    .frame(width: AppLayoutConstants.sidebarIdealWidth)
+                    .background(palette.surface.opacity(0.65))
+
+                Rectangle()
+                    .fill(palette.border)
+                    .frame(width: 1)
+
+                ScrollView {
+                    detailContent(locale: locale, palette: palette)
+                        .padding(24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+        .frame(
+            minWidth: AppLayoutConstants.fullWindowMinWidth,
+            minHeight: AppLayoutConstants.fullWindowMinHeight
+        )
+        .preferredColorScheme(palette.isDark ? .dark : .light)
+        .tint(palette.accent)
+        .onChange(of: selectedSection) { _, newValue in
+            if newValue == .energy {
+                presenter.dispatch(.refreshEnergyApps)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func sidebarRail(locale: AppLocale, palette: ThemePalette) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                BrandLogoView(size: 30, accentColor: palette.accent)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L10n.text(.appTitle, locale: locale))
+                        .font(.headline)
+                        .foregroundStyle(palette.primaryText)
+                    Text(L10n.text(presenter.state.helperConnected ? .helperConnected : .helperDryRun, locale: locale))
+                        .font(.caption2)
+                        .foregroundStyle(palette.secondaryText)
+                        .lineLimit(1)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+
+            VStack(spacing: 4) {
+                ForEach(DashboardSection.allCases) { section in
+                    let isSelected = selectedSection == section
+                    Button {
+                        selectedSection = section
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: section.icon)
+                                .font(.system(size: 13, weight: .semibold))
+                                .frame(width: 18)
+                                .foregroundStyle(isSelected ? palette.accent : palette.secondaryText)
+                                .accessibilityHidden(true)
+                            Text(section.title(locale: locale))
+                                .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
+                                .foregroundStyle(palette.primaryText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.9)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(isSelected ? palette.accent.opacity(0.18) : Color.clear)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(isSelected ? palette.accent.opacity(0.55) : Color.clear, lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .focusEffectDisabled()
+                }
+            }
+            .padding(.horizontal, 10)
+
+            Spacer()
+
+            Rectangle()
+                .fill(palette.border)
+                .frame(height: 1)
+
+            VStack(spacing: 8) {
+                Picker("", selection: Binding(
+                    get: { locale },
+                    set: { presenter.dispatch(.updateLocale($0)) }
+                )) {
+                    ForEach(AppLocale.allCases, id: \.self) { loc in
+                        Text(loc.rawValue.uppercased()).tag(loc)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                HStack(spacing: 6) {
+                    Button(L10n.text(.minimizeToBackground, locale: locale)) {
+                        presenter.dispatch(.minimizeToBackground)
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+
+                    Button(L10n.text(.quit, locale: locale)) {
+                        presenter.dispatch(.quitApp)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(palette.danger)
+                }
+                .controlSize(.small)
+            }
+            .padding(12)
+        }
+    }
+
+    @ViewBuilder
+    private func themedCard<Content: View>(
+        title: String? = nil,
+        palette: ThemePalette,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let title, !title.isEmpty {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(palette.primaryText)
+            }
+            content()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(palette.surface)
+        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius).stroke(palette.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+    }
+
+    @ViewBuilder
+    private func detailContent(locale: AppLocale, palette: ThemePalette) -> some View {
+        switch selectedSection {
+        case .overview:
+            overviewSection(locale: locale, palette: palette)
+        case .charging:
+            chargingSection(locale: locale, palette: palette)
+        case .energy:
+            energySection(locale: locale, palette: palette)
+        case .schedule:
+            scheduleAndCalibrationSection(locale: locale, palette: palette)
+        case .appearance:
+            appearanceAndLayoutSection(locale: locale, palette: palette)
+        case .system:
+            systemAndGuideSection(locale: locale, palette: palette)
+        }
+    }
+
+    @ViewBuilder
+    private func overviewSection(locale: AppLocale, palette: ThemePalette) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(L10n.text(.tabOverview, locale: locale))
+                .font(.title2.bold())
+                .foregroundStyle(palette.primaryText)
+
+            switch presenter.state.telemetryState {
+            case .loading:
+                ProgressView(L10n.text(.telemetryLoading, locale: locale))
+            case .error(let msg):
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.text(.telemetryErrorTitle, locale: locale)).font(.headline)
+                    Text(msg).foregroundStyle(palette.secondaryText)
+                    Button(L10n.text(.telemetryRetry, locale: locale)) {
+                        presenter.dispatch(.refreshTelemetry)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(palette.accent)
+                }
+            case .loaded(let telemetry, let flow):
+                HStack(spacing: 18) {
+                    LiquidBatteryCellView(
+                        percentage: telemetry.percentage,
+                        limitPercent: presenter.state.settings.policy.limitPercent,
+                        sailingDeltaPercent: presenter.state.settings.policy.sailingModeEnabled ? presenter.state.settings.policy.sailingDeltaPercent : nil,
+                        mode: dashboardVisualMode(presenter.state.lastReason, telemetry: telemetry),
+                        palette: palette,
+                        isVisible: presenter.state.isUIVisible,
+                        width: 78,
+                        height: 112
+                    ) { newLimit in
+                        presenter.dispatch(.setChargeLimit(newLimit))
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("\(L10n.text(.chargeLimit, locale: locale)): \(presenter.state.settings.policy.limitPercent)%")
+                                .font(.headline)
+                                .contentTransition(.numericText())
+                                .foregroundStyle(palette.primaryText)
+                            Spacer()
+                            if let etaText = BatteryETAFormatter.text(for: presenter.state.batteryETA, locale: locale) {
+                                Text(etaText)
+                                    .font(.callout.monospacedDigit())
+                                    .foregroundStyle(palette.accent)
+                            }
+                        }
+
+                        Slider(
+                            value: Binding(
+                                get: { Double(presenter.state.settings.policy.limitPercent) },
+                                set: { presenter.dispatch(.setChargeLimit(Int($0.rounded()))) }
+                            ),
+                            in: Double(VoltGuardLimits.minLimitPercent)...Double(VoltGuardLimits.maxLimitPercent)
+                        )
+                        .tint(palette.accent)
+
+                        HStack(spacing: 8) {
+                            ForEach(VoltGuardLimits.quickPresets, id: \.self) { preset in
+                                Button("\(preset)%") {
+                                    presenter.dispatch(.setChargeLimit(preset))
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .tint(presenter.state.settings.policy.limitPercent == preset ? palette.accent : palette.surface)
+                            }
+                        }
+
+                        if presenter.state.telemetryHistory.count >= 2 {
+                            TelemetrySparklineView(samples: presenter.state.telemetryHistory, palette: palette)
+                        }
+                    }
+                }
+                .padding(16)
+                .background(palette.surface)
+                .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius).stroke(palette.border, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+
+                PowerTopologyCardView(
+                    telemetry: telemetry,
+                    flow: flow,
+                    palette: palette,
+                    locale: locale,
+                    batteryETA: presenter.state.batteryETA,
+                    isVisible: presenter.state.isUIVisible
+                )
+
+                HStack(spacing: 16) {
+                    statCard(title: L10n.text(.batteryHealth, locale: locale), value: "\(telemetry.healthPercent)% (\(telemetry.cycleCount))", palette: palette)
+                    statCard(title: L10n.text(.temperature, locale: locale), value: String(format: "%.1f C", telemetry.temperatureCelsius), palette: palette)
+                    statCard(
+                        title: L10n.text(.timeRemaining, locale: locale),
+                        value: BatteryETAFormatter.text(for: presenter.state.batteryETA, locale: locale) ?? L10n.text(.etaCalculating, locale: locale),
+                        palette: palette
+                    )
+                }
+
+                batteryConditionDetailCard(telemetry: telemetry, flow: flow, locale: locale, palette: palette)
+
+                recommendedProfilesSection(locale: locale, palette: palette)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func batteryConditionDetailCard(
+        telemetry: BatteryTelemetry,
+        flow: PowerFlowMetrics,
+        locale: AppLocale,
+        palette: ThemePalette
+    ) -> some View {
+        let wearMah = max(telemetry.designCapacityMah - telemetry.maxCapacityMah, 0)
+        let conditionText: String = {
+            switch telemetry.batteryCondition {
+            case .normal: return L10n.text(.conditionNormal, locale: locale)
+            case .fair: return L10n.text(.conditionFair, locale: locale)
+            case .serviceRecommended: return L10n.text(.conditionService, locale: locale)
+            }
+        }()
+        let conditionColor: Color = {
+            switch telemetry.batteryCondition {
+            case .normal: return palette.accent
+            case .fair: return palette.warning
+            case .serviceRecommended: return palette.danger
+            }
+        }()
+
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(L10n.text(.moduleBatteryHealth, locale: locale))
+                    .font(.headline)
+                    .foregroundStyle(palette.primaryText)
+                Spacer()
+                Text("\(L10n.text(.batteryCondition, locale: locale)): \(conditionText)")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(conditionColor.opacity(0.18))
+                    .foregroundStyle(conditionColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
+            if telemetry.isPluggedIn && !telemetry.isCharging && presenter.state.lastReason == .normalCharging && telemetry.percentage < presenter.state.settings.policy.limitPercent && flow.batteryNetWatts < -3.0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(palette.warning)
+                        .accessibilityHidden(true)
+                    Text(L10n.text(.underpoweredCharger, locale: locale))
+                        .font(.caption)
+                        .foregroundStyle(palette.warning)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(palette.background)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.warning.opacity(0.6), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                detailMetricCell(
+                    label: L10n.text(.cycles, locale: locale),
+                    value: "\(telemetry.cycleCount)",
+                    palette: palette
+                )
+                detailMetricCell(
+                    label: L10n.text(.maxCapacity, locale: locale),
+                    value: "\(telemetry.maxCapacityMah) mAh",
+                    palette: palette
+                )
+                detailMetricCell(
+                    label: L10n.text(.designCapacity, locale: locale),
+                    value: "\(telemetry.designCapacityMah) mAh",
+                    palette: palette
+                )
+                detailMetricCell(
+                    label: L10n.text(.currentCapacity, locale: locale),
+                    value: telemetry.currentCapacityMah.map { "\($0) mAh" } ?? "\(telemetry.percentage)%",
+                    palette: palette
+                )
+                detailMetricCell(
+                    label: L10n.text(.capacityLoss, locale: locale),
+                    value: "-\(wearMah) mAh (\(max(100 - telemetry.healthPercent, 0))%)",
+                    palette: palette
+                )
+                detailMetricCell(
+                    label: L10n.text(.batteryChip, locale: locale),
+                    value: telemetry.deviceName ?? "AppleSmartBattery",
+                    palette: palette
+                )
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.text(.healthTrendTitle, locale: locale))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(palette.secondaryText)
+
+                if presenter.state.healthSnapshots.count >= 2 {
+                    HealthTrendChartView(snapshots: presenter.state.healthSnapshots, palette: palette)
+                } else {
+                    Text(L10n.text(.healthHistoryEmpty, locale: locale))
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(palette.background)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+            }
+        }
+        .padding(16)
+        .background(palette.surface)
+        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius).stroke(palette.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+    }
+
+    @ViewBuilder
+    private func detailMetricCell(label: String, value: String, palette: ThemePalette) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(palette.secondaryText)
+            Text(value)
+                .font(.callout.weight(.semibold).monospacedDigit())
+                .foregroundStyle(palette.primaryText)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(8)
+        .background(palette.background)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    @ViewBuilder
+    private func recommendedProfilesSection(locale: AppLocale, palette: ThemePalette) -> some View {
+        let rec = presenter.state.liveRecommendation
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(L10n.text(.recommendedProfilesTitle, locale: locale))
+                    .font(.headline)
+                    .foregroundStyle(palette.primaryText)
+                Spacer()
+                if let rec {
+                    Text(profileReasonText(rec.reason, locale: locale))
+                        .font(.caption)
+                        .foregroundStyle(palette.secondaryText)
+                }
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(BatteryProfileTier.allCases) { tier in
+                    let isSuggested = rec?.tier == tier
+                    let isApplied = isSuggested && (rec?.isAlreadyApplied == true)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(profileTitle(tier, locale: locale))
+                                .font(.headline)
+                                .foregroundStyle(palette.primaryText)
+                            Spacer()
+                            if isSuggested {
+                                Text(L10n.text(.recommendedBadge, locale: locale))
+                                    .font(.caption2.weight(.semibold))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(palette.accent.opacity(0.2))
+                                    .foregroundStyle(palette.accent)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                            }
+                        }
+
+                        Text(profileDescription(tier, locale: locale))
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Button(isApplied ? L10n.text(.appliedProfile, locale: locale) : L10n.text(.applyProfile, locale: locale)) {
+                            presenter.dispatch(.applyProfileTier(tier))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(isApplied ? palette.border : palette.accent)
+                        .disabled(isApplied)
+                    }
+                    .padding(12)
+                    .background(palette.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: palette.cornerRadius)
+                            .stroke(isSuggested ? palette.accent : palette.border, lineWidth: isSuggested ? 1.5 : 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+                }
+            }
+
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L10n.text(.customProfileTitle, locale: locale))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(palette.primaryText)
+                    if let custom = presenter.state.settings.customProfile {
+                        Text("\(custom.limitPercent)% | \(L10n.text(.sailingDeltaLabel, locale: locale)): \(custom.sailingDeltaPercent)% | \(Int(custom.maxTemperatureCelsius)) C")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(palette.secondaryText)
+                    } else {
+                        Text(L10n.text(.customProfileEmpty, locale: locale))
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
+                    }
+                }
+                Spacer()
+                Button(L10n.text(.saveCustomProfile, locale: locale)) {
+                    presenter.dispatch(.saveCustomProfile)
+                }
+                .buttonStyle(.bordered)
+                if presenter.state.settings.customProfile != nil {
+                    Button(L10n.text(.applyCustomProfile, locale: locale)) {
+                        presenter.dispatch(.applyCustomProfile)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(palette.accent)
+                }
+            }
+            .padding(12)
+            .background(palette.surface)
+            .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius).stroke(palette.border, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+        }
+    }
+
+    private func profileTitle(_ tier: BatteryProfileTier, locale: AppLocale) -> String {
+        switch tier {
+        case .travel: return L10n.text(.profileTravelTitle, locale: locale)
+        case .balanced: return L10n.text(.profileBalancedTitle, locale: locale)
+        case .deskDocked: return L10n.text(.profileDeskTitle, locale: locale)
+        case .maxLifespan: return L10n.text(.profileMaxLifespanTitle, locale: locale)
+        }
+    }
+
+    private func profileDescription(_ tier: BatteryProfileTier, locale: AppLocale) -> String {
+        switch tier {
+        case .travel: return L10n.text(.profileTravelDesc, locale: locale)
+        case .balanced: return L10n.text(.profileBalancedDesc, locale: locale)
+        case .deskDocked: return L10n.text(.profileDeskDesc, locale: locale)
+        case .maxLifespan: return L10n.text(.profileMaxLifespanDesc, locale: locale)
+        }
+    }
+
+    private func profileReasonText(_ reason: RecommendationReason, locale: AppLocale) -> String {
+        switch reason {
+        case .highTemperature: return L10n.text(.reasonHighTemp, locale: locale)
+        case .clamshellDocked: return L10n.text(.reasonClamshell, locale: locale)
+        case .lowBatteryUnplugged: return L10n.text(.reasonLowBattery, locale: locale)
+        case .dailyBalanced: return L10n.text(.reasonDaily, locale: locale)
+        }
+    }
+
+    @ViewBuilder
+    private func statCard(title: String, value: String, palette: ThemePalette) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(palette.secondaryText)
+            Text(value)
+                .font(.title3.bold().monospacedDigit())
+                .foregroundStyle(palette.primaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(palette.surface)
+        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius).stroke(palette.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+    }
+
+    @ViewBuilder
+    private func chargingSection(locale: AppLocale, palette: ThemePalette) -> some View {
+        let policy = presenter.state.settings.policy
+        VStack(alignment: .leading, spacing: 16) {
+            Text(L10n.text(.tabCharging, locale: locale))
+                .font(.title2.bold())
+                .foregroundStyle(palette.primaryText)
+
+            themedCard(palette: palette) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle(L10n.text(.discharge, locale: locale), isOn: Binding(get: { policy.manualDischarge }, set: { _ in presenter.dispatch(.toggleManualDischarge) }))
+                    Toggle(L10n.text(.autoDischarge, locale: locale), isOn: Binding(get: { policy.automaticDischarge }, set: { _ in presenter.dispatch(.toggleAutomaticDischarge) }))
+                    Toggle(L10n.text(.clamshellDischarge, locale: locale), isOn: Binding(get: { policy.dischargeInClamshell }, set: { _ in presenter.dispatch(.toggleClamshellDischarge) }))
+                    Toggle(L10n.text(.topUp, locale: locale), isOn: Binding(get: { policy.topUpActive }, set: { _ in presenter.dispatch(.toggleTopUp) }))
+                }
+            }
+
+            themedCard(palette: palette) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle(L10n.text(.sailingMode, locale: locale), isOn: Binding(get: { policy.sailingModeEnabled }, set: { _ in presenter.dispatch(.toggleSailingMode) }))
+                    Stepper("\(L10n.text(.sailingDeltaLabel, locale: locale)): \(policy.sailingDeltaPercent)%", value: Binding(
+                        get: { policy.sailingDeltaPercent },
+                        set: { presenter.dispatch(.setSailingDelta($0)) }
+                    ), in: VoltGuardLimits.minSailingDeltaPercent...VoltGuardLimits.maxSailingDeltaPercent)
+
+                    Toggle(L10n.text(.heatProtection, locale: locale), isOn: Binding(get: { policy.heatProtectionEnabled }, set: { _ in presenter.dispatch(.toggleHeatProtection) }))
+                    HStack {
+                        Text(L10n.text(.temperature, locale: locale))
+                        Spacer()
+                        Text("\(Int(policy.maxTemperatureCelsius)) C").monospacedDigit()
+                    }
+                    Slider(
+                        value: Binding(
+                            get: { policy.maxTemperatureCelsius },
+                            set: { presenter.dispatch(.setMaxTemperature($0)) }
+                        ),
+                        in: VoltGuardLimits.minTemperatureCelsius...VoltGuardLimits.maxTemperatureCelsius,
+                        step: 1
+                    )
+                }
+            }
+
+            themedCard(palette: palette) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle(L10n.text(.sleepControl, locale: locale), isOn: Binding(get: { policy.sleepControlEnabled }, set: { _ in presenter.dispatch(.toggleSleepControl) }))
+                    Toggle(L10n.text(.stopChargingOnSleep, locale: locale), isOn: Binding(get: { policy.stopChargingWhenSleeping }, set: { _ in presenter.dispatch(.toggleStopChargingOnSleep) }))
+                    Toggle(L10n.text(.lowPowerOnBattery, locale: locale), isOn: Binding(get: { policy.lowPowerModeOnBattery }, set: { _ in presenter.dispatch(.toggleLowPowerOnBattery) }))
+                    Toggle(L10n.text(.lowPowerAlways, locale: locale), isOn: Binding(get: { policy.lowPowerModeAlways }, set: { _ in presenter.dispatch(.toggleLowPowerAlways) }))
+
+                    Picker(L10n.text(.magSafeLED, locale: locale), selection: Binding(
+                        get: { policy.magSafeLEDMode },
+                        set: { presenter.dispatch(.setMagSafeLED($0)) }
+                    )) {
+                        ForEach(MagSafeLEDMode.allCases, id: \.self) { mode in
+                            Text(ledModeTitle(mode, locale: locale)).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func energySection(locale: AppLocale, palette: ThemePalette) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.text(.energyMonitorTitle, locale: locale))
+                        .font(.title2.bold())
+                        .foregroundStyle(palette.primaryText)
+                    Text(L10n.text(.energyMonitorSubtitle, locale: locale))
+                        .font(.callout)
+                        .foregroundStyle(palette.secondaryText)
+                }
+                Spacer()
+                Button(L10n.text(.energyRefresh, locale: locale)) {
+                    presenter.dispatch(.refreshEnergyApps)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(palette.accent)
+            }
+
+            switch presenter.state.energyState {
+            case .idle, .loading:
+                ProgressView(L10n.text(.energyLoading, locale: locale))
+                    .onAppear {
+                        if presenter.state.energyState == .idle {
+                            presenter.dispatch(.refreshEnergyApps)
+                        }
+                    }
+            case .error(let msg):
+                Text(msg).foregroundStyle(palette.danger)
+            case .loaded(let apps) where apps.isEmpty:
+                Text(L10n.text(.energyEmpty, locale: locale))
+                    .foregroundStyle(palette.secondaryText)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(palette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+            case .loaded(let apps):
+                VStack(spacing: 8) {
+                    ForEach(apps) { app in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(app.name)
+                                    .font(.headline)
+                                    .foregroundStyle(palette.primaryText)
+                                Text(String(format: "PID %d  |  CPU %.1f%%", app.pid, app.cpuPercent))
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(palette.secondaryText)
+                            }
+                            Spacer()
+                            Text(impactLabel(app.impact, locale: locale))
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(impactColor(app.impact, palette: palette).opacity(0.18))
+                                .foregroundStyle(impactColor(app.impact, palette: palette))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                            Button(L10n.text(.energyQuitApp, locale: locale)) {
+                                presenter.dispatch(.terminateEnergyApp(app.pid))
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(palette.danger)
+                        }
+                        .padding(12)
+                        .background(palette.surface)
+                        .overlay(RoundedRectangle(cornerRadius: palette.cornerRadius).stroke(palette.border, lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: palette.cornerRadius))
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func scheduleAndCalibrationSection(locale: AppLocale, palette: ThemePalette) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(L10n.text(.tabSchedule, locale: locale))
+                .font(.title2.bold())
+                .foregroundStyle(palette.primaryText)
+
+            themedCard(title: L10n.text(.calibrationMode, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(L10n.text(.calibrationActiveHint, locale: locale))
+                                .font(.callout)
+                        }
+                        Spacer()
+                        if presenter.state.calibration.isActive {
+                            Button(L10n.text(.stopCalibration, locale: locale)) {
+                                presenter.dispatch(.stopCalibration)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(palette.danger)
+                        } else {
+                            Button(L10n.text(.startCalibration, locale: locale)) {
+                                presenter.dispatch(.startCalibration)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(palette.accent)
+                        }
+                    }
+
+                    if presenter.state.calibration.isActive || presenter.state.calibration.stage == .completed {
+                        let pct: Int? = {
+                            if case .loaded(let t, _) = presenter.state.telemetryState { return t.percentage }
+                            return nil
+                        }()
+                        CalibrationProgressView(
+                            session: presenter.state.calibration,
+                            currentPercentage: pct,
+                            palette: palette,
+                            locale: locale,
+                            compact: false,
+                            isVisible: presenter.state.isUIVisible
+                        )
+                    } else if case .loaded(let t, _) = presenter.state.telemetryState {
+                        if !t.isPluggedIn {
+                            Text(L10n.text(.calNeedsCharger, locale: locale))
+                                .font(.caption)
+                                .foregroundStyle(palette.warning)
+                        } else if !presenter.state.helperConnected {
+                            Text(L10n.text(.calNeedsHelper, locale: locale))
+                                .font(.caption)
+                                .foregroundStyle(palette.warning)
+                        }
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.schedule, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        TextField(L10n.text(.scheduleRulePlaceholder, locale: locale), text: $newRuleTitle)
+                            .textFieldStyle(.roundedBorder)
+                        Stepper("\(newRuleHour)h", value: $newRuleHour, in: 0...23)
+                        Picker("", selection: $newRuleMinute) {
+                            ForEach([0, 15, 30, 45], id: \.self) { m in
+                                Text(String(format: ":%02d", m)).tag(m)
+                            }
+                        }
+                        .frame(width: 68)
+                        Picker("", selection: $newRuleAction) {
+                            ForEach(ScheduleAction.allCases, id: \.self) { action in
+                                Text(scheduleActionTitle(action, locale: locale)).tag(action)
+                            }
+                        }
+                        .frame(width: 165)
+                        Button(L10n.text(.addSchedule, locale: locale)) {
+                            let rule = ScheduleRule(
+                                title: newRuleTitle.isEmpty ? scheduleActionTitle(newRuleAction, locale: locale) : newRuleTitle,
+                                hour: newRuleHour,
+                                minute: newRuleMinute,
+                                weekdays: newRuleWeekdays.isEmpty ? Set(1...7) : newRuleWeekdays,
+                                action: newRuleAction
+                            )
+                            presenter.dispatch(.addScheduleRule(rule))
+                            newRuleTitle = ""
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(palette.accent)
+                    }
+
+                    HStack(spacing: 6) {
+                        ForEach(weekdayPairs(locale: locale), id: \.0) { day, label in
+                            let selected = newRuleWeekdays.contains(day)
+                            Button(label) {
+                                if selected { newRuleWeekdays.remove(day) } else { newRuleWeekdays.insert(day) }
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(selected ? palette.accent : palette.secondaryText)
+                            .controlSize(.small)
+                        }
+                    }
+
+                    if presenter.state.settings.schedules.isEmpty {
+                        Text(L10n.text(.noSchedulesHint, locale: locale))
+                            .foregroundStyle(palette.secondaryText)
+                            .padding(.vertical, 8)
+                    } else {
+                        ForEach(presenter.state.settings.schedules) { rule in
+                            HStack {
+                                Toggle(rule.title, isOn: Binding(
+                                    get: { rule.isEnabled },
+                                    set: { _ in presenter.dispatch(.toggleScheduleRule(rule.id)) }
+                                ))
+                                Spacer()
+                                Text(String(format: "%02d:%02d (%@)", rule.hour, rule.minute, scheduleActionTitle(rule.action, locale: locale)))
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(palette.secondaryText)
+                                Button(role: .destructive) {
+                                    presenter.dispatch(.removeScheduleRule(rule.id))
+                                } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func appearanceAndLayoutSection(locale: AppLocale, palette: ThemePalette) -> some View {
+        let theme = presenter.state.settings.theme
+        let iconCfg = presenter.state.settings.menuBarIcon
+        let layoutCfg = presenter.state.settings.popoverLayout
+
+        VStack(alignment: .leading, spacing: 18) {
+            Text(L10n.text(.tabTheme, locale: locale))
+                .font(.title2.bold())
+                .foregroundStyle(palette.primaryText)
+
+            themedCard(palette: palette) {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(L10n.text(.themePreset, locale: locale))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(palette.secondaryText)
+                            Spacer()
+                            Text(themePresetTitle(theme.preset, locale: locale))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(palette.primaryText)
+                        }
+
+                        HStack(spacing: 10) {
+                            ForEach(ThemePresetID.allCases) { preset in
+                                themeSwatchCard(for: preset, currentTheme: theme, palette: palette, locale: locale)
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(L10n.text(.workspaceBackgroundTitle, locale: locale))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(palette.secondaryText)
+
+                        HStack(spacing: 8) {
+                            backgroundModeButton(
+                                title: L10n.text(.bgSolidTheme, locale: locale),
+                                icon: "square.fill",
+                                isSelected: !theme.useCustomBackground,
+                                palette: palette
+                            ) {
+                                var next = theme
+                                next.useCustomBackground = false
+                                presenter.dispatch(.updateTheme(next))
+                            }
+
+                            backgroundModeButton(
+                                title: L10n.text(.bgCustomImage, locale: locale),
+                                icon: "photo",
+                                isSelected: theme.useCustomBackground,
+                                palette: palette
+                            ) {
+                                if (theme.customBackgroundPath ?? "").isEmpty {
+                                    pickCustomBackgroundImage(currentTheme: theme)
+                                } else {
+                                    var next = theme
+                                    next.useCustomBackground = true
+                                    presenter.dispatch(.updateTheme(next))
+                                }
+                            }
+                        }
+
+                        if theme.useCustomBackground {
+                            HStack(spacing: 10) {
+                                if let thumb = CustomBackgroundImageCache.shared.image(for: theme.customBackgroundPath) {
+                                    Image(nsImage: thumb)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: 28, height: 28)
+                                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(palette.border, lineWidth: 1))
+                                } else {
+                                    Image(systemName: "photo.badge.plus")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(palette.secondaryText)
+                                        .frame(width: 28, height: 28)
+                                        .background(RoundedRectangle(cornerRadius: 6).fill(palette.background))
+                                }
+
+                                Text(customBackgroundFileName(theme.customBackgroundPath, locale: locale))
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(palette.primaryText)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+
+                                Spacer()
+
+                                Button(L10n.text(.bgChooseImage, locale: locale)) {
+                                    pickCustomBackgroundImage(currentTheme: theme)
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                            .padding(8)
+                            .background(RoundedRectangle(cornerRadius: 8).fill(palette.background.opacity(0.6)))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.border, lineWidth: 1))
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack {
+                                    Text(L10n.text(.bgScrimOpacity, locale: locale))
+                                        .font(.caption)
+                                        .foregroundStyle(palette.secondaryText)
+                                    Spacer()
+                                    Text("\(Int(theme.backgroundScrimOpacity * 100))%")
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(palette.primaryText)
+                                }
+                                Slider(
+                                    value: Binding(
+                                        get: { theme.backgroundScrimOpacity },
+                                        set: {
+                                            var next = theme
+                                            next.backgroundScrimOpacity = $0
+                                            presenter.dispatch(.updateTheme(next))
+                                        }
+                                    ),
+                                    in: 0.0...0.90
+                                )
+                                .disabled(!theme.useCustomBackground)
+                            }
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack {
+                                    Text(L10n.text(.bgBlur, locale: locale))
+                                        .font(.caption)
+                                        .foregroundStyle(palette.secondaryText)
+                                    Spacer()
+                                    Text("\(Int(theme.backgroundBlurRadius))px")
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(palette.primaryText)
+                                }
+                                Slider(
+                                    value: Binding(
+                                        get: { theme.backgroundBlurRadius },
+                                        set: {
+                                            var next = theme
+                                            next.backgroundBlurRadius = $0
+                                            presenter.dispatch(.updateTheme(next))
+                                        }
+                                    ),
+                                    in: 0.0...24.0
+                                )
+                                .disabled(!theme.useCustomBackground)
+                            }
+                        }
+                        .opacity(theme.useCustomBackground ? 1.0 : 0.45)
+                    }
+
+                    Divider()
+
+                    HStack {
+                        Text(L10n.text(.customAccent, locale: locale))
+                            .font(.callout)
+                        Spacer()
+                        ForEach(ThemeHexConstants.accentSwatches, id: \.self) { hex in
+                            let isCurrentAccent = palette.accentHex.caseInsensitiveCompare(hex) == .orderedSame
+                            Button {
+                                var next = theme
+                                next.customAccentHex = hex
+                                presenter.dispatch(.updateTheme(next))
+                            } label: {
+                                Circle()
+                                    .fill(Color(hex: hex))
+                                    .frame(width: 22, height: 22)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(isCurrentAccent ? palette.primaryText : Color.clear, lineWidth: 2)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .focusEffectDisabled()
+                        }
+                        TextField("#10B981", text: $customHexInput)
+                            .frame(width: 90)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit {
+                                var next = theme
+                                next.customAccentHex = customHexInput
+                                presenter.dispatch(.updateTheme(next))
+                            }
+                    }
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(L10n.text(.cornerRadius, locale: locale))
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                            Spacer()
+                            Text("\(Int(theme.cornerRadius))px")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(palette.primaryText)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { theme.cornerRadius },
+                                set: {
+                                    var next = theme
+                                    next.cornerRadius = $0
+                                    presenter.dispatch(.updateTheme(next))
+                                }
+                            ),
+                            in: VoltGuardLimits.minCornerRadius...VoltGuardLimits.maxCornerRadius,
+                            step: 1
+                        )
+                    }
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack {
+                            Text(L10n.text(.surfaceOpacity, locale: locale))
+                                .font(.caption)
+                                .foregroundStyle(palette.secondaryText)
+                            Spacer()
+                            Text("\(Int(theme.surfaceOpacity * 100))%")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(palette.primaryText)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { theme.surfaceOpacity },
+                                set: {
+                                    var next = theme
+                                    next.surfaceOpacity = $0
+                                    presenter.dispatch(.updateTheme(next))
+                                }
+                            ),
+                            in: VoltGuardLimits.minSurfaceOpacity...VoltGuardLimits.maxSurfaceOpacity,
+                            step: 0.02
+                        )
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.tabInterface, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(L10n.text(.menuBarStyle, locale: locale))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(palette.secondaryText)
+                        HStack(spacing: 8) {
+                            ForEach(MenuBarIconStyle.allCases, id: \.self) { style in
+                                let isSelected = iconCfg.style == style
+                                Button {
+                                    var next = iconCfg
+                                    next.style = style
+                                    presenter.dispatch(.updateMenuBarConfig(next))
+                                } label: {
+                                    VStack(spacing: 5) {
+                                        Image(systemName: iconStyleSymbol(style))
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundStyle(isSelected ? palette.accent : palette.primaryText)
+                                            .accessibilityHidden(true)
+                                        Text(iconStyleTitle(style, locale: locale))
+                                            .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+                                            .foregroundStyle(isSelected ? palette.primaryText : palette.secondaryText)
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.85)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 6)
+                                    .contentShape(Rectangle())
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(isSelected ? palette.accent.opacity(0.18) : palette.background.opacity(0.55))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(isSelected ? palette.accent : palette.border, lineWidth: 1)
+                                            )
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                                .focusEffectDisabled()
+                            }
+                        }
+                    }
+                    Toggle(L10n.text(.showPercentage, locale: locale), isOn: Binding(
+                        get: { iconCfg.showPercentage },
+                        set: { var next = iconCfg; next.showPercentage = $0; presenter.dispatch(.updateMenuBarConfig(next)) }
+                    ))
+                    Toggle(L10n.text(.showWattage, locale: locale), isOn: Binding(
+                        get: { iconCfg.showWattage },
+                        set: { var next = iconCfg; next.showWattage = $0; presenter.dispatch(.updateMenuBarConfig(next)) }
+                    ))
+                    Toggle(L10n.text(.showTemperature, locale: locale), isOn: Binding(
+                        get: { iconCfg.showTemperature },
+                        set: { var next = iconCfg; next.showTemperature = $0; presenter.dispatch(.updateMenuBarConfig(next)) }
+                    ))
+                    Toggle(L10n.text(.showTimeRemaining, locale: locale), isOn: Binding(
+                        get: { iconCfg.showTimeRemaining },
+                        set: { var next = iconCfg; next.showTimeRemaining = $0; presenter.dispatch(.updateMenuBarConfig(next)) }
+                    ))
+                    Divider()
+                    Picker(L10n.text(.popoverDensity, locale: locale), selection: Binding(
+                        get: { layoutCfg.density },
+                        set: { var next = layoutCfg; next.density = $0; presenter.dispatch(.updatePopoverLayout(next)) }
+                    )) {
+                        ForEach(PopoverDensity.allCases, id: \.self) { density in
+                            Text(densityTitle(density, locale: locale)).tag(density)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Divider()
+
+                    ForEach(Array(layoutCfg.orderedModules.enumerated()), id: \.element) { idx, mod in
+                        HStack {
+                            Toggle(moduleTitle(mod, locale: locale), isOn: Binding(
+                                get: { !layoutCfg.hiddenModules.contains(mod) },
+                                set: { visible in
+                                    var next = layoutCfg
+                                    if visible { next.hiddenModules.remove(mod) } else { next.hiddenModules.insert(mod) }
+                                    presenter.dispatch(.updatePopoverLayout(next))
+                                }
+                            ))
+                            Spacer()
+                            Button {
+                                presenter.dispatch(.movePopoverModule(mod, -1))
+                            } label: {
+                                Image(systemName: "arrow.up")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(idx == 0)
+                            .accessibilityLabel(Text(L10n.text(.moveUp, locale: locale)))
+
+                            Button {
+                                presenter.dispatch(.movePopoverModule(mod, 1))
+                            } label: {
+                                Image(systemName: "arrow.down")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(idx == layoutCfg.orderedModules.count - 1)
+                            .accessibilityLabel(Text(L10n.text(.moveDown, locale: locale)))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func systemAndGuideSection(locale: AppLocale, palette: ThemePalette) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(L10n.text(.tabGuide, locale: locale))
+                .font(.title2.bold())
+                .foregroundStyle(palette.primaryText)
+
+            themedCard(title: "SMC Helper", palette: palette) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(L10n.text(.launchAtLogin, locale: locale), isOn: Binding(
+                        get: { presenter.state.settings.launchAtLogin },
+                        set: { _ in presenter.dispatch(.toggleLaunchAtLogin) }
+                    ))
+                    Toggle(L10n.text(.smartAlerts, locale: locale), isOn: Binding(
+                        get: { presenter.state.settings.alertsEnabled },
+                        set: { _ in presenter.dispatch(.toggleSmartAlerts) }
+                    ))
+                    Divider()
+                    HStack {
+                        Text(L10n.text(presenter.state.helperConnected ? .helperConnected : .helperDryRun, locale: locale))
+                        Spacer()
+                        if presenter.state.helperConnected {
+                            Button(L10n.text(.uninstallHelper, locale: locale)) {
+                                presenter.dispatch(.uninstallHelper)
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(palette.danger)
+                        }
+                        Button(L10n.text(.installHelper, locale: locale)) {
+                            presenter.dispatch(.installHelper)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(palette.accent)
+                    }
+                    if let err = presenter.state.helperErrorMessage {
+                        Text(err).font(.caption).foregroundStyle(palette.danger)
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.healthHistoryTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(String(format: L10n.text(.daysRecordedFormat, locale: locale), presenter.state.healthSnapshots.count))
+                            .font(.callout)
+                            .foregroundStyle(palette.secondaryText)
+                        Spacer()
+                        Button(L10n.text(.exportCSV, locale: locale)) {
+                            presenter.dispatch(.exportHealthCSV)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if presenter.state.csvExportFeedback {
+                        Text(L10n.text(.csvCopiedHint, locale: locale))
+                            .font(.caption)
+                            .foregroundStyle(palette.accent)
+                    }
+                    if presenter.state.healthSnapshots.isEmpty {
+                        Text(L10n.text(.healthHistoryEmpty, locale: locale))
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
+                    } else {
+                        ForEach(presenter.state.healthSnapshots.suffix(5).reversed()) { snap in
+                            HStack {
+                                Text(snap.id).font(.caption.monospaced())
+                                Spacer()
+                                Text("\(snap.healthPercent)%  |  \(snap.cycleCount) cyc  |  \(String(format: "%.1f C", snap.peakTemperatureCelsius))")
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(palette.secondaryText)
+                            }
+                        }
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.settingsBackupTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Button(L10n.text(.exportSettings, locale: locale)) {
+                            presenter.dispatch(.exportSettingsJSON)
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button(L10n.text(.importSettings, locale: locale)) {
+                            let json = NSPasteboard.general.string(forType: .string) ?? ""
+                            presenter.dispatch(.importSettingsJSON(json))
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer()
+
+                        Button(L10n.text(.resetSettings, locale: locale)) {
+                            presenter.dispatch(.resetSettingsToDefault)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(palette.danger)
+                    }
+                    if let feedback = presenter.state.settingsFeedbackMessage {
+                        Text(feedback)
+                            .font(.caption)
+                            .foregroundStyle(palette.accent)
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.activityLogTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 6) {
+                    if presenter.state.activityLog.isEmpty {
+                        Text(L10n.text(.activityLogEmpty, locale: locale))
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
+                    } else {
+                        ForEach(presenter.state.activityLog.prefix(8)) { entry in
+                            HStack {
+                                Text(L10n.text(entry.messageKey, locale: locale))
+                                    .font(.caption)
+                                    .foregroundStyle(palette.primaryText)
+                                Spacer()
+                                Text(entry.timestamp, style: .time)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(palette.secondaryText)
+                            }
+                        }
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.diagnosticsTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(L10n.text(.globalHotkeyHint, locale: locale))
+                            .font(.caption)
+                            .foregroundStyle(palette.secondaryText)
+                        Spacer()
+                        Button(L10n.text(.runDiagnostics, locale: locale)) {
+                            presenter.dispatch(.runDiagnostics)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(palette.accent)
+                    }
+                    if let diag = presenter.state.diagnostics {
+                        diagRow(label: L10n.text(.diagIOKit, locale: locale), ok: diag.iokitReadable, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagHelper, locale: locale), ok: diag.smcHelperConnected, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagLogin, locale: locale), ok: diag.launchAtLoginEnabled, palette: palette, locale: locale)
+                        diagRow(label: L10n.text(.diagAlerts, locale: locale), ok: diag.alertsEnabled, palette: palette, locale: locale)
+                    }
+                }
+            }
+
+            themedCard(title: L10n.text(.appTitle, locale: locale), palette: palette) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(L10n.text(.userGuideSummary, locale: locale))
+                    Divider()
+                    Text("Apple Shortcuts: Set VoltGuard Charge Limit, Toggle VoltGuard Discharge, Top Up Battery to 100%, Get VoltGuard Battery Telemetry")
+                        .font(.callout)
+                        .foregroundStyle(palette.secondaryText)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func diagRow(label: String, ok: Bool, palette: ThemePalette, locale: AppLocale) -> some View {
+        HStack {
+            Text(label).font(.caption)
+            Spacer()
+            Text(L10n.text(ok ? .diagPass : .diagInactive, locale: locale))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(ok ? palette.accent : palette.warning)
+        }
+    }
+
+    private func impactLabel(_ level: EnergyImpactLevel, locale: AppLocale) -> String {
+        switch level {
+        case .low: return L10n.text(.energyImpactLow, locale: locale)
+        case .medium: return L10n.text(.energyImpactMedium, locale: locale)
+        case .high: return L10n.text(.energyImpactHigh, locale: locale)
+        }
+    }
+
+    private func impactColor(_ level: EnergyImpactLevel, palette: ThemePalette) -> Color {
+        switch level {
+        case .low: return palette.accent
+        case .medium: return palette.warning
+        case .high: return palette.danger
+        }
+    }
+
+    private func dashboardVisualMode(_ reason: PolicyReason, telemetry: BatteryTelemetry) -> BatteryVisualMode {
+        let activelyCharging = telemetry.isCharging || (telemetry.isPluggedIn && telemetry.amperageAmps > VoltGuardLimits.minETACurrentAmps)
+        switch reason {
+        case .heatProtectionPaused: return .heatPaused
+        case .manualDischarge, .automaticDischarge: return .discharging
+        case .calibrationActive: return activelyCharging ? .charging : .discharging
+        case .limitReached, .sailingPaused, .sleepingInhibited: return .limitReached
+        case .normalCharging, .topUpActive:
+            if !telemetry.isPluggedIn { return .onBattery }
+            return activelyCharging ? .charging : .limitReached
+        }
+    }
+
+    private func moduleTitle(_ module: PopoverModuleID, locale: AppLocale) -> String {
+        switch module {
+        case .chargeControl: return L10n.text(.moduleChargeControl, locale: locale)
+        case .powerFlow: return L10n.text(.modulePowerFlow, locale: locale)
+        case .quickActions: return L10n.text(.moduleQuickActions, locale: locale)
+        case .calibrationAndSchedule: return L10n.text(.moduleCalibrationSchedule, locale: locale)
+        case .batteryHealth: return L10n.text(.moduleBatteryHealth, locale: locale)
+        }
+    }
+
+    private func ledModeTitle(_ mode: MagSafeLEDMode, locale: AppLocale) -> String {
+        switch mode {
+        case .system: return L10n.text(.ledSystem, locale: locale)
+        case .off: return L10n.text(.ledOff, locale: locale)
+        case .green: return L10n.text(.ledGreen, locale: locale)
+        case .amber: return L10n.text(.ledAmber, locale: locale)
+        case .syncWithLimit: return L10n.text(.ledSyncWithLimit, locale: locale)
+        }
+    }
+
+    private func scheduleActionTitle(_ action: ScheduleAction, locale: AppLocale) -> String {
+        switch action {
+        case .setLimit80: return L10n.text(.scheduleSetLimit80, locale: locale)
+        case .topUp100: return L10n.text(.scheduleTopUp100, locale: locale)
+        case .enableDischarge: return L10n.text(.scheduleEnableDischarge, locale: locale)
+        case .disableDischarge: return L10n.text(.scheduleDisableDischarge, locale: locale)
+        }
+    }
+
+    private func weekdayPairs(locale: AppLocale) -> [(Int, String)] {
+        if locale == .id {
+            return [(1, "Min"), (2, "Sen"), (3, "Sel"), (4, "Rab"), (5, "Kam"), (6, "Jum"), (7, "Sab")]
+        }
+        return [(1, "Sun"), (2, "Mon"), (3, "Tue"), (4, "Wed"), (5, "Thu"), (6, "Fri"), (7, "Sat")]
+    }
+
+    private func themePresetTitle(_ preset: ThemePresetID, locale: AppLocale) -> String {
+        switch preset {
+        case .obsidianSlate: return L10n.text(.presetObsidianSlate, locale: locale)
+        case .paperLight: return L10n.text(.presetPaperLight, locale: locale)
+        case .nordicMist: return L10n.text(.presetNordicMist, locale: locale)
+        case .midnightAmber: return L10n.text(.presetMidnightAmber, locale: locale)
+        }
+    }
+
+    private func iconStyleTitle(_ style: MenuBarIconStyle, locale: AppLocale) -> String {
+        switch style {
+        case .shieldBattery: return L10n.text(.iconStyleShield, locale: locale)
+        case .ringGauge: return L10n.text(.iconStyleRing, locale: locale)
+        case .percentagePill: return L10n.text(.iconStylePill, locale: locale)
+        case .minimalBolt: return L10n.text(.iconStyleBolt, locale: locale)
+        }
+    }
+
+    private func densityTitle(_ density: PopoverDensity, locale: AppLocale) -> String {
+        switch density {
+        case .detailed: return L10n.text(.densityDetailed, locale: locale)
+        case .compact: return L10n.text(.densityCompact, locale: locale)
+        }
+    }
+
+    private func customBackgroundFileName(_ path: String?, locale: AppLocale) -> String {
+        guard let path, !path.isEmpty else {
+            return L10n.text(.bgNoImageSelected, locale: locale)
+        }
+        return URL(fileURLWithPath: path).lastPathComponent
+    }
+
+    private func pickCustomBackgroundImage(currentTheme: ThemeConfig) {
+        NSApp.activate(ignoringOtherApps: true)
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.image]
+        if panel.runModal() == .OK, let url = panel.url {
+            var next = currentTheme
+            next.customBackgroundPath = url.path
+            next.useCustomBackground = true
+            presenter.dispatch(.updateTheme(next))
+        }
+    }
+
+    @ViewBuilder
+    private func backgroundModeButton(
+        title: String,
+        icon: String,
+        isSelected: Bool,
+        palette: ThemePalette,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(isSelected ? palette.accent : palette.secondaryText)
+                Text(title)
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
+                    .foregroundStyle(palette.primaryText)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? palette.accent.opacity(0.18) : palette.background.opacity(0.6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(isSelected ? palette.accent : palette.border, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+    }
+
+    @ViewBuilder
+    private func themeSwatchCard(
+        for preset: ThemePresetID,
+        currentTheme: ThemeConfig,
+        palette: ThemePalette,
+        locale: AppLocale
+    ) -> some View {
+        let isSelected = currentTheme.preset == preset
+        let spec: ThemeHexConstants.PaletteSpec = {
+            switch preset {
+            case .obsidianSlate: return ThemeHexConstants.obsidianSlate
+            case .paperLight: return ThemeHexConstants.paperLight
+            case .nordicMist: return ThemeHexConstants.nordicMist
+            case .midnightAmber: return ThemeHexConstants.midnightAmber
+            }
+        }()
+        let bgColor = Color(hex: spec.background)
+        let railColor = Color(hex: spec.surface)
+        let lineColor = Color(hex: spec.secondaryText).opacity(0.45)
+        let swatchAccent = Color(hex: (currentTheme.customAccentHex?.isValidHex == true) ? currentTheme.customAccentHex! : spec.accent)
+
+        Button {
+            var next = currentTheme
+            next.preset = preset
+            presenter.dispatch(.updateTheme(next))
+        } label: {
+            VStack(spacing: 6) {
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(bgColor)
+
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(railColor)
+                            .frame(width: 22)
+                            .overlay(alignment: .topLeading) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    RoundedRectangle(cornerRadius: 1.5)
+                                        .fill(swatchAccent)
+                                        .frame(width: 12, height: 3)
+                                    RoundedRectangle(cornerRadius: 1.5)
+                                        .fill(lineColor)
+                                        .frame(width: 10, height: 2.5)
+                                    RoundedRectangle(cornerRadius: 1.5)
+                                        .fill(lineColor)
+                                        .frame(width: 12, height: 2.5)
+                                }
+                                .padding(4)
+                            }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 3) {
+                                Circle().fill(lineColor).frame(width: 3, height: 3)
+                                RoundedRectangle(cornerRadius: 1.5)
+                                    .fill(lineColor)
+                                    .frame(width: 24, height: 2.5)
+                                Spacer()
+                            }
+                            RoundedRectangle(cornerRadius: 2.5)
+                                .fill(railColor)
+                                .frame(height: 16)
+                                .overlay(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 1)
+                                        .fill(swatchAccent)
+                                        .frame(width: 16, height: 2.5)
+                                        .padding(.leading, 4)
+                                }
+                        }
+                        .padding(5)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .frame(height: 46)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isSelected ? palette.accent : palette.border, lineWidth: isSelected ? 1.5 : 1)
+                )
+
+                HStack(spacing: 4) {
+                    Text(themePresetTitle(preset, locale: locale))
+                        .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+                        .foregroundStyle(isSelected ? palette.primaryText : palette.secondaryText)
+                        .lineLimit(1)
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(palette.accent)
+                    }
+                }
+            }
+            .padding(6)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected ? palette.accent.opacity(0.16) : palette.background.opacity(0.5))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(isSelected ? palette.accent.opacity(0.5) : palette.border, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .focusEffectDisabled()
+    }
+
+    private func iconStyleSymbol(_ style: MenuBarIconStyle) -> String {
+        switch style {
+        case .shieldBattery: return "bolt.shield.fill"
+        case .ringGauge: return "gauge.with.dots.needle.67percent"
+        case .percentagePill: return "battery.100percent.bolt"
+        case .minimalBolt: return "bolt.fill"
+        }
+    }
+}
+
+private struct HealthTrendChartView: View {
+    let snapshots: [BatteryHealthSnapshot]
+    let palette: ThemePalette
+
+    var body: some View {
+        let recent = Array(snapshots.suffix(30))
+        Canvas { graphics, size in
+            guard recent.count >= 2 else { return }
+            let values = recent.map { Double($0.healthPercent) }
+            let minVal = max((values.min() ?? 80) - 2, 0)
+            let maxVal = min((values.max() ?? 100) + 1, 100)
+            let span = max(maxVal - minVal, 1)
+            let stepX = size.width / CGFloat(recent.count - 1)
+
+            var path = Path()
+            for (idx, val) in values.enumerated() {
+                let x = CGFloat(idx) * stepX
+                let normalized = (val - minVal) / span
+                let y = size.height - CGFloat(normalized) * (size.height - 8) - 4
+                if idx == 0 {
+                    path.move(to: CGPoint(x: x, y: y))
+                } else {
+                    path.addLine(to: CGPoint(x: x, y: y))
+                }
+            }
+            graphics.stroke(path, with: .color(palette.accent), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+        }
+        .frame(height: 54)
+        .padding(8)
+        .background(palette.background)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityHidden(true)
+    }
+}
